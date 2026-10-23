@@ -43,6 +43,7 @@ button,input,select,textarea{font:inherit;color:var(--fg)}
 button{cursor:pointer}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;min-height:46px;padding:6px 10px;width:100%;min-width:0;font-size:16px}
 textarea{min-height:120px;resize:vertical}
+input[type=range]{accent-color:var(--accent);padding:0;min-height:36px}
 input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);min-width:0}
 label.f input,label.f select{text-transform:none;letter-spacing:0;font-weight:600;color:var(--fg)}
@@ -174,7 +175,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.2';   // versione dell'app
+const APP_V = '0.3';   // versione dell'app
 const DATA_V = 2;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -659,31 +660,190 @@ function saveTurns() {
 function editDrawing() {
   if (!needCtx('v')) return;
   const sh = V.shape || {};
-  UI.dr = {pts: clone(sh.pts || []), closed: sh.closed !== false, h: sh.h || 240, photo: sh.photo || null};
+  UI.dr = {pts: clone(sh.pts || []), closed: sh.closed !== false, h: sh.h || 240, photo: sh.photo || null, auto: !(sh.pts && sh.pts.length), seed: null, tol: 55, maskUrl: null};
   drawDrawing();
 }
 function drawDrawing() {
   const d = UI.dr;
   sheet('Disegno del circuito', `
-    <p class="meta">${d.photo ? 'Tocca la foto lungo il centro della pista, seguendo il senso di marcia. Bastano 15-30 punti: di più nelle curve strette.' : 'Scegli prima una foto del circuito.'}</p>
+    <p class="meta">${!d.photo ? 'Scegli prima una foto del circuito.' : d.auto ? 'Tocca la foto sopra la pista, sul colore della pista (non sul bordo). L\'app segue il tracciato da sola. Se ne prende troppo o troppo poco, muovi il cursore.' : 'Tocca la foto lungo il centro della pista. Bastano 15-30 punti: di più nelle curve strette.'}</p>
     <div class="btns"><label class="sec2" style="display:inline-flex;align-items:center;cursor:pointer">${d.photo ? 'Cambia foto' : 'Scegli foto'}<input type="file" id="photoIn" accept="image/*" hidden></label></div>
-    ${d.photo ? `<div class="trace"><svg id="drSvg" viewBox="0 0 400 ${d.h}" role="img" aria-label="Foto del circuito: tocca per aggiungere punti"></svg></div>
+    ${d.photo ? `<div class="seg"><button class="sec2" data-act="drauto" aria-pressed="${d.auto}">${d.auto ? 'Modo: automatico' : 'Modo: a mano'}</button></div>
+    ${d.auto ? `<label class="f" style="margin:6px 0">Tolleranza colore<input type="range" id="drTol" min="15" max="140" value="${d.tol}"></label>` : ''}
+    <div class="trace"><svg id="drSvg" viewBox="0 0 400 ${d.h}" role="img" aria-label="Foto del circuito: tocca per aggiungere punti"></svg></div>
     <div class="btns"><button class="sec2" data-act="drundo">Annulla ultimo</button><button class="sec2" data-act="drclose" aria-pressed="${d.closed}">${d.closed ? 'Circuito chiuso' : 'Circuito aperto'}</button><button class="sec2" data-act="drreset">Ricomincia</button></div>
-    <p class="meta" id="drCount" style="margin-top:8px"></p>` : ''}
+    <p class="meta" id="drCount" style="margin-top:8px"></p><p class="meta" id="drWarn" style="color:var(--accent)"></p>` : ''}
     <div class="btns" style="margin-top:12px"><button class="pri" data-act="drsave">Salva disegno</button><button class="sec2" data-act="close">Annulla</button></div>`, varName());
   drawDrSvg();
 }
 function drawDrSvg() {
   const d = UI.dr, svg = $('drSvg'); if (!svg) return;
   let s = `<image href="${d.photo}" x="0" y="0" width="400" height="${d.h}" opacity=".7"/>`;
+  if (d.auto && d.maskUrl) s += `<image href="${d.maskUrl}" x="0" y="0" width="400" height="${d.h}" opacity=".55"/>`;
   const path = pathFrom(d.pts, d.closed && d.pts.length > 2);
   if (path) {
     s += `<path d="${path}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>`;
     s += `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
-  d.pts.forEach(p => { s += `<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="#fff" stroke="#000" stroke-width="1"/>`; });
+  const rr = d.pts.length > 50 ? 1.4 : 3.2;
+  d.pts.forEach(p => { s += `<circle cx="${p[0]}" cy="${p[1]}" r="${rr}" fill="#fff" stroke="#000" stroke-width="${rr > 2 ? 1 : .5}"/>`; });
   svg.innerHTML = s;
   const c = $('drCount'); if (c) c.textContent = d.pts.length + (d.pts.length === 1 ? ' punto' : ' punti') + (d.pts.length < 3 ? ' (ne servono almeno 3)' : '');
+  const w = $('drWarn'); if (w) w.textContent = d.warn || '';
+}
+
+/* --- Tracciato automatico: segue il colore della pista --- */
+function labelComps(m, W, H, val) {            // componenti connesse (8 vicini) dei pixel uguali a val
+  const lab = new Int32Array(W * H), sizes = [0], border = [false], q = new Int32Array(W * H);
+  let n = 0;
+  for (let i0 = 0; i0 < W * H; i0++) {
+    if (m[i0] !== val || lab[i0]) continue;
+    n++; let h = 0, t = 0, size = 0, b = false; q[t++] = i0; lab[i0] = n;
+    while (h < t) {
+      const i = q[h++], x = i % W, y = (i - x) / W; size++;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) b = true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx; if (m[j] === val && !lab[j]) { lab[j] = n; q[t++] = j; }
+      }
+    }
+    sizes.push(size); border.push(b);
+  }
+  return {lab, sizes, border};
+}
+function boxOp(m, W, H, r, max) {              // dilatazione (max) o erosione (min) quadrata
+  const a = new Uint8Array(W * H), o = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = max ? 0 : 1;
+    for (let k = -r; k <= r; k++) { const xx = x + k, e = xx < 0 || xx >= W ? (max ? 0 : 0) : m[y * W + xx]; if (max ? e : !e) { v = max ? 1 : 0; break; } }
+    a[y * W + x] = v;
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = max ? 0 : 1;
+    for (let k = -r; k <= r; k++) { const yy = y + k, e = yy < 0 || yy >= H ? 0 : a[yy * W + x]; if (max ? e : !e) { v = max ? 1 : 0; break; } }
+    o[y * W + x] = v;
+  }
+  return o;
+}
+function thin(m, W, H) {                       // assottigliamento di Zhang-Suen: la pista diventa una linea di 1 pixel
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let step = 0; step < 2; step++) {
+      const del = [];
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x; if (!m[i]) continue;
+        const p2 = m[i - W], p3 = m[i - W + 1], p4 = m[i + 1], p5 = m[i + W + 1], p6 = m[i + W], p7 = m[i + W - 1], p8 = m[i - 1], p9 = m[i - W - 1];
+        const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9; if (B < 2 || B > 6) continue;
+        const A = (!p2 && p3 ? 1 : 0) + (!p3 && p4 ? 1 : 0) + (!p4 && p5 ? 1 : 0) + (!p5 && p6 ? 1 : 0) + (!p6 && p7 ? 1 : 0) + (!p7 && p8 ? 1 : 0) + (!p8 && p9 ? 1 : 0) + (!p9 && p2 ? 1 : 0);
+        if (A !== 1) continue;
+        if (step === 0 ? (p2 * p4 * p6 || p4 * p6 * p8) : (p2 * p4 * p8 || p2 * p6 * p8)) continue;
+        del.push(i);
+      }
+      if (del.length) { changed = true; del.forEach(i => { m[i] = 0; }); }
+    }
+  }
+}
+function nbrs(m, W, i) { const r = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const j = i + dy * W + dx; if (m[j]) r.push(j); } return r; }
+function pruneSpurs(m, W, H, maxLen) {         // toglie i rametti corti
+  for (let round = 0; round < 3; round++) {
+    for (let i = 0; i < m.length; i++) {
+      if (!m[i] || nbrs(m, W, i).length !== 1) continue;
+      const path = [i]; let prev = -1, cur = i, junction = false;
+      while (path.length <= maxLen) {
+        const ns = nbrs(m, W, cur).filter(n => n !== prev && !path.includes(n));
+        if (!ns.length) break;
+        const nx = ns[0];
+        if (nbrs(m, W, nx).length >= 3) { junction = true; break; }
+        prev = cur; cur = nx; path.push(cur);
+      }
+      if (junction && path.length <= maxLen) path.forEach(k => { m[k] = 0; });
+    }
+  }
+}
+function walkSkel(m, W, H, sx, sy) {           // percorre la linea in ordine partendo dal punto toccato, andando dritto agli incroci
+  let start = -1, bd = 1e9, total = 0;
+  for (let i = 0; i < m.length; i++) if (m[i]) { total++; const d = Math.hypot(i % W - sx, Math.floor(i / W) - sy); if (d < bd) { bd = d; start = i; } }
+  if (start < 0) return null;
+  const seen = new Uint8Array(m.length); seen[start] = 1;
+  const go = from => {
+    const path = [from]; let cur = from;
+    for (;;) {
+      const ns = nbrs(m, W, cur).filter(n => !seen[n]); if (!ns.length) break;
+      let best = ns[0];
+      if (ns.length > 1 && path.length > 6) {
+        const a = path[path.length - 6], ax = cur % W - a % W, ay = Math.floor(cur / W) - Math.floor(a / W);
+        let bs = -9;
+        ns.forEach(n => { const dx = n % W - cur % W, dy = Math.floor(n / W) - Math.floor(cur / W), sc = (dx * ax + dy * ay) / (Math.hypot(dx, dy) * Math.hypot(ax, ay) || 1) - (dx && dy ? 0.01 : 0); if (sc > bs) { bs = sc; best = n; } });
+      }
+      seen[best] = 1; path.push(best); cur = best;
+    }
+    return path;
+  };
+  let path = go(start);
+  let closed = Math.hypot(path[0] % W - path[path.length - 1] % W, Math.floor(path[0] / W) - Math.floor(path[path.length - 1] / W)) <= 4 && path.length > 20;
+  if (!closed) path = go(start).reverse().concat(path.slice(1));      // tracciato aperto: percorre anche dall'altra parte
+  const cov = new Uint8Array(m.length); path.forEach(i => { cov[i] = 1; nbrs(m, W, i).forEach(j => { cov[j] = 1; }); });
+  let c = 0; for (let i = 0; i < m.length; i++) if (m[i] && cov[i]) c++;
+  return {pts: path.map(i => [i % W, Math.floor(i / W)]), closed, coverage: c / total};
+}
+function autoTrace(photo, h, seed, tol) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const W = 600, H = Math.round(600 * h / 400), k = W / 400, cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const cx = cv.getContext('2d', {willReadFrequently: true}); cx.drawImage(img, 0, 0, W, H);
+      const px = cx.getImageData(0, 0, W, H).data, sx = Math.round(seed[0] * k), sy = Math.round(seed[1] * k);
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = clampN(sx + dx, 0, W - 1), y = clampN(sy + dy, 0, H - 1), i = (y * W + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
+      r /= n; g /= n; b /= n;
+      let m = new Uint8Array(W * H);
+      for (let i = 0; i < W * H; i++) { const dr = px[i * 4] - r, dg = px[i * 4 + 1] - g, db = px[i * 4 + 2] - b; m[i] = dr * dr + dg * dg + db * db < tol * tol ? 1 : 0; }
+      m = boxOp(boxOp(m, W, H, 2, true), W, H, 2, false);                // chiude i buchi piccoli
+      let L = labelComps(m, W, H, 1), big = 1;
+      for (let i = 1; i < L.sizes.length; i++) if (L.sizes[i] > L.sizes[big]) big = i;
+      if (L.sizes.length < 2 || L.sizes[big] < 150) return resolve(null);
+      for (let i = 0; i < m.length; i++) m[i] = L.lab[i] === big ? 1 : 0;   // tiene solo il pezzo più grande
+      const B = labelComps(m, W, H, 0);
+      for (let i = 0; i < m.length; i++) if (!m[i] && !B.border[B.lab[i]] && B.sizes[B.lab[i]] < 120) m[i] = 1;   // riempie i buchi piccoli (scritte)
+      const mc = document.createElement('canvas'); mc.width = W; mc.height = H;
+      const mx = mc.getContext('2d'), md = mx.createImageData(W, H);
+      for (let i = 0; i < m.length; i++) if (m[i]) { md.data[i * 4] = 0; md.data[i * 4 + 1] = 200; md.data[i * 4 + 2] = 255; md.data[i * 4 + 3] = 255; }
+      mx.putImageData(md, 0, 0);
+      const maskUrl = mc.toDataURL('image/png');
+      for (let x = 0; x < W; x++) { m[x] = 0; m[(H - 1) * W + x] = 0; }
+      for (let y = 0; y < H; y++) { m[y * W] = 0; m[y * W + W - 1] = 0; }
+      thin(m, W, H); pruneSpurs(m, W, H, 14);
+      const w = walkSkel(m, W, H, sx, sy);
+      if (!w || w.pts.length < 30) return resolve(null);
+      let pts = w.pts;
+      const sm = (a, win, closed) => a.map((_, i) => { let sxx = 0, syy = 0, c = 0; for (let j = -win; j <= win; j++) { let q = i + j; if (closed) q = (q + a.length) % a.length; else if (q < 0 || q >= a.length) continue; sxx += a[q][0]; syy += a[q][1]; c++; } return [sxx / c, syy / c]; });
+      pts = sm(pts, 5, w.closed);
+      const cyc = w.closed ? pts.concat([pts[0]]) : pts, cum = [0];
+      for (let i = 1; i < cyc.length; i++) cum.push(cum[i - 1] + Math.hypot(cyc[i][0] - cyc[i - 1][0], cyc[i][1] - cyc[i - 1][1]));
+      const total = cum[cum.length - 1], K = clampN(Math.round(total / 9), 30, 150), out = [];
+      for (let j = 0; j < (w.closed ? K : K + 1); j++) {
+        const t = j * total / K; let a = 0; while (a < cum.length - 2 && cum[a + 1] < t) a++;
+        const f = (t - cum[a]) / ((cum[a + 1] - cum[a]) || 1);
+        out.push([cyc[a][0] + (cyc[a + 1][0] - cyc[a][0]) * f, cyc[a][1] + (cyc[a + 1][1] - cyc[a][1]) * f]);
+      }
+      const fin = sm(out, 1, w.closed).map(p => [Math.round(p[0] / k * 10) / 10, Math.round(p[1] / k * 10) / 10]);
+      resolve({pts: fin, closed: w.closed, maskUrl, warn: w.coverage < 0.75 ? 'Il tracciato trovato è incompleto o ha rami: prova un\'altra tolleranza o tocca un altro punto della pista.' : (w.closed ? '' : 'Il circuito risulta aperto: se è chiuso, alza la tolleranza per chiudere i buchi.')});
+    };
+    img.onerror = () => resolve(null); img.src = photo;
+  });
+}
+let autoTimer = null;
+function runAuto() {
+  const d = UI.dr; if (!d || !d.seed) return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => {
+    autoTrace(d.photo, d.h, d.seed, d.tol).then(res => {
+      if (UI.dr !== d) return;
+      if (!res) { d.warn = 'Non trovo la pista con questo colore: tocca un altro punto o alza la tolleranza.'; drawDrSvg(); return; }
+      d.pts = res.pts; d.closed = res.closed; d.maskUrl = res.maskUrl; d.warn = res.warn; drawDrSvg();
+    });
+  }, 120);
 }
 function loadPhoto(file) {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -692,7 +852,7 @@ function loadPhoto(file) {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     cv.getContext('2d').drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(url);
-    UI.dr.photo = cv.toDataURL('image/jpeg', 0.8); UI.dr.h = Math.round(400 * h / w); UI.dr.pts = [];
+    UI.dr.photo = cv.toDataURL('image/jpeg', 0.8); UI.dr.h = Math.round(400 * h / w); UI.dr.pts = []; UI.dr.auto = true; UI.dr.seed = null; UI.dr.maskUrl = null; UI.dr.warn = '';
     drawDrawing();
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast('Non riesco a leggere questa immagine.'); };
@@ -1175,7 +1335,7 @@ function viewBackup() {
   return `<div class="card"><h2>Backup su file</h2>
       <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
       ${late ? '<div class="warn">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
-      <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button><button class="sec2" data-bk="pick">Ripristina da file</button></div>
+      <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button>${window.showSaveFilePicker ? '<button class="sec2" data-bk="savefile">Salva in una cartella</button>' : ''}<button class="sec2" data-bk="pick">Ripristina da file</button></div>
       <input type="file" id="fileIn" accept=".json,application/json" hidden>
       ${canShare ? '<p class="meta" style="margin-top:8px">Condividi backup apre il menu di Android: scegli Drive per salvarlo nel cloud.</p>' : ''}
       ${pend}</div>
@@ -1228,7 +1388,8 @@ const ACT = {
   turnsave: saveTurns,
   drundo: () => { UI.dr.pts.pop(); drawDrSvg(); },
   drclose: () => { UI.dr.closed = !UI.dr.closed; drawDrawing(); },
-  drreset: () => { UI.dr.pts = []; drawDrSvg(); },
+  drreset: () => { UI.dr.pts = []; UI.dr.maskUrl = null; UI.dr.seed = null; UI.dr.warn = ''; drawDrSvg(); },
+  drauto: () => { UI.dr.auto = !UI.dr.auto; drawDrawing(); },
   drsave: saveDrawing,
   pfadd: () => { collectPerf(); UI.pf.cons.push({map: '', v: '', main: !UI.pf.cons.length}); drawPerf(); },
   pfdel: b => { collectPerf(); const [x] = UI.pf.cons.splice(+b.dataset.i, 1); if (x.main && UI.pf.cons.length) UI.pf.cons[0].main = true; drawPerf(); },
@@ -1259,9 +1420,9 @@ document.addEventListener('click', e => {
   }
   const dsv = t.closest('#drSvg');
   if (dsv && UI.dr) {
-    const r = dsv.getBoundingClientRect();
-    UI.dr.pts.push([Math.round((e.clientX - r.left) / r.width * 400), Math.round((e.clientY - r.top) / r.height * UI.dr.h)]);
-    drawDrSvg(); return;
+    const r = dsv.getBoundingClientRect(), x = Math.round((e.clientX - r.left) / r.width * 400), y = Math.round((e.clientY - r.top) / r.height * UI.dr.h);
+    if (UI.dr.auto) { UI.dr.seed = [x, y]; UI.dr.warn = 'Cerco la pista...'; drawDrSvg(); runAuto(); return; }
+    UI.dr.pts.push([x, y]); drawDrSvg(); return;
   }
   const mk = t.closest('[data-turn]'); if (mk) { pickTurn(mk.dataset.turn); return; }
   const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) return ACT[ac.dataset.act](ac);
@@ -1276,6 +1437,10 @@ document.addEventListener('click', e => {
     if (a === 'share') return shareBackup();
     if (a === 'download') return downloadBackup();
     if (a === 'pick') return $('fileIn').click();
+    if (a === 'savefile') return window.showSaveFilePicker({suggestedName: backupName(), types: [{description: 'Backup Simapex', accept: {'application/json': ['.json']}}]})
+      .then(h => h.createWritable()).then(w => w.write(backupText()).then(() => w.close()))
+      .then(() => { DB.settings.lastExport = now(); save(); render(); toast('Backup salvato'); })
+      .catch(err => { if (err && err.name !== 'AbortError') toast('Salvataggio non riuscito: usa Scarica file.'); });
     if (a === 'apply') return applyRestore();
     if (a === 'cancel') { UI.pending = null; return render(); }
     if (a === 'update') {
@@ -1305,6 +1470,7 @@ document.addEventListener('change', e => {
     save(); pruneCopies().then(fillCopies);
   }
 });
+document.addEventListener('input', e => { if (e.target.id === 'drTol' && UI.dr) { UI.dr.tol = +e.target.value; runAuto(); } });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('layer').firstChild) closeSheet();
   if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && e.target.dataset.turn) { e.preventDefault(); pickTurn(e.target.dataset.turn); }
