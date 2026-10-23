@@ -9,30 +9,33 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-/* Simapex 0.1 - Colori e dimensioni sono tutti qui sotto, in :root. */
+/* Simapex - Colori e dimensioni sono tutti qui sotto, in :root. */
 :root{
   --bg:#14161a; --surface:#1f232a; --surface2:#262b34; --line:#343a45; --fg:#eceef2; --muted:#a4acba;
   --accent:#ffb020; --on-accent:#14161a; --hl:#3a2d0c; --good:#5ec58a; --bad:#ff7a6b;
+  --track-edge:#4a5262; --track-fill:#2a2f39; --map-bg:#191c21;
   --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: light){
   :root{
     --bg:#f3f4f6; --surface:#ffffff; --surface2:#eceef2; --line:#cfd4dc; --fg:#171a1f; --muted:#566070;
-    --accent:#b36b00; --on-accent:#ffffff; --hl:#fff0cc; --good:#1f7a48; --bad:#b3261e; color-scheme:light;
+    --accent:#b36b00; --on-accent:#ffffff; --hl:#fff0cc; --good:#1f7a48; --bad:#b3261e;
+    --track-edge:#8b95a7; --track-fill:#dfe3ea; --map-bg:#eceef2; color-scheme:light;
   }
 }
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.4;
   padding:max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(86px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
-.wrap{max-width:760px;margin:0 auto}
+.wrap{max-width:1000px;margin:0 auto}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
 h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.01em}
 h2{font-size:18px;margin:0 0 8px;font-weight:700}
 h3{font-size:16px;margin:14px 0 6px}
 .ver{font-size:12px;color:var(--muted)}
 main{display:flex;flex-direction:column;gap:14px}
+main.narrow{max-width:760px;margin:0 auto;width:100%}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
 .meta{font-size:13px;color:var(--muted)}
 p{margin:0 0 8px}
@@ -40,7 +43,7 @@ button,input,select,textarea{font:inherit;color:var(--fg)}
 button{cursor:pointer}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;min-height:46px;padding:6px 10px;width:100%;min-width:0;font-size:16px}
 textarea{min-height:120px;resize:vertical}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);min-width:0}
 label.f input,label.f select{text-transform:none;letter-spacing:0;font-weight:600;color:var(--fg)}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -48,6 +51,7 @@ label.f input,label.f select{text-transform:none;letter-spacing:0;font-weight:60
 .pri{background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);border-radius:10px;min-height:48px;padding:6px 18px;font-weight:700}
 .sec2,.ed{background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:44px;padding:4px 14px;font-weight:600;font-size:14px}
 .sec2:hover,.ed:hover{border-color:var(--accent)}
+.sec2[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .x{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;min-width:44px;font-weight:700}
 .danger{background:var(--bad);color:#fff;border-color:var(--bad)}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -56,6 +60,8 @@ label.f input,label.f select{text-transform:none;letter-spacing:0;font-weight:60
 .item b{display:block}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .chip{font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
+button.chip{background:var(--surface);min-height:40px;padding:4px 14px;font-size:14px;color:var(--fg)}
+button.chip:hover{border-color:var(--accent)}
 .empty{padding:14px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
 .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
 .head h2{margin:0}
@@ -77,8 +83,74 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .sn{font-weight:700}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom, 0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:40;font-size:14px;max-width:90vw;text-align:center}
 .banner{background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;font-size:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
-.warn{background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;font-size:14px}
-.ok{color:var(--good);font-weight:700}
+.warn{background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;font-size:14px;margin-bottom:8px}
+
+/* Schermata Consulta */
+.home{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:880px){.home{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.map{background:var(--map-bg);border:1px solid var(--line);border-radius:14px;padding:6px}
+.map svg{display:block;width:100%;height:auto}
+.mk{cursor:pointer}
+.mt{display:flex;gap:6px;flex-wrap:wrap;margin:2px 2px 6px}
+.mt button{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;min-width:44px;padding:4px 12px;font-weight:700}
+.mt button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.ban{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;margin:2px 2px 6px;font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.tile .k{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:2px}
+.tile .s{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.btns3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bigb{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:60px;padding:8px 6px;font-weight:700;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.bigb small{font-weight:600;font-size:12px;color:var(--muted)}
+.bigb small.sp{color:var(--accent)}
+.bigb:hover{border-color:var(--accent)}
+.bigb.wide{grid-column:1/-1;flex-direction:row;gap:10px;min-height:52px;border-color:var(--accent)}
+.rows{display:flex;flex-direction:column;gap:6px}
+.srow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer}
+.srow.on{border-color:var(--accent);background:var(--hl)}
+.snum{width:30px;height:30px;border-radius:50%;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums}
+.srow.on .snum{background:var(--accent);color:var(--on-accent)}
+.nm{font-weight:700}
+.line{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline;margin-top:1px}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid var(--line);color:var(--muted)}
+.pill.w{color:var(--fg)}
+.par{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums;align-items:center}
+.par .l{color:var(--muted);min-width:0}
+.par .val{font-weight:700;text-align:right}
+.par.ch{background:var(--hl)}
+.par.ch .val{color:var(--accent)}
+.par .was{display:block;font-size:13px;font-weight:400;color:var(--muted)}
+.par input{width:42%;min-height:40px;text-align:right}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-weight:700;color:var(--muted);margin-left:8px}
+details[open] summary::after{content:"\2212"}
+.cnt{font-size:12px;font-weight:700;background:var(--accent);color:var(--on-accent);border-radius:999px;padding:1px 9px;margin-left:8px}
+.seg{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}
+.note b{display:block}
+.note p{margin:4px 0 0;white-space:pre-wrap}
+.lv{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.f2{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.f2>span{font-size:13px;font-weight:600;color:var(--muted)}
+.zg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+.zg .full{grid-column:1/-1}
+.zc{display:flex;align-items:center;gap:8px;min-height:46px;font-weight:600;font-size:15px}
+.zc input{width:22px;height:22px;min-height:0;accent-color:var(--accent)}
+.zf.dis{opacity:.4}
+.z2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;align-items:end}
+.ztiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.zst{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;font-variant-numeric:tabular-nums}
+.zst .r{text-align:right;font-weight:700}
+.zpit{font-size:14px;color:var(--accent);font-weight:600;padding:4px 10px;font-variant-numeric:tabular-nums}
+#zpst{font-size:15px;font-weight:600}
+#zpst b{color:var(--accent)}
+.vrow{display:flex;flex-direction:column;gap:6px}
+.trace{background:var(--map-bg);border:1px solid var(--line);border-radius:14px;padding:6px;margin:8px 0}
+.trace svg{display:block;width:100%;height:auto;cursor:crosshair;touch-action:manipulation}
 </style>
 </head>
 <body>
@@ -97,15 +169,23 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 <script>
 'use strict';
 /* ===================================================================
-   SIMAPEX - un solo file. Ordine: strumenti, archivio (IndexedDB),
-   backup, schermate, editor, eventi, avvio.
+   SIMAPEX - un solo file. Ordine: strumenti, archivio (IndexedDB), backup,
+   selezione, mappa, schermata Consulta, editor, strategia, Dati, Backup,
+   eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.1';   // versione dell'app
-const DATA_V = 1;      // versione del formato dei dati
-// Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione
-// che porta i dati vecchi al formato nuovo. Esempio: MIGRATIONS[1] = db => { ... }  (da 1 a 2)
-const MIGRATIONS = {};
+const APP_V = '0.2';   // versione dell'app
+const DATA_V = 2;      // versione del formato dei dati
+const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
+// Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
+// i dati vecchi al formato nuovo. MIGRATIONS[1] porta i dati dalla versione 1 alla 2.
+const MIGRATIONS = {
+  1: db => {
+    db.brakes = db.brakes || {}; db.pits = db.pits || {}; db.perf = db.perf || {};
+    db.setupGen = db.setupGen || {}; db.setupSpec = db.setupSpec || {}; db.notes = db.notes || [];
+    db.settings.quick = db.settings.quick || DEFAULT_QUICK.map(l => ({id: uid(), label: l}));
+  }
+};
 
 /* ---------- Strumenti ---------- */
 const $ = id => document.getElementById(id);
@@ -113,15 +193,20 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const now = () => new Date().toISOString();
 const clone = o => JSON.parse(JSON.stringify(o));
+const kk = (...a) => a.join('|');
+const MESI = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 const fdt = iso => {
   if (!iso) return 'mai';
   const d = new Date(iso);
   return d.toLocaleDateString('it-IT', {day:'numeric', month:'short'}) + ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
 };
 const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()); };
+const fd = iso => { if (!iso) return ''; if (iso.slice(0, 10) === today()) return 'oggi'; const p = iso.slice(0, 10).split('-'); return (+p[2]) + ' ' + MESI[+p[1] - 1]; };
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 
 let DB = null;                 // tutti i dati dell'utente
 const UI = {tab:'home'};       // stato dello schermo (non viene salvato)
+let C = null, V = null, G = null, A = null;   // circuito, variante, gruppo e auto selezionati
 
 function toast(t) {
   const e = document.createElement('div');
@@ -153,7 +238,8 @@ function tx(store, mode, fn) {
 
 const newDB = () => ({
   v: DATA_V, groups: [], cars: [], circuits: [], variants: [],
-  settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null},
+  brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [],
+  settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null, quick: DEFAULT_QUICK.map(l => ({id: uid(), label: l}))},
   u: now()
 });
 const isEmpty = d => !d.groups.length && !d.cars.length && !d.circuits.length;
@@ -172,7 +258,7 @@ let saveTimer = null;
 function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); }
 function flush() {
   clearTimeout(saveTimer);
-  if (memOnly || !idb) return Promise.resolve();
+  if (memOnly || !idb || !DB) return Promise.resolve();
   return tx('kv', 'readwrite', s => s.put(JSON.stringify(DB), 'db'))
     .catch(() => { memOnly = true; showNotice('Non riesco a salvare nel browser: i dati si perdono alla chiusura. Fai subito un backup.'); });
 }
@@ -239,12 +325,12 @@ function applyRestore() {
   const p = UI.pending; if (!p) return;
   addCopy('prima del ripristino').then(() => {
     DB = migrate(clone(p.data));
-    UI.pending = null;
+    UI.pending = null; UI.vb = null;
     return flush();
   }).then(() => { render(); toast('Dati ripristinati'); });
 }
 
-/* ---------- Cascata di selezione (Consulta) ---------- */
+/* ---------- Selezione a cascata ---------- */
 function fixSel() {
   const s = DB.settings.sel || (DB.settings.sel = {});
   const c = DB.circuits.find(x => x.id === s.c) || DB.circuits[0]; s.c = c ? c.id : null;
@@ -253,19 +339,186 @@ function fixSel() {
   const g = DB.groups.find(x => x.id === s.g) || DB.groups[0]; s.g = g ? g.id : null;
   const as = g ? DB.cars.filter(a => a.gid === g.id) : [];
   const a = as.find(x => x.id === s.a) || as[0]; s.a = a ? a.id : null;
+  C = c || null; V = v || null; G = g || null; A = a || null;
+}
+const varName = () => C && V ? C.name + ' ' + V.name : '';
+
+/* ---------- Pulizia dei dati legati a gruppi, auto, varianti, curve ---------- */
+const dropKeys = (obj, test) => Object.keys(obj).forEach(k => { if (test(k)) delete obj[k]; });
+function removeCar(id) {
+  DB.cars = DB.cars.filter(a => a.id !== id);
+  delete DB.setupGen[id];
+  dropKeys(DB.perf, k => k.startsWith(id + '|'));
+  dropKeys(DB.setupSpec, k => k.startsWith(id + '|'));
+  DB.notes = DB.notes.filter(n => n.key !== id && !n.key.startsWith(id + '|'));
+}
+function removeVariant(id) {
+  DB.variants = DB.variants.filter(v => v.id !== id);
+  dropKeys(DB.brakes, k => k.startsWith(id + '|'));
+  dropKeys(DB.pits, k => k.startsWith(id + '|'));
+  dropKeys(DB.perf, k => k.endsWith('|' + id));
+  dropKeys(DB.setupSpec, k => k.endsWith('|' + id));
+  DB.notes = DB.notes.filter(n => n.key !== id && !n.key.endsWith('|' + id));
+}
+function removeGroupData(gid) {
+  dropKeys(DB.brakes, k => k.endsWith('|' + gid));
+  dropKeys(DB.pits, k => k.endsWith('|' + gid));
+}
+function removeTurnData(vid, tid) {
+  Object.keys(DB.brakes).forEach(k => { if (k.startsWith(vid + '|')) delete DB.brakes[k][tid]; });
+}
+/* Copia da una variante a un'altra: disegno e curve, staccate, tempi di sosta, setup specifici. */
+function copyVariantData(fromId, toId) {
+  const src = DB.variants.find(v => v.id === fromId), dst = DB.variants.find(v => v.id === toId);
+  if (!src || !dst) return;
+  const label = (DB.circuits.find(c => c.id === src.cid) || {}).name + ' ' + src.name;
+  if (src.shape) dst.shape = clone(src.shape);
+  Object.keys(DB.brakes).filter(k => k.startsWith(fromId + '|')).forEach(k => { DB.brakes[toId + k.slice(fromId.length)] = clone(DB.brakes[k]); });
+  Object.keys(DB.pits).filter(k => k.startsWith(fromId + '|')).forEach(k => { DB.pits[toId + k.slice(fromId.length)] = {...clone(DB.pits[k]), st:'copiato', from: label, u: now()}; });
+  Object.keys(DB.setupSpec).filter(k => k.endsWith('|' + fromId)).forEach(k => { DB.setupSpec[k.slice(0, k.length - fromId.length) + toId] = clone(DB.setupSpec[k]); });
 }
 
-/* ---------- Schermate ---------- */
+/* ===================================================================
+   MAPPA (disegno del circuito, curve, zoom, spostamento dei numeri)
+   =================================================================== */
+function pathFrom(p, closed) {
+  const n = p.length; if (n < 2) return '';
+  const g = i => closed ? p[((i % n) + n) % n] : p[Math.max(0, Math.min(n - 1, i))];
+  let d = 'M' + p[0][0] + ',' + p[0][1];
+  for (let i = 0, segs = closed ? n : n - 1; i < segs; i++) {
+    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
+    d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`;
+  }
+  return d + (closed ? ' Z' : '');
+}
+const getVB = () => UI.vb || (UI.vb = {x:0, y:0, w:400});
+const shapeH = () => (V && V.shape && V.shape.h) || 240;
+function fitVB() { const vb = getVB(), H = shapeH(); vb.w = clampN(vb.w, 80, 400); vb.x = clampN(vb.x, 0, 400 - vb.w); vb.y = clampN(vb.y, 0, Math.max(0, H - vb.w * H / 400)); }
+function turnsOf() { return (V && V.shape && V.shape.turns) || []; }
+
+function drawMap() {
+  const box = $('mapBox'); if (!box) return;
+  const sh = V && V.shape;
+  if (!sh || !sh.pts || sh.pts.length < 3) {
+    box.innerHTML = `<div class="empty">Nessun disegno per questa variante.<div class="btns" style="justify-content:center"><button class="pri" data-act="draw">Disegna il circuito</button></div></div>`;
+    return;
+  }
+  const H = sh.h || 240, vb = getVB(), k = vb.w / 400, vh = vb.w * H / 400, turns = turnsOf();
+  const d = pathFrom(sh.pts, sh.closed !== false);
+  let s = `<svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vh}" style="touch-action:${(vb.w < 400 || UI.move) ? 'none' : 'pan-y'}${UI.placing ? ';cursor:crosshair' : UI.move ? ';cursor:move' : ''}" role="img" aria-label="Mappa del circuito con le curve numerate">`;
+  s += `<path d="${d}" fill="none" stroke="var(--track-edge)" stroke-width="20" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const miss = [];
+  turns.forEach((t, i) => {
+    if (t.x == null) { miss.push({id: t.id, n: i + 1}); return; }
+    const on = UI.selTurn === t.id;
+    s += `<g class="mk" data-turn="${t.id}" tabindex="0" role="button" aria-label="Curva ${i + 1}${t.n ? ', ' + esc(t.n) : ''}">`;
+    s += `<circle cx="${t.x}" cy="${t.y}" r="${((on ? 15 : 11) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : 'var(--fg)'}"/>`;
+    s += `<text x="${t.x}" y="${(t.y + 5 * k).toFixed(1)}" font-size="${((on ? 16 : 13) * k).toFixed(1)}" font-weight="700" text-anchor="middle" fill="${on ? 'var(--on-accent)' : 'var(--bg)'}" font-family="var(--font)">${i + 1}</text></g>`;
+  });
+  s += '</svg>';
+  let ban = '';
+  if (UI.placing) {
+    const pn = turns.findIndex(t => t.id === UI.placing) + 1;
+    ban = `<div class="ban"><b>Tocca la mappa dove va il numero ${pn}</b><button class="sec2" data-act="later">Sistemare più tardi</button></div>`;
+  } else if (UI.move) {
+    ban = '<div class="ban"><span>Trascina i numeri dove vuoi, poi tocca Sposta numeri per finire.</span></div>';
+  } else if (miss.length) {
+    ban = `<div class="ban"><span><b>Curve da posizionare:</b> ${miss.map(m => m.n).join(', ')}</span><span style="display:flex;gap:6px;flex-wrap:wrap">${miss.map(m => `<button class="chip" data-place="${m.id}">Posiziona ${m.n}</button>`).join('')}</span></div>`;
+  }
+  const tb = `<div class="mt"><button data-zoom="out" aria-label="Riduci">−</button><button data-zoom="in" aria-label="Ingrandisci">+</button><button data-zoom="fit">Adatta</button><button data-act="move" aria-pressed="${!!UI.move}">Sposta numeri</button><button data-act="draw">Ridisegna</button></div>`;
+  box.innerHTML = tb + ban + s;
+}
+function zoomBy(f, cx, cy) {
+  const vb = getVB(), H = shapeH();
+  if (cx == null) { cx = vb.x + vb.w / 2; cy = vb.y + vb.w * H / 800; }
+  const nw = clampN(vb.w / f, 80, 400), r = nw / vb.w;
+  vb.x = cx - (cx - vb.x) * r; vb.y = cy - (cy - vb.y) * r; vb.w = nw; fitVB(); drawMap();
+}
+const mapSvg = () => document.querySelector('#mapBox svg');
+function toSvg(cx, cy) { const vb = getVB(), r = mapSvg().getBoundingClientRect(); return {x: vb.x + (cx - r.left) * vb.w / r.width, y: vb.y + (cy - r.top) * vb.w / r.width}; }
+
+let ptrs = {}, drag = null, pinch = null, moved = false, noClick = false;
+document.addEventListener('pointerdown', e => {
+  const box = e.target.closest && e.target.closest('#mapBox');
+  if (!box || !e.target.closest('svg')) return;
+  ptrs[e.pointerId] = {x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY};
+  moved = false;
+  const ids = Object.keys(ptrs), vb = getVB();
+  if (ids.length === 2) {
+    const a = ptrs[ids[0]], b = ptrs[ids[1]];
+    pinch = {d: Math.hypot(a.x - b.x, a.y - b.y) || 1, w: vb.w}; drag = null;
+  } else if (UI.move && e.target.closest('[data-turn]')) {
+    drag = {id: e.target.closest('[data-turn]').dataset.turn};
+  } else if (vb.w < 400) {
+    drag = {pan: true};
+  }
+});
+document.addEventListener('pointermove', e => {
+  const p = ptrs[e.pointerId]; if (!p || !mapSvg()) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y, vb = getVB();
+  if (!moved && Math.abs(e.clientX - p.sx) + Math.abs(e.clientY - p.sy) > 6) {
+    moved = true;
+    try { $('mapBox').setPointerCapture(e.pointerId); } catch (_) {}   // si cattura solo se è un vero trascinamento: così i tocchi semplici arrivano al bersaglio giusto
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  const ids = Object.keys(ptrs);
+  if (pinch && ids.length === 2) {
+    const a = ptrs[ids[0]], b = ptrs[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const m = toSvg((a.x + b.x) / 2, (a.y + b.y) / 2);
+    const nw = clampN(pinch.w * pinch.d / d, 80, 400), r = nw / vb.w;
+    vb.x = m.x - (m.x - vb.x) * r; vb.y = m.y - (m.y - vb.y) * r; vb.w = nw; fitVB();
+    moved = true; drawMap(); return;
+  }
+  if (!drag || !moved) return;
+  if (drag.pan) {
+    const u = vb.w / mapSvg().getBoundingClientRect().width, H = shapeH();
+    vb.x -= dx * u; vb.y -= dy * u; fitVB();
+    mapSvg().setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.w * H / 400}`);
+  } else if (drag.id) {
+    const q = toSvg(e.clientX, e.clientY), t = turnsOf().find(x => x.id === drag.id), H = shapeH();
+    if (!t) return;
+    t.x = clampN(Math.round(q.x), 0, 400); t.y = clampN(Math.round(q.y), 0, H); drag.dirty = true;
+    const g = document.querySelector(`#mapBox [data-turn="${drag.id}"]`);
+    if (g) { const kk2 = vb.w / 400; g.querySelector('circle').setAttribute('cx', t.x); g.querySelector('circle').setAttribute('cy', t.y); g.querySelector('text').setAttribute('x', t.x); g.querySelector('text').setAttribute('y', t.y + 5 * kk2); }
+  }
+});
+function endPtr(e) {
+  if (!ptrs[e.pointerId]) return;
+  delete ptrs[e.pointerId];
+  if (Object.keys(ptrs).length < 2) pinch = null;
+  if (moved) { noClick = true; setTimeout(() => { noClick = false; }, 80); }
+  if (drag && drag.dirty) { const t = turnsOf().find(x => x.id === drag.id); if (t) t.u = now(); save(); }
+  if (!Object.keys(ptrs).length) drag = null;
+}
+document.addEventListener('pointerup', endPtr);
+document.addEventListener('pointercancel', endPtr);
+document.addEventListener('wheel', e => {
+  if (!e.target.closest || !e.target.closest('#mapBox svg')) return;
+  if (!e.ctrlKey && getVB().w >= 400) return;
+  e.preventDefault(); const q = toSvg(e.clientX, e.clientY); zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, q.x, q.y);
+}, {passive: false});
+
+function pickTurn(id) {
+  const t = turnsOf().find(x => x.id === id);
+  if (t && t.x == null && V.shape.pts && V.shape.pts.length > 2) { UI.selTurn = id; UI.placing = id; drawMap(); renderRows(); const b = $('mapBox'); if (b) b.scrollIntoView({block:'center', behavior:'smooth'}); return; }
+  UI.selTurn = UI.selTurn === id ? null : id; UI.placing = null; drawMap(); renderRows();
+}
+
+/* ===================================================================
+   SCHERMATA CONSULTA
+   =================================================================== */
+const opts = (list, cur) => list.map(x => `<option value="${x.id}"${x.id === cur ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
 function showNotice(t) { $('notice').innerHTML = t ? '<div class="warn" style="margin-bottom:12px">' + esc(t) + '</div>' : ''; }
 
 function render() {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
   fixSel();
+  $('main').className = UI.tab === 'home' ? '' : 'narrow';
   $('main').innerHTML = UI.tab === 'home' ? viewHome() : UI.tab === 'data' ? viewData() : viewBackup();
+  if (UI.tab === 'home') drawMap();
   if (UI.tab === 'backup') fillCopies();
 }
-
-const opts = (list, cur) => list.map(x => `<option value="${x.id}"${x.id === cur ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
 
 function viewHome() {
   const ok = [DB.groups.length, DB.cars.length, DB.circuits.length && DB.variants.length];
@@ -276,97 +529,470 @@ function viewHome() {
       <ol class="steps">${step(ok[0], 'Crea un gruppo auto, per esempio ACC GT3.')}${step(ok[1], 'Crea un\'auto dentro il gruppo.')}${step(ok[2], 'Crea un circuito con almeno una variante.')}</ol>
       <button class="pri" data-go="data">Vai a Dati</button></div>`;
   }
-  const s = DB.settings.sel, c = DB.circuits.find(x => x.id === s.c), g = DB.groups.find(x => x.id === s.g);
-  const vs = DB.variants.filter(v => v.cid === c.id), as = DB.cars.filter(a => a.gid === g.id);
-  return `<div class="sel">
-      <label class="f">Circuito<select data-sel="c">${opts(DB.circuits, s.c)}</select></label>
-      <label class="f">Variante<select data-sel="v">${opts(vs, s.v)}</select></label>
-      <label class="f">Gruppo auto<select data-sel="g">${opts(DB.groups, s.g)}</select></label>
-      <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
-    </div>
-    <div class="card"><h2>In arrivo</h2>
-      <p class="meta">Mappa, staccate, dati rapidi, setup, note e strategia arrivano nelle prossime versioni. Questa versione serve a provare l'installazione, il salvataggio e il backup.</p></div>`;
-}
-
-function viewData() {
-  const groups = DB.groups.map(g => {
-    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, s) => t + s.params.length, 0);
-    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${esc(g.game)} · ${n} auto · ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun gruppo. Un gruppo raccoglie auto simili di un gioco, per esempio ACC GT3.</div>';
-
-  const cars = DB.cars.map(a => {
-    const g = DB.groups.find(x => x.id === a.gid);
-    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' · serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessuna auto.</div>';
-
-  const circuits = DB.circuits.map(c => {
-    const vs = DB.variants.filter(v => v.cid === c.id);
-    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun circuito. Ogni circuito ha una o più varianti, per esempio GT e F1 22.</div>';
-
-  return `<div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
-    <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
-    <div class="card"><div class="head"><h2>Circuiti</h2><button class="sec2" data-edit="circuit">+ Nuovo</button></div>${circuits}</div>`;
-}
-
-function viewBackup() {
-  const c = DB.settings.copies, canShare = !!(navigator.canShare && window.File);
-  const days = DB.settings.lastExport ? (Date.now() - Date.parse(DB.settings.lastExport)) / 86400e3 : null;
-  const late = !isEmpty(DB) && (days === null || days > 7);
-  let pend = '';
-  if (UI.pending) {
-    pend = `<div class="warn" style="margin-top:10px"><b>Ripristinare ${esc(UI.pending.label)}?</b>
-      <p style="margin:6px 0">Contiene ${esc(summary(UI.pending.data))}. Sostituisce i dati attuali (${esc(summary(DB))}). Prima salvo una copia interna di quelli attuali.</p>
-      <div class="btns" style="margin-top:6px"><button class="pri" data-bk="apply">Sostituisci i dati</button><button class="sec2" data-bk="cancel">Annulla</button></div></div>`;
-  }
-  return `<div class="card"><h2>Backup su file</h2>
-      <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
-      ${late ? '<div class="warn" style="margin-bottom:8px">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
-      <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button><button class="sec2" data-bk="pick">Ripristina da file</button></div>
-      <input type="file" id="fileIn" accept=".json,application/json" hidden>
-      ${canShare ? '<p class="meta" style="margin-top:8px">Condividi backup apre il menu di Android: scegli Drive per salvarlo nel cloud.</p>' : ''}
-      ${pend}</div>
-    <div class="card"><h2>Copie interne</h2>
-      <p class="meta">Copie automatiche dentro il browser, fatte quando apri l'app. Non sostituiscono il backup su file.</p>
-      <div class="grid" style="margin:10px 0">
-        <label class="f">Frequenza<select data-cp="every">
-          <option value="open"${c.every === 'open' ? ' selected' : ''}>Ad ogni apertura</option>
-          <option value="day"${c.every === 'day' ? ' selected' : ''}>Una al giorno</option>
-          <option value="week"${c.every === 'week' ? ' selected' : ''}>Una a settimana</option></select></label>
-        <label class="f">Quante tenerne<select data-cp="keep">${[3, 5, 10, 20].map(n => `<option${c.keep === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+  const s = DB.settings.sel, vs = DB.variants.filter(v => v.cid === C.id), as = DB.cars.filter(a => a.gid === G.id);
+  return `<div class="home"><div class="col">
+      <div class="sel">
+        <label class="f">Circuito<select data-sel="c">${opts(DB.circuits, s.c)}</select></label>
+        <label class="f">Variante<select data-sel="v">${opts(vs, s.v)}</select></label>
+        <label class="f">Gruppo auto<select data-sel="g">${opts(DB.groups, s.g)}</select></label>
+        <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
       </div>
-      <div id="copies"><p class="meta">Carico...</p></div></div>
-    <div class="card"><h2>Archivio</h2>
-      <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
-      <p class="meta">Dati: ${esc(summary(DB))}</p>
-      <p class="meta">App versione ${APP_V} · formato dati ${DATA_V}</p>
-      <div class="btns"><button class="sec2" data-bk="update">Controlla aggiornamenti</button></div></div>`;
+      <div class="map" id="mapBox"></div>
+      <div><div class="head"><h2>Dati rapidi</h2><button class="sec2" data-act="perf">Modifica</button></div><div class="tiles">${tilesHtml()}</div></div>
+      <div class="btns3">${btnsHtml()}</div>
+    </div>
+    <div class="col"><div class="head"><h2>Staccate</h2><button class="sec2" data-act="turns">Curve</button></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
 }
 
-function fillCopies() {
-  listCopies().then(list => {
-    const box = $('copies'); if (!box) return;
-    box.innerHTML = list.length
-      ? list.map(c => `<div class="item"><div><b>${esc(fdt(c.t))}</b><span class="meta">${esc(c.why)}</span></div><button class="ed" data-restore="${c.id}">Ripristina</button></div>`).join('')
-      : '<div class="empty">Ancora nessuna copia. La prima si crea quando ci sono dei dati.</div>';
-  });
+function tilesHtml() {
+  const tile = (k, v, s) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const p = A && V ? DB.perf[kk(A.id, V.id)] : null;
+  if (!p) return tile('Giro veloce', '—', 'nessun dato') + tile('Passo gara', '—', 'nessun dato') + tile('Consumo', '—', 'nessun dato');
+  const main = p.cons.find(c => c.main) || p.cons[0];
+  const others = p.cons.filter(c => c !== main).map(c => esc(G.mapLabel || 'mappa') + ' ' + esc(c.map) + ': ' + esc(c.v)).join(' · ');
+  return tile('Giro veloce', esc(p.lapD || '—'), 'bagnato ' + esc(p.lapW || '—')) +
+    tile('Passo gara', esc(p.paceD || '—'), 'bagnato ' + esc(p.paceW || '—')) +
+    (main ? tile('Consumo', esc(main.v) + ' ' + esc(G.unit), esc(G.mapLabel || 'mappa') + ' ' + esc(main.map) + (others ? ' · ' + others : '')) : tile('Consumo', '—', 'nessun dato'));
 }
+function setupState(cond) {
+  if (!G || !G.sections.length) return {t:'senza parametri', cls:''};
+  const sp = A && V ? DB.setupSpec[kk(A.id, V.id)] : null;
+  if (sp && sp[cond]) return {t:'specifico', cls:'sp'};
+  const g = A ? DB.setupGen[A.id] : null;
+  if (g && g[cond]) return {t:'generale', cls:''};
+  return {t:'vuoto', cls:''};
+}
+function noteCount() {
+  if (!A || !V) return 0;
+  return DB.notes.filter(n => n.key === A.id || n.key === V.id || n.key === kk(A.id, V.id)).length;
+}
+function btnsHtml() {
+  const a = setupState('dry'), b = setupState('wet'), nc = noteCount();
+  return `<button class="bigb" data-act="setup" data-cond="dry">Setup asciutto<small class="${a.cls}">${a.t}</small></button>
+    <button class="bigb" data-act="setup" data-cond="wet">Setup bagnato<small class="${b.cls}">${b.t}</small></button>
+    <button class="bigb" data-act="notes">Note<small>${nc} ${nc === 1 ? 'nota' : 'note'}</small></button>
+    <button class="bigb wide" data-act="strat">Strategia gara<small>dati dell'auto già inseriti</small></button>`;
+}
+function rowsHtml() {
+  const turns = turnsOf();
+  if (!turns.length) return '<div class="empty">Questa variante non ha ancora curve.<div class="btns" style="justify-content:center"><button class="pri" data-act="turns">Aggiungi le curve</button></div></div>';
+  const data = G && V ? DB.brakes[kk(V.id, G.id)] : null;
+  let html = turns.map((t, i) => {
+    const s = data && data[t.id];
+    const body = s
+      ? `<div class="line"><span class="pill w">Asciutto: ${esc(s.dry)}</span>${s.wet ? `<span class="pill w">Bagnato: ${esc(s.wet)}</span>` : '<span class="pill">Bagnato: = asciutto</span>'}</div>${s.note ? `<div class="meta" style="margin-top:3px">${esc(s.note)}</div>` : ''}<div class="meta">modificato ${fd(s.u)}</div>`
+      : '<div class="meta">Nessuna staccata inserita</div>';
+    return `<div class="srow${UI.selTurn === t.id ? ' on' : ''}" data-row="${t.id}"><div class="snum">${i + 1}</div><div><div class="nm">${t.n ? esc(t.n) : 'Curva ' + (i + 1)}</div>${body}</div><button class="ed" data-act="brake" data-tid="${t.id}" aria-label="Modifica staccata curva ${i + 1}">Modifica</button></div>`;
+  }).join('');
+  if (!data) html = `<div class="empty">Per ${esc(G.name)} su ${esc(varName())} non c'è ancora nessuna staccata. Tocca Modifica su una curva per inserirla.</div>` + html;
+  return html;
+}
+function renderRows() { const r = $('rows'); if (r) r.innerHTML = rowsHtml(); }
 
-/* ---------- Editor (finestre dal basso) ---------- */
-function sheet(title, inner) {
+/* ===================================================================
+   FINESTRE (sheet) E EDITOR
+   =================================================================== */
+function sheet(title, inner, sub) {
   $('layer').innerHTML = `<div class="back" id="bk"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <div class="sh"><h3>${esc(title)}</h3><button class="x" id="cl" aria-label="Chiudi">✕</button></div>${inner}</div></div>`;
+    <div class="sh"><div><h3>${esc(title)}</h3>${sub ? `<div class="meta">${esc(sub)}</div>` : ''}</div><button class="x" id="cl" aria-label="Chiudi">✕</button></div>${inner}</div></div>`;
   $('cl').onclick = closeSheet;
   $('bk').onclick = e => { if (e.target.id === 'bk') closeSheet(); };
 }
-function closeSheet() { $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; }
-
-/* Pulsante a due tocchi per le eliminazioni: il primo chiede conferma, il secondo esegue. */
+function closeSheet() { $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; UI.sh = null; }
 function armed(btn, text) {
   if (btn.dataset.armed) return true;
   btn.dataset.armed = '1'; btn.dataset.orig = btn.textContent; btn.textContent = text; btn.classList.add('danger');
   setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = btn.dataset.orig; btn.classList.remove('danger'); } }, 4000);
   return false;
+}
+const needCtx = (what) => { if (what === 'av' && (!A || !V)) { toast('Scegli prima un\'auto e una variante'); return false; } if (what === 'gv' && (!G || !V)) { toast('Scegli prima gruppo e variante'); return false; } if (what === 'v' && !V) { toast('Scegli prima una variante'); return false; } return true; };
+const tn = (i, t) => t.n ? t.n : 'Curva ' + (i + 1);
+
+/* --- Staccata --- */
+function editBrake(tid) {
+  if (!needCtx('gv')) return;
+  const turns = turnsOf(), idx = turns.findIndex(t => t.id === tid), t = turns[idx];
+  const key = kk(V.id, G.id), cur = (DB.brakes[key] || {})[tid] || {dry:'', wet:'', note:''};
+  const chips = which => DB.settings.quick.map(q => `<button class="chip" data-act="quick" data-to="${which}" data-v="${esc(q.label)}">${esc(q.label)}</button>`).join('');
+  UI.sh = {tid};
+  sheet('Curva ' + (idx + 1) + (t.n ? ' · ' + t.n : ''), `
+    <div class="f2"><span>Staccata asciutto</span><input type="text" id="bD" value="${esc(cur.dry)}" placeholder="Scrivi o tocca un pulsante"></div>
+    <div class="chips" style="margin:-4px 0 12px">${chips('bD')}</div>
+    <div class="f2"><span>Staccata bagnato (facoltativa)</span><input type="text" id="bW" value="${esc(cur.wet || '')}" placeholder="Vuoto = uguale all'asciutto"></div>
+    <div class="chips" style="margin:-4px 0 12px">${chips('bW')}</div>
+    <div class="f2"><span>Nota breve</span><input type="text" id="bN" value="${esc(cur.note || '')}"></div>
+    <div class="btns"><button class="pri" data-act="brakesave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`,
+    G.name + ' · ' + varName());
+}
+function saveBrake() {
+  const dry = $('bD').value.trim(), wet = $('bW').value.trim(), note = $('bN').value.trim();
+  if (!dry) return toast('Scrivi almeno la staccata asciutto');
+  const key = kk(V.id, G.id);
+  (DB.brakes[key] = DB.brakes[key] || {})[UI.sh.tid] = {dry, wet: wet || null, note, u: now()};
+  save(); closeSheet(); renderRows(); toast('Staccata salvata');
+}
+
+/* --- Curve --- */
+function editTurns() {
+  if (!needCtx('v')) return;
+  UI.tu = clone(turnsOf()); drawTurns();
+}
+function drawTurns() {
+  const rows = UI.tu.map((t, i) => `<div class="row2" data-tid="${t.id}"><div class="snum" style="flex:none;align-self:center">${i + 1}</div><input class="tnm" value="${esc(t.n)}" placeholder="Nome (facoltativo)" aria-label="Nome curva ${i + 1}"><button class="x" data-act="turndel" data-i="${i}" aria-label="Elimina curva ${i + 1}">✕</button></div>`).join('');
+  sheet('Curve', `<p class="meta">Il numero segue l'ordine dell'elenco. Il nome è facoltativo (per esempio Parabolica). Le posizioni si danno sulla mappa.</p>
+    <div id="tlist" style="display:flex;flex-direction:column;gap:8px;margin:10px 0">${rows || '<div class="empty">Nessuna curva.</div>'}</div>
+    <div class="btns"><button class="sec2" data-act="turnadd">+ Curva</button><button class="sec2" data-act="turnpaste">Incolla elenco di nomi</button></div>
+    <div id="tpaste" hidden style="margin-top:10px"><textarea id="tpTx" placeholder="Una riga per curva&#10;Prima variante&#10;Curva Grande"></textarea><button class="sec2" data-act="turnpasteadd" style="margin-top:6px">Aggiungi all'elenco</button></div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="turnsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, varName());
+}
+function collectTurns() { document.querySelectorAll('#tlist [data-tid]').forEach(r => { const t = UI.tu.find(x => x.id === r.dataset.tid); if (t) t.n = r.querySelector('.tnm').value.trim(); }); }
+function saveTurns() {
+  collectTurns();
+  const old = turnsOf(), keep = new Set(UI.tu.map(t => t.id));
+  old.filter(t => !keep.has(t.id)).forEach(t => removeTurnData(V.id, t.id));
+  if (!V.shape) V.shape = {pts: [], closed: true, h: 240, turns: []};
+  V.shape.turns = UI.tu.map(t => ({...t, u: t.u || now()}));
+  save(); closeSheet(); render(); toast('Curve salvate');
+}
+
+/* --- Disegno del circuito (a mano, sopra la foto) --- */
+function editDrawing() {
+  if (!needCtx('v')) return;
+  const sh = V.shape || {};
+  UI.dr = {pts: clone(sh.pts || []), closed: sh.closed !== false, h: sh.h || 240, photo: sh.photo || null};
+  drawDrawing();
+}
+function drawDrawing() {
+  const d = UI.dr;
+  sheet('Disegno del circuito', `
+    <p class="meta">${d.photo ? 'Tocca la foto lungo il centro della pista, seguendo il senso di marcia. Bastano 15-30 punti: di più nelle curve strette.' : 'Scegli prima una foto del circuito.'}</p>
+    <div class="btns"><label class="sec2" style="display:inline-flex;align-items:center;cursor:pointer">${d.photo ? 'Cambia foto' : 'Scegli foto'}<input type="file" id="photoIn" accept="image/*" hidden></label></div>
+    ${d.photo ? `<div class="trace"><svg id="drSvg" viewBox="0 0 400 ${d.h}" role="img" aria-label="Foto del circuito: tocca per aggiungere punti"></svg></div>
+    <div class="btns"><button class="sec2" data-act="drundo">Annulla ultimo</button><button class="sec2" data-act="drclose" aria-pressed="${d.closed}">${d.closed ? 'Circuito chiuso' : 'Circuito aperto'}</button><button class="sec2" data-act="drreset">Ricomincia</button></div>
+    <p class="meta" id="drCount" style="margin-top:8px"></p>` : ''}
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="drsave">Salva disegno</button><button class="sec2" data-act="close">Annulla</button></div>`, varName());
+  drawDrSvg();
+}
+function drawDrSvg() {
+  const d = UI.dr, svg = $('drSvg'); if (!svg) return;
+  let s = `<image href="${d.photo}" x="0" y="0" width="400" height="${d.h}" opacity=".7"/>`;
+  const path = pathFrom(d.pts, d.closed && d.pts.length > 2);
+  if (path) {
+    s += `<path d="${path}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  d.pts.forEach(p => { s += `<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="#fff" stroke="#000" stroke-width="1"/>`; });
+  svg.innerHTML = s;
+  const c = $('drCount'); if (c) c.textContent = d.pts.length + (d.pts.length === 1 ? ' punto' : ' punti') + (d.pts.length < 3 ? ' (ne servono almeno 3)' : '');
+}
+function loadPhoto(file) {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const w = Math.min(1000, img.naturalWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    UI.dr.photo = cv.toDataURL('image/jpeg', 0.8); UI.dr.h = Math.round(400 * h / w); UI.dr.pts = [];
+    drawDrawing();
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast('Non riesco a leggere questa immagine.'); };
+  img.src = url;
+}
+function saveDrawing() {
+  const d = UI.dr;
+  if (d.pts.length < 3) return toast('Servono almeno 3 punti sulla pista');
+  const old = V.shape || {};
+  V.shape = {pts: d.pts, closed: d.closed, h: d.h, photo: d.photo, turns: old.turns || []};
+  UI.vb = null; save(); closeSheet(); render(); toast('Disegno salvato');
+}
+
+/* --- Dati rapidi: giro, passo, consumo --- */
+const TIME_RE = /^\d+:\d{2}(\.\d{1,3})?$/;
+function editPerf() {
+  if (!needCtx('av')) return;
+  UI.pf = clone(DB.perf[kk(A.id, V.id)] || {lapD:'', lapW:'', paceD:'', paceW:'', cons:[]});
+  drawPerf();
+}
+function drawPerf() {
+  const p = UI.pf, mapL = G.mapLabel || 'Mappa';
+  const rows = p.cons.map((c, i) => `<div class="row2" data-ci="${i}"><input class="cm" value="${esc(c.map)}" placeholder="${esc(mapL)}" aria-label="${esc(mapL)}"><input class="cv" inputmode="decimal" value="${esc(c.v)}" placeholder="${esc(G.unit)}" aria-label="Consumo"><button class="sec2" data-act="pfmain" data-i="${i}" aria-pressed="${!!c.main}" style="flex:none">Principale</button><button class="x" data-act="pfdel" data-i="${i}" aria-label="Elimina prova">✕</button></div>`).join('');
+  sheet('Dati rapidi', `
+    <div class="zg">
+      <label class="f">Giro veloce asciutto<input id="pLD" value="${esc(p.lapD)}" placeholder="1:43.210"></label>
+      <label class="f">Giro veloce bagnato<input id="pLW" value="${esc(p.lapW)}" placeholder="1:52.800"></label>
+      <label class="f">Passo gara asciutto<input id="pPD" value="${esc(p.paceD)}" placeholder="1:45.900"></label>
+      <label class="f">Passo gara bagnato<input id="pPW" value="${esc(p.paceW)}" placeholder="1:55.100"></label>
+    </div>
+    <h3>Consumo (${esc(G.unit)})</h3>
+    <p class="meta">Una riga per ogni prova, con la sua ${esc(mapL.toLowerCase())}. Quella segnata Principale appare nella schermata.</p>
+    <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
+    <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="pfsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
+}
+const carNameFull = () => (A ? A.name : '') + ' · ' + varName();
+function collectPerf() {
+  const p = UI.pf;
+  p.lapD = $('pLD').value.trim(); p.lapW = $('pLW').value.trim(); p.paceD = $('pPD').value.trim(); p.paceW = $('pPW').value.trim();
+  document.querySelectorAll('#clist [data-ci]').forEach(r => { const c = p.cons[+r.dataset.ci]; c.map = r.querySelector('.cm').value.trim(); c.v = r.querySelector('.cv').value.trim(); });
+}
+function savePerf() {
+  collectPerf();
+  const p = UI.pf;
+  for (const [k, l] of [['lapD', 'giro veloce asciutto'], ['lapW', 'giro veloce bagnato'], ['paceD', 'passo gara asciutto'], ['paceW', 'passo gara bagnato']]) {
+    if (p[k] && !TIME_RE.test(p[k])) return toast('Il tempo ' + l + ' va scritto come 1:43.210');
+  }
+  p.cons = p.cons.filter(c => c.v || c.map);
+  for (const c of p.cons) if (!(parseFloat(c.v.replace(',', '.')) > 0)) return toast('Il consumo deve essere un numero');
+  if (p.cons.length && !p.cons.some(c => c.main)) p.cons[0].main = true;
+  p.u = now();
+  DB.perf[kk(A.id, V.id)] = p;
+  save(); closeSheet(); render(); toast('Dati rapidi salvati');
+}
+
+/* --- Setup: visualizzazione e modifica --- */
+function openSetup(cond, mode) {
+  if (!needCtx('av')) return;
+  const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
+  if (!G.sections.length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili in Dati, modificando il gruppo.</div>', sub);
+  const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
+  if (!gen && !sp) {
+    return sheet('Setup ' + cname, `<div class="empty">Nessun setup ${cname} inserito per questa auto.</div>
+      <div class="btns" style="justify-content:center"><button class="pri" data-act="setupedit" data-cond="${cond}" data-scope="gen">Inserisci il setup generale</button></div>`, sub);
+  }
+  mode = mode || (sp ? 'spec' : 'gen');
+  const baseGen = gen ? gen.vals : ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals;
+  let html = '';
+  if (sp) html += `<div class="seg"><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="spec" aria-pressed="${mode === 'spec'}">Specifico</button><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="gen" aria-pressed="${mode === 'gen'}">Generale</button></div>`;
+  else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
+  html += '<div class="seg"><button class="sec2" id="openAll" data-act="openall" aria-pressed="false">Apri tutto</button></div>';
+  let total = 0;
+  G.sections.forEach(sec => {
+    let cnt = 0, rows = '';
+    sec.params.forEach(p => {
+      const g = baseGen[p.id], ch = mode === 'spec' && sp && sp.vals[p.id] != null && sp.vals[p.id] !== g;
+      if (ch) cnt++;
+      const val = ch ? sp.vals[p.id] : g;
+      rows += `<div class="par${ch ? ' ch' : ''}"><span class="l">${esc(p.label)}</span><span class="val">${esc(val == null ? '—' : val)}${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</span></div>`;
+    });
+    total += cnt;
+    html += `<details${cnt ? ' open' : ''}><summary><span>${esc(sec.name)}</span>${cnt ? `<span class="cnt">${cnt}${cnt === 1 ? ' modifica' : ' modifiche'}</span>` : ''}</summary>${rows}</details>`;
+  });
+  const d = mode === 'spec' && sp ? sp.u : gen && gen.u;
+  html += `<p class="meta">Modificato ${fd(d)}${mode === 'spec' ? ' · ' + total + ' valori diversi dal generale' : ''}</p>
+    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button></div>`;
+  sheet('Setup ' + cname, html, sub);
+}
+function editSetup(cond, scope) {
+  const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
+  const dryGen = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals;
+  const base = gen ? gen.vals : (scope === 'spec' ? dryGen : {});
+  const vals = scope === 'gen' ? (gen ? gen.vals : {}) : (sp ? sp.vals : {});
+  UI.sh = {cond, scope, base};
+  const cname = cond === 'dry' ? 'asciutto' : 'bagnato';
+  let html = scope === 'gen'
+    ? '<p class="meta">Compila tutti i valori del setup generale di questa auto.</p>'
+    : '<p class="meta">Scrivi solo i valori diversi dal generale. I campi vuoti usano il valore generale, mostrato in grigio.</p>';
+  if (scope === 'gen' && cond === 'wet' && dryGen && Object.keys(dryGen).length) html += '<div class="btns" style="margin:0 0 10px"><button class="sec2" data-act="setupcopy">Parti dall\'asciutto</button></div>';
+  G.sections.forEach(sec => {
+    html += `<details open><summary><span>${esc(sec.name)}</span></summary>` + sec.params.map(p => `<div class="par"><span class="l">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc(p.label)}"></div>`).join('') + '</details>';
+  });
+  html += '<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button></div>';
+  sheet((scope === 'gen' ? 'Setup generale ' : 'Setup specifico ') + cname, html, carNameFull());
+}
+function saveSetup() {
+  const {cond, scope, base} = UI.sh, out = {};
+  document.querySelectorAll('.sheet input[data-pid]').forEach(i => {
+    const v = i.value.trim(); if (!v) return;
+    if (scope === 'spec' && base[i.dataset.pid] === v) return;
+    out[i.dataset.pid] = v;
+  });
+  if (scope === 'gen') {
+    if (!Object.keys(out).length) return toast('Compila almeno un valore');
+    (DB.setupGen[A.id] = DB.setupGen[A.id] || {})[cond] = {vals: out, u: now()};
+  } else {
+    const key = kk(A.id, V.id);
+    if (Object.keys(out).length) (DB.setupSpec[key] = DB.setupSpec[key] || {})[cond] = {vals: out, u: now()};
+    else if (DB.setupSpec[key]) { delete DB.setupSpec[key][cond]; if (!Object.keys(DB.setupSpec[key]).length) delete DB.setupSpec[key]; }
+  }
+  const c = cond; save(); render(); toast('Setup salvato'); openSetup(c);
+}
+
+/* --- Note --- */
+function openNotes() {
+  if (!needCtx('av')) return;
+  const block = (label, lvl, key) => {
+    const list = DB.notes.filter(n => n.lvl === lvl && n.key === key);
+    return `<div class="lv"><span>${label}</span><button class="sec2" data-act="noteedit" data-lvl="${lvl}" data-key="${esc(key)}">+ Nota</button></div>` +
+      (list.length ? list.map(n => `<div class="note"><b>${esc(n.t)}</b><p>${esc(n.x)}</p><div class="meta" style="margin-top:6px">modificata ${fd(n.u)}</div><div class="btns" style="margin-top:6px"><button class="ed" data-act="noteedit" data-id="${n.id}">Modifica</button></div></div>`).join('') : '<div class="empty">Nessuna nota</div>');
+  };
+  sheet('Note', block('Auto: ' + esc(A.name), 'car', A.id) + block('Circuito: ' + esc(varName()), 'variant', V.id) + block('Auto su questo circuito', 'both', kk(A.id, V.id)), carNameFull());
+}
+function editNote(id, lvl, key) {
+  const n = id ? DB.notes.find(x => x.id === id) : {id: null, lvl, key, t: '', x: ''};
+  UI.sh = {note: clone(n)};
+  sheet(id ? 'Modifica nota' : 'Nuova nota', `
+    <div class="f2"><span>Titolo</span><input type="text" id="nT" value="${esc(n.t)}"></div>
+    <div class="f2"><span>Testo</span><textarea id="nX" style="min-height:180px">${esc(n.x)}</textarea></div>
+    <div class="btns"><button class="pri" data-act="notesave">Salva</button><button class="sec2" data-act="noteback">Annulla</button>${id ? '<button class="sec2" data-act="notedel">Elimina nota</button>' : ''}</div>`);
+}
+function saveNote() {
+  const n = UI.sh.note, t = $('nT').value.trim(), x = $('nX').value.trim();
+  if (!t) return toast('Scrivi un titolo');
+  n.t = t; n.x = x; n.u = now();
+  const i = DB.notes.findIndex(y => y.id === n.id);
+  if (i >= 0) DB.notes[i] = n; else { n.id = uid(); DB.notes.push(n); }
+  save(); render(); toast('Nota salvata'); openNotes();
+}
+
+/* ===================================================================
+   STRATEGIA GARA (replica l'ACC Strategist, verificata su 4 gare)
+   =================================================================== */
+const numP = s => { const v = parseFloat(String(s).replace(',', '.')); return isNaN(v) ? null : v; };
+function paceP(s) {
+  s = String(s).trim().replace(',', '.');
+  const m = s.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (m) return Math.round((parseInt(m[1], 10) * 60 + parseFloat(m[2])) * 1000) / 1000;
+  const v = parseFloat(s); return isNaN(v) ? null : Math.round(v * 1000) / 1000;
+}
+const fPace = x => { const m = Math.floor(x / 60), r = x - m * 60; let sec = r.toFixed(3); if (r < 10) sec = '0' + sec; return m + ':' + sec; };
+const fDur = x => { x = Math.round(x); const h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60; return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; };
+const fMS = x => { x = Math.round(x); const m = Math.floor(x / 60), s = x % 60; return m + ':' + (s < 10 ? '0' : '') + s; };
+const ceilEps = x => Math.ceil(x - 1e-9);
+function rte(x) { const f = Math.floor(x), d = x - f; if (d > 0.5) return f + 1; if (d < 0.5) return f; return f % 2 === 0 ? f : f + 1; } // arrotonda come il Strategist: la metà va al pari
+function maxFuel(r, P) { const mL = P.mgu === 'giri' ? P.mg * P.cons : P.mg; return Math.max(...r.fuel.map((f, i) => i > 0 ? f + mL : f)); }
+
+function stratPlan(P, stops) {
+  const avail = P.D - stops * P.pit;
+  let n = ceilEps(avail / P.pace); if (n < 1) n = 1;
+  const low = avail / n, high = n > 1 ? avail / (n - 1) : null, s = stops + 1, full = P.form === 'full', tot = n + (full ? 1 : 0);
+  const base = Math.floor(tot / s), r = tot % s, st = [];
+  for (let i = 0; i < s; i++) st.push(base + (i < r ? 1 : 0));
+  const marginL = P.mgu === 'giri' ? P.mg * P.cons : P.mg, extra0 = P.form === 'short' ? 0.5 * P.cons : 0, fuel = [];
+  if (P.refuel) { for (let i = 0; i < s; i++) fuel.push(ceilEps(st[i] * P.cons + (i === 0 ? extra0 + marginL : 0))); }
+  else { fuel.push(ceilEps(tot * P.cons + extra0 + marginL)); for (let i = 1; i < s; i++) fuel.push(0); }
+  const racing = st.slice(); if (full) racing[0] -= 1;
+  let lap = 0; const pits = [];
+  for (let i = 0; i < s - 1; i++) { lap += racing[i]; pits.push([lap, rte(P.D - (lap * P.pace + i * P.pit))]); }
+  return {n, dur: Math.round(n * P.pace + stops * P.pit), low, high, st, racing, fuel, pits, stops};
+}
+function stratCalc(P) {
+  const notes = [], maxLaps = P.ms ? Math.floor(P.ms / P.pace) : null;
+  let res = null;
+  for (let stops = P.mand; stops <= P.mand + 40; stops++) {
+    const r = stratPlan(P, stops); let ok = true;
+    if (maxLaps != null && Math.max(...r.racing) > maxLaps) ok = false;
+    if (P.refuel && maxFuel(r, P) > P.tank) ok = false;
+    if (ok) { res = r; break; }
+  }
+  if (!res) { res = stratPlan(P, P.mand); notes.push('Nessun numero di soste rispetta i limiti inseriti: controlla serbatoio e durata massima stint.'); }
+  else if (res.stops > P.mand) {
+    const why = [], r0 = stratPlan(P, P.mand);
+    if (maxLaps != null && Math.max(...r0.racing) > maxLaps) why.push('la durata massima stint');
+    if (P.refuel && maxFuel(r0, P) > P.tank) why.push('il serbatoio');
+    notes.push('Servono ' + res.stops + ' soste invece di ' + P.mand + ': ' + (why.join(' e ') || 'i limiti') + '.');
+  }
+  if (!P.refuel && res.fuel[0] > P.tank) notes.push('Senza rifornimento servono ' + res.fuel[0] + ' L alla partenza, più del serbatoio (' + P.tank + ' L). Questa gara non si può fare senza rifornire.');
+  return {r: res, notes};
+}
+function openStrat() {
+  if (!needCtx('av')) return;
+  const perf = DB.perf[kk(A.id, V.id)], pk = kk(V.id, G.id);
+  let pt = DB.pits[pk] || {s: 60, st: 'predefinito'};
+  const main = perf ? (perf.cons.find(c => c.main) || perf.cons[0]) : null;
+  const tank = A.tank || '';
+  const info = perf && main
+    ? `Precompilato dai dati di questa auto: passo gara asciutto ${perf.paceD || 'mancante'}, consumo ${main.v} ${G.unit}, tempo di sosta ${pt.s} s (${pt.st}), serbatoio ${tank || 'mancante'}${tank ? ' L' : ''}.`
+    : 'Per questa auto su questo circuito mancano passo e consumo. Inseriscili qui sotto o salvali in Dati rapidi.';
+  const pstText = dirty => '<b>' + (dirty ? 'Non salvato' : pt.st.charAt(0).toUpperCase() + pt.st.slice(1)) + '</b> · ' + esc(G.name) + ' · ' + esc(varName()) + (!dirty && pt.st === 'copiato' && pt.from ? ' (da ' + esc(pt.from) + ')' : '');
+  sheet('Strategia gara', `<p class="meta">${esc(info)}</p><div class="zg">
+      <label class="f">Durata (minuti)<input id="zdur" inputmode="decimal" value="60"></label>
+      <label class="f">Passo gara<input id="zpace" value="${esc(perf ? perf.paceD : '')}" placeholder="m:ss.mmm"></label>
+      <label class="f">Consumo (${esc(G.unit)})<input id="zcons" inputmode="decimal" value="${esc(main ? main.v : '')}"></label>
+      <label class="f">Soste obbligatorie<input id="zmand" inputmode="numeric" value="1"></label>
+      <label class="f">Tempo di sosta (s)<input id="zpit" inputmode="numeric" value="${pt.s}"></label>
+      <label class="f">Serbatoio (L)<input id="ztank" inputmode="numeric" value="${esc(tank)}"></label>
+      <div class="full z2"><span id="zpst"></span><button class="sec2" id="zsave" type="button">Salva per questa pista</button></div>
+      <label class="f">Giro di formazione<select id="zform"><option value="none">Nessuno</option><option value="full">Completo</option><option value="short">Breve</option></select></label>
+      <label class="f">Rifornimento<select id="zref"><option value="1">Consentito</option><option value="0">Non consentito</option></select></label>
+      <div class="full z2"><label class="zc"><input type="checkbox" id="zmsOn"> Durata massima stint</label><label class="f zf dis" id="zmsw">Minuti<input id="zms" inputmode="decimal" value="45" disabled></label></div>
+      <div class="full z2"><label class="f">Margine<input id="zmg" inputmode="decimal" value="0"></label><label class="f">Unità<select id="zmgu"><option value="giri">Giri</option><option value="litri">Litri</option></select></label></div>
+    </div><div id="zout"></div>`, carNameFull());
+  const zr = () => {
+    const g = id => $(id).value;
+    const D = numP(g('zdur')), pace = paceP(g('zpace')), cons = numP(g('zcons')), pit = numP(g('zpit')), mand = numP(g('zmand')), tk = numP(g('ztank')), mg = numP(g('zmg'));
+    const msOn = $('zmsOn').checked, ms = msOn ? numP(g('zms')) : null, out = $('zout');
+    if ([D, pace, cons, pit, mand, tk, mg].some(v => v == null || v < 0) || D <= 0 || pace <= 0 || cons <= 0 || (msOn && (ms == null || ms <= 0))) {
+      out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
+    }
+    const P = {D: D * 60, pace, cons, pit, mand: Math.floor(mand), tank: tk, mg, mgu: g('zmgu'), form: g('zform'), refuel: g('zref') === '1', ms: ms != null ? ms * 60 : null};
+    const c = stratCalc(P), r = c.r;
+    let h = c.notes.map(n => `<div class="warn">${esc(n)}</div>`).join('');
+    h += `<div class="ztiles"><div class="tile"><div class="k">Giri di gara</div><div class="v">${r.n}</div><div class="s">passo tra ${fPace(r.low)}${r.high != null ? ' e ' + fPace(r.high) : ' e oltre'}</div></div>
+      <div class="tile"><div class="k">Durata stimata</div><div class="v">${fDur(r.dur)}</div><div class="s">${r.stops}${r.stops === 1 ? ' sosta' : ' soste'}</div></div></div><div class="rows">`;
+    r.st.forEach((laps, i) => {
+      h += `<div class="zst"><div><b>Stint ${i + 1}</b> · ${laps} giri${i === 0 && P.form === 'full' ? ' (compreso il giro di formazione)' : ''}</div><div class="r">${r.fuel[i]} L</div><div class="meta">${i === 0 ? 'alla partenza' : (P.refuel ? 'alla sosta ' + i : '')}</div><div></div></div>`;
+      if (i < r.pits.length) h += `<div class="zpit">Sosta ${i + 1} al giro ${r.pits[i][0]} · restano ${fMS(r.pits[i][1])}</div>`;
+    });
+    out.innerHTML = h + '</div>';
+  };
+  ['zdur', 'zpace', 'zcons', 'zpit', 'zmand', 'zms', 'ztank', 'zmg'].forEach(id => $(id).addEventListener('input', zr));
+  ['zform', 'zref', 'zmgu'].forEach(id => $(id).addEventListener('change', zr));
+  $('zmsOn').addEventListener('change', function () { $('zms').disabled = !this.checked; $('zmsw').classList.toggle('dis', !this.checked); zr(); });
+  const pst = () => { $('zpst').innerHTML = pstText(numP($('zpit').value) !== pt.s); };
+  $('zpit').addEventListener('input', pst);
+  $('zsave').addEventListener('click', () => {
+    const v = numP($('zpit').value);
+    if (v == null || v < 0) return toast('Scrivi un tempo di sosta valido');
+    pt = {s: v, st: 'misurato', u: now()}; DB.pits[pk] = pt; save(); pst(); toast('Tempo di sosta salvato');
+  });
+  pst(); zr();
+}
+
+/* ===================================================================
+   SCHEDA DATI (gruppi, auto, circuiti, pulsanti rapidi)
+   =================================================================== */
+function viewData() {
+  const groups = DB.groups.map(g => {
+    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, s) => t + s.params.length, 0);
+    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${esc(g.game)} · ${n} auto · ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun gruppo. Un gruppo raccoglie auto simili di un gioco, per esempio ACC GT3.</div>';
+  const cars = DB.cars.map(a => {
+    const g = DB.groups.find(x => x.id === a.gid);
+    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' · serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessuna auto.</div>';
+  const circuits = DB.circuits.map(c => {
+    const vs = DB.variants.filter(v => v.cid === c.id);
+    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun circuito. Ogni circuito ha una o più varianti, per esempio GT e F1 22.</div>';
+  return `<div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
+    <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
+    <div class="card"><div class="head"><h2>Circuiti</h2><button class="sec2" data-edit="circuit">+ Nuovo</button></div>${circuits}</div>
+    <div class="card"><div class="head"><h2>Pulsanti rapidi</h2><button class="sec2" data-act="quickedit">Modifica</button></div>
+      <p class="meta">Le scorciatoie che compaiono quando inserisci una staccata.</p>
+      <div class="chips">${DB.settings.quick.map(q => `<span class="chip">${esc(q.label)}</span>`).join('') || '<span class="meta">Nessun pulsante.</span>'}</div></div>`;
+}
+function editQuick() { UI.sh = {q: clone(DB.settings.quick)}; drawQuick(); }
+function drawQuick() {
+  const q = UI.sh.q;
+  sheet('Pulsanti rapidi', `<p class="meta">Se cambi il nome di un pulsante, puoi aggiornare anche le staccate in cui è già scritto.</p>
+    <div id="qlist" style="display:flex;flex-direction:column;gap:8px;margin:10px 0">${q.map((x, i) => `<div class="row2" data-qid="${x.id}"><input class="qn" value="${esc(x.label)}" aria-label="Pulsante"><button class="x" data-act="quickdel" data-i="${i}" aria-label="Elimina pulsante">✕</button></div>`).join('')}</div>
+    <div class="btns"><button class="sec2" data-act="quickadd">+ Pulsante</button></div>
+    <label class="zc" style="margin-top:10px"><input type="checkbox" id="qRep" checked> Aggiorna anche le staccate già inserite</label>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="quicksave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`);
+}
+function collectQuick() { document.querySelectorAll('#qlist [data-qid]').forEach(r => { const x = UI.sh.q.find(y => y.id === r.dataset.qid); if (x) x.label = r.querySelector('.qn').value.trim(); }); }
+function saveQuick() {
+  collectQuick();
+  const rep = $('qRep').checked, old = DB.settings.quick, nq = UI.sh.q.filter(x => x.label);
+  if (rep) {
+    const map = {};
+    nq.forEach(x => { const o = old.find(y => y.id === x.id); if (o && o.label !== x.label) map[o.label] = x.label; });
+    if (Object.keys(map).length) Object.values(DB.brakes).forEach(b => Object.values(b).forEach(s => {
+      if (map[s.dry]) { s.dry = map[s.dry]; s.u = now(); }
+      if (s.wet && map[s.wet]) { s.wet = map[s.wet]; s.u = now(); }
+    }));
+  }
+  DB.settings.quick = nq; save(); closeSheet(); render(); toast('Pulsanti salvati');
 }
 
 /* --- Gruppo auto --- */
@@ -385,7 +1011,7 @@ function editGroup(id, working) {
       <label class="f full">Nome della mappa motore<input id="gM" value="${esc(g.mapLabel)}"></label>
     </div>
     <h3>Parametri del setup</h3>
-    <p class="meta">Le sezioni e i parametri come appaiono nelle schermate del gioco. Si compilano una volta sola per gruppo.</p>
+    <p class="meta">Le sezioni e i parametri come appaiono nelle schermate del gioco. Si compilano una volta sola per gruppo. Se rinomini un parametro i valori già inseriti restano.</p>
     <div id="secs">${secs}</div>
     <div class="btns"><button class="sec2" data-eg="addsec">+ Sezione</button><button class="sec2" data-eg="paste">Incolla elenco</button></div>
     <div id="pasteBox" hidden style="margin-top:10px"><textarea id="pasteTx" placeholder="# Gomme&#10;Pressione ant. sx&#10;Pressione ant. dx&#10;# Elettronica&#10;TC1"></textarea>
@@ -433,12 +1059,11 @@ function groupAction(act, btn) {
     const n = DB.cars.filter(a => a.gid === g.id).length;
     if (!armed(btn, n ? `Conferma: elimina gruppo e ${n} auto` : 'Conferma eliminazione')) return;
     DB.cars.filter(a => a.gid === g.id).forEach(a => removeCar(a.id));
+    removeGroupData(g.id);
     DB.groups = DB.groups.filter(x => x.id !== g.id);
     save(); closeSheet(); render(); toast('Gruppo eliminato');
   }
 }
-/* I dati legati a un'auto (setup, note, tempi) si cancellano qui, quando esisteranno. */
-function removeCar(id) { DB.cars = DB.cars.filter(a => a.id !== id); }
 
 /* --- Auto --- */
 function editCar(id) {
@@ -466,7 +1091,7 @@ function carAction(act, btn) {
     save(); closeSheet(); render(); return toast('Auto salvata');
   }
   if (act === 'del') {
-    if (!armed(btn, 'Conferma eliminazione')) return;
+    if (!armed(btn, 'Conferma: cancella anche setup, note e dati')) return;
     removeCar(id); save(); closeSheet(); render(); toast('Auto eliminata');
   }
 }
@@ -474,31 +1099,42 @@ function carAction(act, btn) {
 /* --- Circuito e varianti --- */
 function editCircuit(id) {
   const c = id ? DB.circuits.find(x => x.id === id) : {id:null, name:''};
-  const vs = id ? DB.variants.filter(v => v.cid === id).map(v => ({id: v.id, name: v.name})) : [{id: uid(), name: ''}];
+  const vs = id ? DB.variants.filter(v => v.cid === id).map(v => ({id: v.id, name: v.name, isNew: false})) : [{id: uid(), name: '', isNew: true, from: ''}];
   UI.ec = {kind:'circuit', id: c.id, vs};
   drawCircuit(c.name);
 }
 function drawCircuit(name) {
-  const e = UI.ec, c = e.id ? DB.circuits.find(x => x.id === e.id) : {id: null};
+  const e = UI.ec;
+  const others = DB.variants.map(v => ({id: v.id, label: ((DB.circuits.find(c => c.id === v.cid) || {}).name || '') + ' ' + v.name}));
   sheet(e.id ? 'Modifica circuito' : 'Nuovo circuito', `
     <label class="f">Nome del circuito<input id="kN" value="${esc(name)}" placeholder="Barcellona"></label>
     <h3>Varianti</h3>
-    <p class="meta">Una variante è un tracciato o una versione del gioco, per esempio GT, F1 22.</p>
-    <div id="vars" style="display:flex;flex-direction:column;gap:8px">${e.vs.map((v, i) => `<div class="row2"><input class="vn" data-vid="${v.id}" value="${esc(v.name)}" placeholder="Nome variante" aria-label="Nome variante"><button class="x" data-ec="delvar" data-i="${i}" aria-label="Elimina variante">✕</button></div>`).join('')}</div>
+    <p class="meta">Una variante è un tracciato o una versione del gioco, per esempio GT, F1 22. Una nuova variante può partire dai dati di un'altra: disegno, curve, staccate, tempi di sosta e setup specifici.</p>
+    <div id="vars" style="display:flex;flex-direction:column;gap:12px">${e.vs.map((v, i) => `<div class="vrow" data-vid="${v.id}">
+      <div class="row2"><input class="vn" value="${esc(v.name)}" placeholder="Nome variante" aria-label="Nome variante"><button class="x" data-ec="delvar" data-i="${i}" aria-label="Elimina variante">✕</button></div>
+      ${v.isNew && others.length ? `<select class="vc" aria-label="Copia i dati da"><option value="">Nuova, senza dati</option>${others.map(o => `<option value="${o.id}"${v.from === o.id ? ' selected' : ''}>Copia i dati da ${esc(o.label)}</option>`).join('')}</select>` : ''}</div>`).join('')}</div>
     <div class="btns"><button class="sec2" data-ec="addvar">+ Variante</button></div>
     <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${e.id ? '<button class="sec2" data-ec="del">Elimina circuito</button>' : ''}</div>`);
 }
 function collectCircuit() {
   const e = UI.ec;
   e.name = $('kN').value.trim();
-  e.vs = [...document.querySelectorAll('#vars .vn')].map(i => ({id: i.dataset.vid, name: i.value.trim()}));
+  document.querySelectorAll('#vars .vrow').forEach(r => {
+    const v = e.vs.find(x => x.id === r.dataset.vid); if (!v) return;
+    v.name = r.querySelector('.vn').value.trim();
+    const sel = r.querySelector('.vc'); if (sel) v.from = sel.value;
+  });
 }
 function circuitAction(act, btn) {
   const e = UI.ec;
   if (act === 'cancel') return closeSheet();
   collectCircuit();
-  if (act === 'addvar') { e.vs.push({id: uid(), name: ''}); return drawCircuit(e.name); }
-  if (act === 'delvar') { e.vs.splice(+btn.dataset.i, 1); return drawCircuit(e.name); }
+  if (act === 'addvar') { e.vs.push({id: uid(), name: '', isNew: true, from: ''}); return drawCircuit(e.name); }
+  if (act === 'delvar') {
+    const v = e.vs[+btn.dataset.i];
+    if (!v.isNew && !armed(btn, 'Conferma: cancella anche i dati')) return;
+    e.vs.splice(+btn.dataset.i, 1); return drawCircuit(e.name);
+  }
   if (act === 'save') {
     const vs = e.vs.filter(v => v.name);
     if (!e.name) return toast('Scrivi il nome del circuito');
@@ -510,25 +1146,126 @@ function circuitAction(act, btn) {
     DB.variants.filter(v => v.cid === c.id && !keep.has(v.id)).forEach(v => removeVariant(v.id));
     vs.forEach(v => {
       const old = DB.variants.find(x => x.id === v.id);
-      if (old) { old.name = v.name; old.u = now(); } else DB.variants.push({id: v.id, cid: c.id, name: v.name, u: now()});
+      if (old) { old.name = v.name; old.u = now(); }
+      else { DB.variants.push({id: v.id, cid: c.id, name: v.name, u: now()}); if (v.from) copyVariantData(v.from, v.id); }
     });
     save(); closeSheet(); render(); return toast('Circuito salvato');
   }
   if (act === 'del') {
-    if (!armed(btn, 'Conferma eliminazione')) return;
+    if (!armed(btn, 'Conferma: cancella anche i dati')) return;
     DB.variants.filter(v => v.cid === e.id).forEach(v => removeVariant(v.id));
     DB.circuits = DB.circuits.filter(x => x.id !== e.id);
     save(); closeSheet(); render(); toast('Circuito eliminato');
   }
 }
-/* I dati legati a una variante (staccate, setup, note) si cancellano qui, quando esisteranno. */
-function removeVariant(id) { DB.variants = DB.variants.filter(v => v.id !== id); }
 
-/* ---------- Eventi ---------- */
+/* ===================================================================
+   SCHEDA BACKUP
+   =================================================================== */
+function viewBackup() {
+  const c = DB.settings.copies, canShare = !!(navigator.canShare && window.File);
+  const days = DB.settings.lastExport ? (Date.now() - Date.parse(DB.settings.lastExport)) / 86400e3 : null;
+  const late = !isEmpty(DB) && (days === null || days > 7);
+  let pend = '';
+  if (UI.pending) {
+    pend = `<div class="warn" style="margin-top:10px"><b>Ripristinare ${esc(UI.pending.label)}?</b>
+      <p style="margin:6px 0">Contiene ${esc(summary(UI.pending.data))}. Sostituisce i dati attuali (${esc(summary(DB))}). Prima salvo una copia interna di quelli attuali.</p>
+      <div class="btns" style="margin-top:6px"><button class="pri" data-bk="apply">Sostituisci i dati</button><button class="sec2" data-bk="cancel">Annulla</button></div></div>`;
+  }
+  return `<div class="card"><h2>Backup su file</h2>
+      <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
+      ${late ? '<div class="warn">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
+      <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button><button class="sec2" data-bk="pick">Ripristina da file</button></div>
+      <input type="file" id="fileIn" accept=".json,application/json" hidden>
+      ${canShare ? '<p class="meta" style="margin-top:8px">Condividi backup apre il menu di Android: scegli Drive per salvarlo nel cloud.</p>' : ''}
+      ${pend}</div>
+    <div class="card"><h2>Copie interne</h2>
+      <p class="meta">Copie automatiche dentro il browser, fatte quando apri l'app. Non sostituiscono il backup su file.</p>
+      <div class="grid" style="margin:10px 0">
+        <label class="f">Frequenza<select data-cp="every">
+          <option value="open"${c.every === 'open' ? ' selected' : ''}>Ad ogni apertura</option>
+          <option value="day"${c.every === 'day' ? ' selected' : ''}>Una al giorno</option>
+          <option value="week"${c.every === 'week' ? ' selected' : ''}>Una a settimana</option></select></label>
+        <label class="f">Quante tenerne<select data-cp="keep">${[3, 5, 10, 20].map(n => `<option${c.keep === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      </div>
+      <div id="copies"><p class="meta">Carico...</p></div></div>
+    <div class="card"><h2>Archivio</h2>
+      <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
+      <p class="meta">Dati: ${esc(summary(DB))}</p>
+      <p class="meta">App versione ${APP_V} · formato dati ${DATA_V}</p>
+      <div class="btns"><button class="sec2" data-bk="update">Controlla aggiornamenti</button></div></div>`;
+}
+function fillCopies() {
+  listCopies().then(list => {
+    const box = $('copies'); if (!box) return;
+    box.innerHTML = list.length
+      ? list.map(c => `<div class="item"><div><b>${esc(fdt(c.t))}</b><span class="meta">${esc(c.why)}</span></div><button class="ed" data-restore="${c.id}">Ripristina</button></div>`).join('')
+      : '<div class="empty">Ancora nessuna copia. La prima si crea quando ci sono dei dati.</div>';
+  });
+}
+
+/* ===================================================================
+   EVENTI
+   =================================================================== */
+const ACT = {
+  close: closeSheet,
+  draw: editDrawing, turns: editTurns, perf: editPerf, strat: openStrat, notes: openNotes,
+  later: () => { UI.placing = null; drawMap(); toast('Resta da posizionare: il promemoria è sopra la mappa'); },
+  move: () => { UI.move = !UI.move; UI.placing = null; drawMap(); },
+  setup: b => openSetup(b.dataset.cond),
+  setupmode: b => openSetup(b.dataset.cond, b.dataset.mode),
+  setupedit: b => editSetup(b.dataset.cond, b.dataset.scope),
+  setupsave: saveSetup,
+  setupback: () => openSetup(UI.sh.cond),
+  setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
+  openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
+  brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
+  quick: b => { $(b.dataset.to).value = b.dataset.v; },
+  turnadd: () => { collectTurns(); UI.tu.push({id: uid(), n: '', u: now()}); drawTurns(); },
+  turndel: b => { collectTurns(); UI.tu.splice(+b.dataset.i, 1); drawTurns(); },
+  turnpaste: () => { $('tpaste').hidden = !$('tpaste').hidden; },
+  turnpasteadd: () => { collectTurns(); $('tpTx').value.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => UI.tu.push({id: uid(), n: l, u: now()})); drawTurns(); },
+  turnsave: saveTurns,
+  drundo: () => { UI.dr.pts.pop(); drawDrSvg(); },
+  drclose: () => { UI.dr.closed = !UI.dr.closed; drawDrawing(); },
+  drreset: () => { UI.dr.pts = []; drawDrSvg(); },
+  drsave: saveDrawing,
+  pfadd: () => { collectPerf(); UI.pf.cons.push({map: '', v: '', main: !UI.pf.cons.length}); drawPerf(); },
+  pfdel: b => { collectPerf(); const [x] = UI.pf.cons.splice(+b.dataset.i, 1); if (x.main && UI.pf.cons.length) UI.pf.cons[0].main = true; drawPerf(); },
+  pfmain: b => { collectPerf(); UI.pf.cons.forEach((c, i) => { c.main = i === +b.dataset.i; }); drawPerf(); },
+  pfsave: savePerf,
+  noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
+  noteback: openNotes, notesave: saveNote,
+  notedel: b => { if (!armed(b, 'Conferma eliminazione')) return; DB.notes = DB.notes.filter(n => n.id !== UI.sh.note.id); save(); render(); toast('Nota eliminata'); openNotes(); },
+  quickedit: editQuick, quickadd: () => { collectQuick(); UI.sh.q.push({id: uid(), label: ''}); drawQuick(); },
+  quickdel: b => { collectQuick(); UI.sh.q.splice(+b.dataset.i, 1); drawQuick(); }, quicksave: saveQuick
+};
+const resetMapState = () => { UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; };
+
 document.addEventListener('click', e => {
   const t = e.target;
+  if (noClick) { noClick = false; return; }
   const tab = t.closest('[data-tab]'); if (tab) { UI.tab = tab.dataset.tab; UI.pending = null; render(); window.scrollTo(0, 0); return; }
   const go = t.closest('[data-go]'); if (go) { UI.tab = go.dataset.go; render(); window.scrollTo(0, 0); return; }
+  const zb = t.closest('[data-zoom]');
+  if (zb) { const z = zb.dataset.zoom; if (z === 'fit') { UI.vb = null; drawMap(); } else zoomBy(z === 'in' ? 1.5 : 1 / 1.5); return; }
+  const pl = t.closest('[data-place]'); if (pl) { UI.selTurn = pl.dataset.place; UI.placing = UI.selTurn; drawMap(); renderRows(); return; }
+  const msvg = t.closest('#mapBox svg');
+  if (msvg && UI.placing) {
+    const q = toSvg(e.clientX, e.clientY), tt = turnsOf().find(x => x.id === UI.placing), H = shapeH();
+    if (tt) { tt.x = clampN(Math.round(q.x), 0, 400); tt.y = clampN(Math.round(q.y), 0, H); tt.u = now(); }
+    const num = turnsOf().indexOf(tt) + 1;
+    UI.placing = null; save(); drawMap(); renderRows(); toast('Curva ' + num + ' posizionata'); return;
+  }
+  const dsv = t.closest('#drSvg');
+  if (dsv && UI.dr) {
+    const r = dsv.getBoundingClientRect();
+    UI.dr.pts.push([Math.round((e.clientX - r.left) / r.width * 400), Math.round((e.clientY - r.top) / r.height * UI.dr.h)]);
+    drawDrSvg(); return;
+  }
+  const mk = t.closest('[data-turn]'); if (mk) { pickTurn(mk.dataset.turn); return; }
+  const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) return ACT[ac.dataset.act](ac);
+  const row = t.closest('[data-row]'); if (row) { pickTurn(row.dataset.row); return; }
   const ed = t.closest('[data-edit]');
   if (ed) { const k = ed.dataset.edit; return k === 'group' ? editGroup(ed.dataset.id) : k === 'car' ? editCar(ed.dataset.id) : editCircuit(ed.dataset.id); }
   const eg = t.closest('[data-eg]'); if (eg && UI.eg) return groupAction(eg.dataset.eg, eg);
@@ -555,10 +1292,12 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'fileIn' && t.files[0]) { readBackupFile(t.files[0]); t.value = ''; return; }
+  if (t.id === 'photoIn' && t.files[0]) { loadPhoto(t.files[0]); t.value = ''; return; }
   if (t.dataset.sel) {
     const s = DB.settings.sel; s[t.dataset.sel] = t.value;
     if (t.dataset.sel === 'c') s.v = null;
     if (t.dataset.sel === 'g') s.a = null;
+    if (t.dataset.sel === 'c' || t.dataset.sel === 'v') resetMapState();
     save(); render(); return;
   }
   if (t.dataset.cp) {
@@ -566,11 +1305,16 @@ document.addEventListener('change', e => {
     save(); pruneCopies().then(fillCopies);
   }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('layer').firstChild) closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('layer').firstChild) closeSheet();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && e.target.dataset.turn) { e.preventDefault(); pickTurn(e.target.dataset.turn); }
+});
 
-/* ---------- Avvio ---------- */
+/* ===================================================================
+   AVVIO
+   =================================================================== */
 function start() {
-  $('ver').textContent = 'v' + APP_V + ' · prova';
+  $('ver').textContent = 'v' + APP_V;
   openArchive().then(db => { idb = db; return tx('kv', 'readonly', s => s.get('db')); })
     .catch(() => { memOnly = true; showNotice('Il browser non permette di salvare i dati (navigazione privata?). Apri Simapex in una finestra normale.'); return null; })
     .then(txt => {
@@ -578,6 +1322,7 @@ function start() {
         const d = JSON.parse(txt);
         DB = valid(d) ? migrate(d) : newDB();
         if (!valid(d)) showNotice('I dati salvati non erano leggibili: riparti da zero oppure ripristina un backup.');
+        else if (d.v !== DATA_V) save();
       } else DB = newDB();
       DB.settings.copies = DB.settings.copies || {every:'day', keep:5};
       render();
