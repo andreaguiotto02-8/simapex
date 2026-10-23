@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simapex</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#14161a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+/* Simapex 0.1 - Colori e dimensioni sono tutti qui sotto, in :root. */
+:root{
+  --bg:#14161a; --surface:#1f232a; --surface2:#262b34; --line:#343a45; --fg:#eceef2; --muted:#a4acba;
+  --accent:#ffb020; --on-accent:#14161a; --hl:#3a2d0c; --good:#5ec58a; --bad:#ff7a6b;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f3f4f6; --surface:#ffffff; --surface2:#eceef2; --line:#cfd4dc; --fg:#171a1f; --muted:#566070;
+    --accent:#b36b00; --on-accent:#ffffff; --hl:#fff0cc; --good:#1f7a48; --bad:#b3261e; color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.4;
+  padding:max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(86px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.wrap{max-width:760px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
+h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.01em}
+h2{font-size:18px;margin:0 0 8px;font-weight:700}
+h3{font-size:16px;margin:14px 0 6px}
+.ver{font-size:12px;color:var(--muted)}
+main{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.meta{font-size:13px;color:var(--muted)}
+p{margin:0 0 8px}
+button,input,select,textarea{font:inherit;color:var(--fg)}
+button{cursor:pointer}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;min-height:46px;padding:6px 10px;width:100%;min-width:0;font-size:16px}
+textarea{min-height:120px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);min-width:0}
+label.f input,label.f select{text-transform:none;letter-spacing:0;font-weight:600;color:var(--fg)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid .full{grid-column:1/-1}
+.pri{background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);border-radius:10px;min-height:48px;padding:6px 18px;font-weight:700}
+.sec2,.ed{background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:44px;padding:4px 14px;font-weight:600;font-size:14px}
+.sec2:hover,.ed:hover{border-color:var(--accent)}
+.x{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;min-width:44px;font-weight:700}
+.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.item b{display:block}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
+.empty{padding:14px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.head h2{margin:0}
+.sel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.steps{padding-left:20px;margin:0 0 10px}
+.steps li{margin-bottom:6px}
+.done{color:var(--good);font-weight:700}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:flex;
+  padding:6px max(10px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));gap:6px;z-index:5}
+.tab{flex:1;background:transparent;border:0;border-radius:10px;min-height:52px;font-weight:700;color:var(--muted);font-size:14px}
+.tab[aria-current="page"]{background:var(--hl);color:var(--accent)}
+.back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--bg);width:100%;max-width:700px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;border:1px solid var(--line);
+  padding:16px max(16px, env(safe-area-inset-left, 0px)) calc(24px + env(safe-area-inset-bottom, 0px))}
+.sh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
+.sh h3{font-size:20px;margin:0}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.row2{display:flex;gap:8px}
+.sn{font-weight:700}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom, 0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:40;font-size:14px;max-width:90vw;text-align:center}
+.banner{background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;font-size:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.warn{background:var(--hl);border:1px solid var(--accent);border-radius:10px;padding:8px 10px;font-size:14px}
+.ok{color:var(--good);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Simapex</h1><span class="ver" id="ver"></span></div>
+  <div id="notice"></div>
+  <main id="main"></main>
+</div>
+<nav aria-label="Sezioni">
+  <button class="tab" data-tab="home">Consulta</button>
+  <button class="tab" data-tab="data">Dati</button>
+  <button class="tab" data-tab="backup">Backup</button>
+</nav>
+<div id="layer"></div>
+
+<script>
+'use strict';
+/* ===================================================================
+   SIMAPEX - un solo file. Ordine: strumenti, archivio (IndexedDB),
+   backup, schermate, editor, eventi, avvio.
+   =================================================================== */
+
+const APP_V = '0.1';   // versione dell'app
+const DATA_V = 1;      // versione del formato dei dati
+// Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione
+// che porta i dati vecchi al formato nuovo. Esempio: MIGRATIONS[1] = db => { ... }  (da 1 a 2)
+const MIGRATIONS = {};
+
+/* ---------- Strumenti ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const now = () => new Date().toISOString();
+const clone = o => JSON.parse(JSON.stringify(o));
+const fdt = iso => {
+  if (!iso) return 'mai';
+  const d = new Date(iso);
+  return d.toLocaleDateString('it-IT', {day:'numeric', month:'short'}) + ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+};
+const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()); };
+
+let DB = null;                 // tutti i dati dell'utente
+const UI = {tab:'home'};       // stato dello schermo (non viene salvato)
+
+function toast(t) {
+  const e = document.createElement('div');
+  e.className = 'toast'; e.textContent = t; e.setAttribute('role', 'status');
+  document.body.appendChild(e);
+  setTimeout(() => e.remove(), 2600);
+}
+
+/* ---------- Archivio: IndexedDB ---------- */
+let idb = null, memOnly = false;
+
+function openArchive() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no idb'));
+    const r = indexedDB.open('simapex', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('copies', {keyPath:'id', autoIncrement:true}); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function tx(store, mode, fn) {
+  return new Promise((res, rej) => {
+    const t = idb.transaction(store, mode), rq = fn(t.objectStore(store));
+    t.oncomplete = () => res(rq ? rq.result : undefined);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+
+const newDB = () => ({
+  v: DATA_V, groups: [], cars: [], circuits: [], variants: [],
+  settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null},
+  u: now()
+});
+const isEmpty = d => !d.groups.length && !d.cars.length && !d.circuits.length;
+
+function migrate(d) {
+  while (d.v < DATA_V) { const f = MIGRATIONS[d.v]; if (f) f(d); d.v++; }
+  return d;
+}
+function valid(d) {
+  return d && typeof d === 'object' && typeof d.v === 'number' && d.v <= DATA_V &&
+    Array.isArray(d.groups) && Array.isArray(d.cars) && Array.isArray(d.circuits) && Array.isArray(d.variants) &&
+    d.settings && typeof d.settings === 'object';
+}
+
+let saveTimer = null;
+function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); }
+function flush() {
+  clearTimeout(saveTimer);
+  if (memOnly || !idb) return Promise.resolve();
+  return tx('kv', 'readwrite', s => s.put(JSON.stringify(DB), 'db'))
+    .catch(() => { memOnly = true; showNotice('Non riesco a salvare nel browser: i dati si perdono alla chiusura. Fai subito un backup.'); });
+}
+window.addEventListener('pagehide', flush);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+
+/* ---------- Copie interne ---------- */
+const listCopies = () => idb ? tx('copies', 'readonly', s => s.getAll()).then(l => l.sort((a, b) => a.t < b.t ? 1 : -1)) : Promise.resolve([]);
+function addCopy(why) {
+  if (!idb) return Promise.resolve();
+  return tx('copies', 'readwrite', s => s.add({t: now(), why, data: JSON.stringify(DB)})).then(pruneCopies);
+}
+function pruneCopies() {
+  return listCopies().then(list => {
+    const keep = DB.settings.copies.keep || 5, extra = list.slice(keep);
+    return extra.length ? tx('copies', 'readwrite', s => { extra.forEach(c => s.delete(c.id)); }) : null;
+  });
+}
+function maybeCopy() {
+  const c = DB.settings.copies;
+  return listCopies().then(list => {
+    const last = list.length ? Date.parse(list[0].t) : 0;
+    const gap = {open: 0, day: 20 * 3600e3, week: 6.5 * 86400e3}[c.every];
+    if (isEmpty(DB) || Date.now() - last < gap) return;
+    return addCopy('automatica');
+  });
+}
+
+/* ---------- Backup su file ---------- */
+const backupName = () => 'backup-simapex-' + today() + '.json';
+const backupText = () => JSON.stringify({app:'simapex', exported: now(), data: DB});
+function backupFile() { return new File([backupText()], backupName(), {type:'application/json'}); }
+
+function shareBackup() {
+  const f = backupFile();
+  if (!(navigator.canShare && navigator.canShare({files:[f]}))) { toast('Questo dispositivo non può condividere file: usa Scarica file.'); return; }
+  navigator.share({files:[f], title: backupName()})
+    .then(() => { DB.settings.lastExport = now(); save(); render(); toast('Backup condiviso'); })
+    .catch(e => { if (e && e.name !== 'AbortError') toast('Condivisione non riuscita: usa Scarica file.'); });
+}
+function downloadBackup() {
+  const url = URL.createObjectURL(backupFile()), a = document.createElement('a');
+  a.href = url; a.download = backupName(); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  DB.settings.lastExport = now(); save(); render(); toast('Backup scaricato nella cartella Download');
+}
+function readBackupFile(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const j = JSON.parse(r.result), d = j && j.app === 'simapex' ? j.data : null;
+      if (!valid(d)) throw new Error();
+      UI.pending = {data: d, label: file.name};
+      render();
+    } catch (e) { toast('Questo file non è un backup di Simapex valido.'); }
+  };
+  r.readAsText(file);
+}
+function summary(d) {
+  const n = (k, uno, molti) => k + ' ' + (k === 1 ? uno : molti);
+  return n(d.groups.length, 'gruppo auto', 'gruppi auto') + ', ' + d.cars.length + ' auto, ' + n(d.circuits.length, 'circuito', 'circuiti') + ', ' + n(d.variants.length, 'variante', 'varianti');
+}
+function applyRestore() {
+  const p = UI.pending; if (!p) return;
+  addCopy('prima del ripristino').then(() => {
+    DB = migrate(clone(p.data));
+    UI.pending = null;
+    return flush();
+  }).then(() => { render(); toast('Dati ripristinati'); });
+}
+
+/* ---------- Cascata di selezione (Consulta) ---------- */
+function fixSel() {
+  const s = DB.settings.sel || (DB.settings.sel = {});
+  const c = DB.circuits.find(x => x.id === s.c) || DB.circuits[0]; s.c = c ? c.id : null;
+  const vs = c ? DB.variants.filter(v => v.cid === c.id) : [];
+  const v = vs.find(x => x.id === s.v) || vs[0]; s.v = v ? v.id : null;
+  const g = DB.groups.find(x => x.id === s.g) || DB.groups[0]; s.g = g ? g.id : null;
+  const as = g ? DB.cars.filter(a => a.gid === g.id) : [];
+  const a = as.find(x => x.id === s.a) || as[0]; s.a = a ? a.id : null;
+}
+
+/* ---------- Schermate ---------- */
+function showNotice(t) { $('notice').innerHTML = t ? '<div class="warn" style="margin-bottom:12px">' + esc(t) + '</div>' : ''; }
+
+function render() {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
+  fixSel();
+  $('main').innerHTML = UI.tab === 'home' ? viewHome() : UI.tab === 'data' ? viewData() : viewBackup();
+  if (UI.tab === 'backup') fillCopies();
+}
+
+const opts = (list, cur) => list.map(x => `<option value="${x.id}"${x.id === cur ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+
+function viewHome() {
+  const ok = [DB.groups.length, DB.cars.length, DB.circuits.length && DB.variants.length];
+  if (!ok[0] || !ok[1] || !ok[2]) {
+    const step = (done, t) => `<li>${done ? '<span class="done">Fatto.</span> ' : ''}${t}</li>`;
+    return `<div class="card"><h2>Per cominciare</h2>
+      <p class="meta">Servono pochi dati di base. Si inseriscono nella scheda Dati.</p>
+      <ol class="steps">${step(ok[0], 'Crea un gruppo auto, per esempio ACC GT3.')}${step(ok[1], 'Crea un\'auto dentro il gruppo.')}${step(ok[2], 'Crea un circuito con almeno una variante.')}</ol>
+      <button class="pri" data-go="data">Vai a Dati</button></div>`;
+  }
+  const s = DB.settings.sel, c = DB.circuits.find(x => x.id === s.c), g = DB.groups.find(x => x.id === s.g);
+  const vs = DB.variants.filter(v => v.cid === c.id), as = DB.cars.filter(a => a.gid === g.id);
+  return `<div class="sel">
+      <label class="f">Circuito<select data-sel="c">${opts(DB.circuits, s.c)}</select></label>
+      <label class="f">Variante<select data-sel="v">${opts(vs, s.v)}</select></label>
+      <label class="f">Gruppo auto<select data-sel="g">${opts(DB.groups, s.g)}</select></label>
+      <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
+    </div>
+    <div class="card"><h2>In arrivo</h2>
+      <p class="meta">Mappa, staccate, dati rapidi, setup, note e strategia arrivano nelle prossime versioni. Questa versione serve a provare l'installazione, il salvataggio e il backup.</p></div>`;
+}
+
+function viewData() {
+  const groups = DB.groups.map(g => {
+    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, s) => t + s.params.length, 0);
+    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${esc(g.game)} · ${n} auto · ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun gruppo. Un gruppo raccoglie auto simili di un gioco, per esempio ACC GT3.</div>';
+
+  const cars = DB.cars.map(a => {
+    const g = DB.groups.find(x => x.id === a.gid);
+    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' · serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessuna auto.</div>';
+
+  const circuits = DB.circuits.map(c => {
+    const vs = DB.variants.filter(v => v.cid === c.id);
+    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun circuito. Ogni circuito ha una o più varianti, per esempio GT e F1 22.</div>';
+
+  return `<div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
+    <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
+    <div class="card"><div class="head"><h2>Circuiti</h2><button class="sec2" data-edit="circuit">+ Nuovo</button></div>${circuits}</div>`;
+}
+
+function viewBackup() {
+  const c = DB.settings.copies, canShare = !!(navigator.canShare && window.File);
+  const days = DB.settings.lastExport ? (Date.now() - Date.parse(DB.settings.lastExport)) / 86400e3 : null;
+  const late = !isEmpty(DB) && (days === null || days > 7);
+  let pend = '';
+  if (UI.pending) {
+    pend = `<div class="warn" style="margin-top:10px"><b>Ripristinare ${esc(UI.pending.label)}?</b>
+      <p style="margin:6px 0">Contiene ${esc(summary(UI.pending.data))}. Sostituisce i dati attuali (${esc(summary(DB))}). Prima salvo una copia interna di quelli attuali.</p>
+      <div class="btns" style="margin-top:6px"><button class="pri" data-bk="apply">Sostituisci i dati</button><button class="sec2" data-bk="cancel">Annulla</button></div></div>`;
+  }
+  return `<div class="card"><h2>Backup su file</h2>
+      <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
+      ${late ? '<div class="warn" style="margin-bottom:8px">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
+      <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button><button class="sec2" data-bk="pick">Ripristina da file</button></div>
+      <input type="file" id="fileIn" accept=".json,application/json" hidden>
+      ${canShare ? '<p class="meta" style="margin-top:8px">Condividi backup apre il menu di Android: scegli Drive per salvarlo nel cloud.</p>' : ''}
+      ${pend}</div>
+    <div class="card"><h2>Copie interne</h2>
+      <p class="meta">Copie automatiche dentro il browser, fatte quando apri l'app. Non sostituiscono il backup su file.</p>
+      <div class="grid" style="margin:10px 0">
+        <label class="f">Frequenza<select data-cp="every">
+          <option value="open"${c.every === 'open' ? ' selected' : ''}>Ad ogni apertura</option>
+          <option value="day"${c.every === 'day' ? ' selected' : ''}>Una al giorno</option>
+          <option value="week"${c.every === 'week' ? ' selected' : ''}>Una a settimana</option></select></label>
+        <label class="f">Quante tenerne<select data-cp="keep">${[3, 5, 10, 20].map(n => `<option${c.keep === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      </div>
+      <div id="copies"><p class="meta">Carico...</p></div></div>
+    <div class="card"><h2>Archivio</h2>
+      <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
+      <p class="meta">Dati: ${esc(summary(DB))}</p>
+      <p class="meta">App versione ${APP_V} · formato dati ${DATA_V}</p>
+      <div class="btns"><button class="sec2" data-bk="update">Controlla aggiornamenti</button></div></div>`;
+}
+
+function fillCopies() {
+  listCopies().then(list => {
+    const box = $('copies'); if (!box) return;
+    box.innerHTML = list.length
+      ? list.map(c => `<div class="item"><div><b>${esc(fdt(c.t))}</b><span class="meta">${esc(c.why)}</span></div><button class="ed" data-restore="${c.id}">Ripristina</button></div>`).join('')
+      : '<div class="empty">Ancora nessuna copia. La prima si crea quando ci sono dei dati.</div>';
+  });
+}
+
+/* ---------- Editor (finestre dal basso) ---------- */
+function sheet(title, inner) {
+  $('layer').innerHTML = `<div class="back" id="bk"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="sh"><h3>${esc(title)}</h3><button class="x" id="cl" aria-label="Chiudi">✕</button></div>${inner}</div></div>`;
+  $('cl').onclick = closeSheet;
+  $('bk').onclick = e => { if (e.target.id === 'bk') closeSheet(); };
+}
+function closeSheet() { $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; }
+
+/* Pulsante a due tocchi per le eliminazioni: il primo chiede conferma, il secondo esegue. */
+function armed(btn, text) {
+  if (btn.dataset.armed) return true;
+  btn.dataset.armed = '1'; btn.dataset.orig = btn.textContent; btn.textContent = text; btn.classList.add('danger');
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = btn.dataset.orig; btn.classList.remove('danger'); } }, 4000);
+  return false;
+}
+
+/* --- Gruppo auto --- */
+function editGroup(id, working) {
+  const g = working || (id ? clone(DB.groups.find(x => x.id === id)) : {id:null, name:'', game:'ACC', unit:'L/giro', mapLabel:'Mappa motore', sections:[]});
+  UI.eg = g;
+  const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
+      <div class="row2"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione"><button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
+      ${s.params.map((p, pi) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro"><button class="x" data-eg="delpar" data-si="${si}" data-pi="${pi}" aria-label="Elimina parametro">✕</button></div>`).join('')}
+      <button class="sec2" data-eg="addpar" data-si="${si}">+ Parametro</button></div>`).join('');
+  sheet(g.id ? 'Modifica gruppo' : 'Nuovo gruppo', `
+    <div class="grid">
+      <label class="f full">Nome<input id="gN" value="${esc(g.name)}" placeholder="ACC GT3"></label>
+      <label class="f">Gioco<input id="gG" value="${esc(g.game)}" list="games"><datalist id="games"><option>ACC</option><option>F1</option><option>Le Mans Ultimate</option></datalist></label>
+      <label class="f">Unità di consumo<input id="gU" value="${esc(g.unit)}"></label>
+      <label class="f full">Nome della mappa motore<input id="gM" value="${esc(g.mapLabel)}"></label>
+    </div>
+    <h3>Parametri del setup</h3>
+    <p class="meta">Le sezioni e i parametri come appaiono nelle schermate del gioco. Si compilano una volta sola per gruppo.</p>
+    <div id="secs">${secs}</div>
+    <div class="btns"><button class="sec2" data-eg="addsec">+ Sezione</button><button class="sec2" data-eg="paste">Incolla elenco</button></div>
+    <div id="pasteBox" hidden style="margin-top:10px"><textarea id="pasteTx" placeholder="# Gomme&#10;Pressione ant. sx&#10;Pressione ant. dx&#10;# Elettronica&#10;TC1"></textarea>
+      <p class="meta">Una riga per parametro. Le righe che iniziano con # sono nomi di sezione.</p>
+      <button class="sec2" data-eg="pasteadd">Aggiungi all'elenco</button></div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-eg="save">Salva</button><button class="sec2" data-eg="cancel">Annulla</button>${g.id ? '<button class="sec2" data-eg="del">Elimina gruppo</button>' : ''}</div>`);
+}
+function collectGroup() {
+  const g = UI.eg;
+  g.name = $('gN').value.trim(); g.game = $('gG').value.trim(); g.unit = $('gU').value.trim(); g.mapLabel = $('gM').value.trim();
+  g.sections = [...document.querySelectorAll('#secs .sec')].map(el => ({
+    id: el.dataset.sid, name: el.querySelector('.sn').value.trim(),
+    params: [...el.querySelectorAll('.pn')].map(i => ({id: i.dataset.pid, label: i.value.trim()}))
+  }));
+}
+function groupAction(act, btn) {
+  const g = UI.eg;
+  if (act === 'cancel') return closeSheet();
+  collectGroup();
+  const si = +btn.dataset.si, pi = +btn.dataset.pi;
+  if (act === 'addsec') { g.sections.push({id: uid(), name: '', params: []}); return editGroup(g.id, g); }
+  if (act === 'addpar') { g.sections[si].params.push({id: uid(), label: ''}); return editGroup(g.id, g); }
+  if (act === 'delsec') { g.sections.splice(si, 1); return editGroup(g.id, g); }
+  if (act === 'delpar') { g.sections[si].params.splice(pi, 1); return editGroup(g.id, g); }
+  if (act === 'paste') { $('pasteBox').hidden = !$('pasteBox').hidden; return; }
+  if (act === 'pasteadd') {
+    $('pasteBox').hidden = true;
+    let cur = g.sections[g.sections.length - 1];
+    $('pasteTx').value.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+      if (l[0] === '#') { cur = {id: uid(), name: l.replace(/^#+\s*/, ''), params: []}; g.sections.push(cur); }
+      else { if (!cur) { cur = {id: uid(), name: 'Generale', params: []}; g.sections.push(cur); } cur.params.push({id: uid(), label: l}); }
+    });
+    return editGroup(g.id, g);
+  }
+  if (act === 'save') {
+    if (!g.name) return toast('Scrivi il nome del gruppo');
+    g.sections = g.sections.map(s => ({...s, params: s.params.filter(p => p.label)})).filter(s => s.name || s.params.length);
+    g.sections.forEach(s => { if (!s.name) s.name = 'Generale'; });
+    g.u = now();
+    const i = DB.groups.findIndex(x => x.id === g.id);
+    if (i >= 0) DB.groups[i] = g; else { g.id = uid(); DB.groups.push(g); }
+    save(); closeSheet(); render(); return toast('Gruppo salvato');
+  }
+  if (act === 'del') {
+    const n = DB.cars.filter(a => a.gid === g.id).length;
+    if (!armed(btn, n ? `Conferma: elimina gruppo e ${n} auto` : 'Conferma eliminazione')) return;
+    DB.cars.filter(a => a.gid === g.id).forEach(a => removeCar(a.id));
+    DB.groups = DB.groups.filter(x => x.id !== g.id);
+    save(); closeSheet(); render(); toast('Gruppo eliminato');
+  }
+}
+/* I dati legati a un'auto (setup, note, tempi) si cancellano qui, quando esisteranno. */
+function removeCar(id) { DB.cars = DB.cars.filter(a => a.id !== id); }
+
+/* --- Auto --- */
+function editCar(id) {
+  if (!DB.groups.length) { toast('Crea prima un gruppo auto'); return; }
+  const a = id ? DB.cars.find(x => x.id === id) : {id:null, name:'', gid: DB.settings.sel.g || DB.groups[0].id, tank:''};
+  UI.ec = {kind:'car', id: a.id};
+  sheet(a.id ? 'Modifica auto' : 'Nuova auto', `
+    <div class="grid">
+      <label class="f full">Nome<input id="cN" value="${esc(a.name)}" placeholder="Ferrari 296 GT3"></label>
+      <label class="f">Gruppo<select id="cG">${opts(DB.groups, a.gid)}</select></label>
+      <label class="f">Serbatoio (litri)<input id="cT" inputmode="decimal" value="${esc(a.tank)}"></label>
+    </div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${a.id ? '<button class="sec2" data-ec="del">Elimina auto</button>' : ''}</div>`);
+}
+function carAction(act, btn) {
+  const id = UI.ec.id;
+  if (act === 'cancel') return closeSheet();
+  if (act === 'save') {
+    const name = $('cN').value.trim(), tank = $('cT').value.trim().replace(',', '.');
+    if (!name) return toast('Scrivi il nome dell\'auto');
+    if (tank && !(parseFloat(tank) > 0)) return toast('Il serbatoio deve essere un numero');
+    const rec = id ? DB.cars.find(x => x.id === id) : {id: uid()};
+    Object.assign(rec, {name, gid: $('cG').value, tank, u: now()});
+    if (!id) DB.cars.push(rec);
+    save(); closeSheet(); render(); return toast('Auto salvata');
+  }
+  if (act === 'del') {
+    if (!armed(btn, 'Conferma eliminazione')) return;
+    removeCar(id); save(); closeSheet(); render(); toast('Auto eliminata');
+  }
+}
+
+/* --- Circuito e varianti --- */
+function editCircuit(id) {
+  const c = id ? DB.circuits.find(x => x.id === id) : {id:null, name:''};
+  const vs = id ? DB.variants.filter(v => v.cid === id).map(v => ({id: v.id, name: v.name})) : [{id: uid(), name: ''}];
+  UI.ec = {kind:'circuit', id: c.id, vs};
+  drawCircuit(c.name);
+}
+function drawCircuit(name) {
+  const e = UI.ec, c = e.id ? DB.circuits.find(x => x.id === e.id) : {id: null};
+  sheet(e.id ? 'Modifica circuito' : 'Nuovo circuito', `
+    <label class="f">Nome del circuito<input id="kN" value="${esc(name)}" placeholder="Barcellona"></label>
+    <h3>Varianti</h3>
+    <p class="meta">Una variante è un tracciato o una versione del gioco, per esempio GT, F1 22.</p>
+    <div id="vars" style="display:flex;flex-direction:column;gap:8px">${e.vs.map((v, i) => `<div class="row2"><input class="vn" data-vid="${v.id}" value="${esc(v.name)}" placeholder="Nome variante" aria-label="Nome variante"><button class="x" data-ec="delvar" data-i="${i}" aria-label="Elimina variante">✕</button></div>`).join('')}</div>
+    <div class="btns"><button class="sec2" data-ec="addvar">+ Variante</button></div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${e.id ? '<button class="sec2" data-ec="del">Elimina circuito</button>' : ''}</div>`);
+}
+function collectCircuit() {
+  const e = UI.ec;
+  e.name = $('kN').value.trim();
+  e.vs = [...document.querySelectorAll('#vars .vn')].map(i => ({id: i.dataset.vid, name: i.value.trim()}));
+}
+function circuitAction(act, btn) {
+  const e = UI.ec;
+  if (act === 'cancel') return closeSheet();
+  collectCircuit();
+  if (act === 'addvar') { e.vs.push({id: uid(), name: ''}); return drawCircuit(e.name); }
+  if (act === 'delvar') { e.vs.splice(+btn.dataset.i, 1); return drawCircuit(e.name); }
+  if (act === 'save') {
+    const vs = e.vs.filter(v => v.name);
+    if (!e.name) return toast('Scrivi il nome del circuito');
+    if (!vs.length) return toast('Aggiungi almeno una variante');
+    let c = e.id ? DB.circuits.find(x => x.id === e.id) : null;
+    if (!c) { c = {id: uid()}; DB.circuits.push(c); }
+    c.name = e.name; c.u = now();
+    const keep = new Set(vs.map(v => v.id));
+    DB.variants.filter(v => v.cid === c.id && !keep.has(v.id)).forEach(v => removeVariant(v.id));
+    vs.forEach(v => {
+      const old = DB.variants.find(x => x.id === v.id);
+      if (old) { old.name = v.name; old.u = now(); } else DB.variants.push({id: v.id, cid: c.id, name: v.name, u: now()});
+    });
+    save(); closeSheet(); render(); return toast('Circuito salvato');
+  }
+  if (act === 'del') {
+    if (!armed(btn, 'Conferma eliminazione')) return;
+    DB.variants.filter(v => v.cid === e.id).forEach(v => removeVariant(v.id));
+    DB.circuits = DB.circuits.filter(x => x.id !== e.id);
+    save(); closeSheet(); render(); toast('Circuito eliminato');
+  }
+}
+/* I dati legati a una variante (staccate, setup, note) si cancellano qui, quando esisteranno. */
+function removeVariant(id) { DB.variants = DB.variants.filter(v => v.id !== id); }
+
+/* ---------- Eventi ---------- */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const tab = t.closest('[data-tab]'); if (tab) { UI.tab = tab.dataset.tab; UI.pending = null; render(); window.scrollTo(0, 0); return; }
+  const go = t.closest('[data-go]'); if (go) { UI.tab = go.dataset.go; render(); window.scrollTo(0, 0); return; }
+  const ed = t.closest('[data-edit]');
+  if (ed) { const k = ed.dataset.edit; return k === 'group' ? editGroup(ed.dataset.id) : k === 'car' ? editCar(ed.dataset.id) : editCircuit(ed.dataset.id); }
+  const eg = t.closest('[data-eg]'); if (eg && UI.eg) return groupAction(eg.dataset.eg, eg);
+  const ec = t.closest('[data-ec]'); if (ec && UI.ec) return UI.ec.kind === 'car' ? carAction(ec.dataset.ec, ec) : circuitAction(ec.dataset.ec, ec);
+  const bk = t.closest('[data-bk]');
+  if (bk) {
+    const a = bk.dataset.bk;
+    if (a === 'share') return shareBackup();
+    if (a === 'download') return downloadBackup();
+    if (a === 'pick') return $('fileIn').click();
+    if (a === 'apply') return applyRestore();
+    if (a === 'cancel') { UI.pending = null; return render(); }
+    if (a === 'update') {
+      if (!navigator.serviceWorker) return toast('Aggiornamenti non disponibili in questo browser');
+      return navigator.serviceWorker.getRegistration().then(r => r ? r.update().then(() => toast('Controllo fatto. Se c\'è una versione nuova ti avviso.')) : toast('Installazione offline non ancora attiva'));
+    }
+  }
+  const rs = t.closest('[data-restore]');
+  if (rs) listCopies().then(l => {
+    const c = l.find(x => x.id === +rs.dataset.restore); if (!c) return;
+    UI.pending = {data: JSON.parse(c.data), label: 'la copia del ' + fdt(c.t)}; render(); window.scrollTo(0, 0);
+  });
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'fileIn' && t.files[0]) { readBackupFile(t.files[0]); t.value = ''; return; }
+  if (t.dataset.sel) {
+    const s = DB.settings.sel; s[t.dataset.sel] = t.value;
+    if (t.dataset.sel === 'c') s.v = null;
+    if (t.dataset.sel === 'g') s.a = null;
+    save(); render(); return;
+  }
+  if (t.dataset.cp) {
+    DB.settings.copies[t.dataset.cp] = t.dataset.cp === 'keep' ? +t.value : t.value;
+    save(); pruneCopies().then(fillCopies);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('layer').firstChild) closeSheet(); });
+
+/* ---------- Avvio ---------- */
+function start() {
+  $('ver').textContent = 'v' + APP_V + ' · prova';
+  openArchive().then(db => { idb = db; return tx('kv', 'readonly', s => s.get('db')); })
+    .catch(() => { memOnly = true; showNotice('Il browser non permette di salvare i dati (navigazione privata?). Apri Simapex in una finestra normale.'); return null; })
+    .then(txt => {
+      if (txt) {
+        const d = JSON.parse(txt);
+        DB = valid(d) ? migrate(d) : newDB();
+        if (!valid(d)) showNotice('I dati salvati non erano leggibili: riparti da zero oppure ripristina un backup.');
+      } else DB = newDB();
+      DB.settings.copies = DB.settings.copies || {every:'day', keep:5};
+      render();
+      if (idb) maybeCopy();
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(p => { UI.persisted = p; if (UI.tab === 'backup') render(); });
+    });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    const had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (had) $('notice').innerHTML = '<div class="banner" style="margin-bottom:12px"><span>Nuova versione pronta.</span><button class="sec2" onclick="location.reload()">Ricarica</button></div>';
+    });
+  }
+}
+start();
+</script>
+</body>
+</html>
