@@ -175,7 +175,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.5';   // versione dell'app
+const APP_V = '0.5.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -468,8 +468,8 @@ function drawMap() {
   const H = sh.h || 240, vb = getVB(), k = vb.w / 400, vh = vb.w * H / 400, turns = turnsOf();
   const d = pathFrom(sh.pts, sh.closed !== false);
   let s = `<svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vh}" style="touch-action:${(vb.w < 400 || UI.move) ? 'none' : 'pan-y'}${UI.placing ? ';cursor:crosshair' : UI.move ? ';cursor:move' : ''}" role="img" aria-label="Mappa del circuito con le curve numerate">`;
-  s += `<path d="${d}" fill="none" stroke="var(--track-edge)" stroke-width="20" stroke-linejoin="round" stroke-linecap="round"/>`;
-  s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--track-edge)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   const miss = [];
   turns.forEach((t, i) => {
     if (t.x == null) { miss.push({id: t.id, n: i + 1}); return; }
@@ -1329,8 +1329,8 @@ function openCatalog() {
     UI.cat = cat;
     const all = gVariants().map(v => ({v, label: ((DB.circuits.find(c => c.id === v.cid) || {}).name || '') + ' ' + v.name}));
     const rows = cat.circuits.map((e, i) => {
-      const m = catMatch(e), def = m ? (hasShape(m) ? 'skip' : m.id) : 'new';
-      return `<div class="f2"><span><b>${esc(e.name)}</b> \u00b7 ${esc(e.variant)}</span><select data-cat="${i}"><option value="skip"${def === 'skip' ? ' selected' : ''}>Non toccare</option><option value="new"${def === 'new' ? ' selected' : ''}>Crea nuova pista</option>${all.map(o => `<option value="${o.v.id}"${def === o.v.id ? ' selected' : ''}>Disegna su: ${esc(o.label)}${hasShape(o.v) ? ' (sostituisce il disegno)' : ''}</option>`).join('')}</select></div>`;
+      const m = catMatch(e), old = m && hasShape(m) && m.shape.cv && m.shape.cv < cat.v, def = m ? (hasShape(m) && !old ? 'skip' : m.id) : 'new';
+      return `<div class="f2"><span><b>${esc(e.name)}</b> \u00b7 ${esc(e.variant)}</span><select data-cat="${i}"><option value="skip"${def === 'skip' ? ' selected' : ''}>Non toccare</option><option value="new"${def === 'new' ? ' selected' : ''}>Crea nuova pista</option>${all.map(o => `<option value="${o.v.id}"${def === o.v.id ? ' selected' : ''}>Disegna su: ${esc(o.label)}${hasShape(o.v) ? ' (sostituisce il disegno)' : ''}${def === o.v.id && hasShape(o.v) ? ' \u00b7 versione pi\u00f9 pulita' : ''}</option>`).join('')}</select></div>`;
     }).join('');
     sheet('Catalogo piste', `<p class="meta">Piste gi\u00e0 disegnate. Per ognuna ho scelto la pista che hai gi\u00e0 nell'app; puoi cambiarla. Le curve (numeri e nomi) restano come sono.</p><div style="margin-top:10px">${rows}</div>
       <div class="btns"><button class="pri" data-act="catapply">Applica</button><button class="sec2" data-act="close">Annulla</button></div>`, 'Gioco: ' + GAME.name);
@@ -1349,7 +1349,7 @@ function applyCatalog() {
       else { v = {id: uid(), cid: c.id, name: e.variant, games: [GAME.id], u: now()}; DB.variants.push(v); }
     } else v = DB.variants.find(x => x.id === val);
     if (!v) return;
-    v.shape = {pts: clone(e.shape.pts), closed: e.shape.closed, h: e.shape.h, photo: null, turns: ((v.shape && v.shape.turns) || []).map(t => ({id: t.id, n: t.n, u: now()}))};
+    v.shape = {pts: clone(e.shape.pts), closed: e.shape.closed, h: e.shape.h, photo: null, cv: UI.cat.v, turns: ((v.shape && v.shape.turns) || []).map(t => ({id: t.id, n: t.n, u: now()}))};
     n++;
   });
   save(); closeSheet(); resetMapState(); render(); toast(n + (n === 1 ? ' pista disegnata' : ' piste disegnate'));
