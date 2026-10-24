@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.10';   // versione dell'app
+const APP_V = '0.11';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1462,9 +1462,104 @@ function applyCatalog() {
   save(); closeSheet(); resetMapState(); render(); toast(n + (n === 1 ? ' pista disegnata' : ' piste disegnate'));
 }
 
+/* --- Parametri predefiniti per gioco (modificabili dopo averli caricati) --- */
+const SETUP_TEMPLATES = {
+  acc: {label: 'ACC GT3', text: `# Elettronica
+TC1
+TC2
+ABS
+Mappa motore
+# Carburante e strategia
+Carburante (L)
+Set gomme
+Pastiglie freno ant.
+Pastiglie freno post.
+# Gomme
+## Ant. sx
+Pressione
+Campanatura
+Convergenza
+Incidenza
+## Ant. dx
+Pressione
+Campanatura
+Convergenza
+Incidenza
+## Post. sx
+Pressione
+Campanatura
+Convergenza
+## Post. dx
+Pressione
+Campanatura
+Convergenza
+# Meccanica
+Barra antirollio ant.
+Barra antirollio post.
+Rapporto di sterzo
+Ripartizione frenata
+Potenza frenata
+Precarico differenziale
+## Ant. sx
+Rigidità molla
+Rigidità finecorsa
+Corsa finecorsa
+## Ant. dx
+Rigidità molla
+Rigidità finecorsa
+Corsa finecorsa
+## Post. sx
+Rigidità molla
+Rigidità finecorsa
+Corsa finecorsa
+## Post. dx
+Rigidità molla
+Rigidità finecorsa
+Corsa finecorsa
+# Ammortizzatori
+## Ant. sx
+Compressione lenta
+Compressione rapida
+Estensione lenta
+Estensione rapida
+## Ant. dx
+Compressione lenta
+Compressione rapida
+Estensione lenta
+Estensione rapida
+## Post. sx
+Compressione lenta
+Compressione rapida
+Estensione lenta
+Estensione rapida
+## Post. dx
+Compressione lenta
+Compressione rapida
+Estensione lenta
+Estensione rapida
+# Aerodinamica
+Altezza da terra ant.
+Altezza da terra post.
+Ala posteriore
+Splitter
+Condotti freni ant.
+Condotti freni post.`}
+};
+const tplFor = name => SETUP_TEMPLATES[(name || '').trim().toLowerCase()];
+function parseOutline(text) {
+  const out = []; let sec = null, cur = null;
+  text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+    if (l.startsWith('##')) { if (!sec) { sec = {id: uid(), name: 'Generale', params: [], subs: []}; out.push(sec); } cur = {id: uid(), name: l.replace(/^#+\s*/, ''), params: []}; sec.subs.push(cur); }
+    else if (l[0] === '#') { sec = {id: uid(), name: l.replace(/^#+\s*/, ''), params: [], subs: []}; out.push(sec); cur = sec; }
+    else { if (!cur) { sec = {id: uid(), name: 'Generale', params: [], subs: []}; out.push(sec); cur = sec; } cur.params.push({id: uid(), label: l}); }
+  });
+  return out;
+}
+
 /* --- Gruppo auto --- */
 function editGroup(id, working) {
   const g = working || (id ? clone(DB.groups.find(x => x.id === id)) : {id:null, name:'', gameId: GAME.id, unit:'L/giro', mapLabel:'Mappa motore', sections:[]});
+  if (!id && !working) { const tp = tplFor(GAME.name); if (tp) g.sections = parseOutline(tp.text); }
   UI.eg = g;
   const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro"><button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
   const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
@@ -1485,7 +1580,7 @@ function editGroup(id, working) {
     <h3>Parametri del setup</h3>
     <p class="meta">Le sezioni (e le sottosezioni, per esempio Gomme → Ant. sx) e i parametri come appaiono nelle schermate del gioco. Si compilano una volta sola per gruppo. Se rinomini un parametro i valori già inseriti restano.</p>
     <div id="secs">${secs}</div>
-    <div class="btns"><button class="sec2" data-eg="addsec">+ Sezione</button><button class="sec2" data-eg="paste">Incolla elenco</button></div>
+    <div class="btns"><button class="sec2" data-eg="addsec">+ Sezione</button><button class="sec2" data-eg="paste">Incolla elenco</button>${tplFor((DB.games.find(x => x.id === g.gameId) || GAME).name) ? '<button class="sec2" data-eg="tpl">Carica parametri predefiniti</button>' : ''}</div>
     <div id="pasteBox" hidden style="margin-top:10px"><textarea id="pasteTx" placeholder="# Gomme&#10;## Ant. sx&#10;Pressione&#10;Camber&#10;## Ant. dx&#10;Pressione&#10;# Elettronica&#10;TC1"></textarea>
       <p class="meta">Una riga per parametro. # = sezione, ## = sottosezione.</p>
       <button class="sec2" data-eg="pasteadd">Aggiungi all'elenco</button></div>
@@ -1513,6 +1608,11 @@ function groupAction(act, btn) {
   if (act === 'delsub') { g.sections[si].subs.splice(bi, 1); return editGroup(g.id, g); }
   if (act === 'delsec') { g.sections.splice(si, 1); return editGroup(g.id, g); }
   if (act === 'delpar') { tgt().params.splice(pi, 1); return editGroup(g.id, g); }
+  if (act === 'tpl') {
+    const tp = tplFor((DB.games.find(x => x.id === g.gameId) || GAME).name); if (!tp) return;
+    if (g.sections.some(x => x.params.length || (x.subs || []).length) && !armed(btn, 'Sostituisco i parametri attuali: conferma')) return;
+    g.sections = parseOutline(tp.text); return editGroup(g.id, g);
+  }
   if (act === 'paste') { $('pasteBox').hidden = !$('pasteBox').hidden; return; }
   if (act === 'pasteadd') {
     $('pasteBox').hidden = true;
