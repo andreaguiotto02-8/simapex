@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.8.2';   // versione dell'app
+const APP_V = '0.9';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -640,14 +640,15 @@ function viewHome() {
         <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
       </div>
       <div class="map" id="mapBox"></div>
-      <div><div class="head"><h2>Dati rapidi</h2><button class="sec2" data-act="perf">Modifica</button></div><div class="tiles">${tilesHtml()}</div></div>
+      <div><div class="head"><h2>Dati rapidi</h2><span class="meta">tocca un riquadro per modificarlo</span></div><div class="tiles">${tilesHtml()}</div></div>
       <div class="btns3">${btnsHtml()}</div>
     </div>
     <div class="col"><div class="head"><h2>Staccate</h2><span style="display:flex;gap:8px"><button class="sec2" data-act="dict">Detta</button><button class="sec2" data-act="turns">Curve</button></span></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
 }
 
 function tilesHtml() {
-  const tile = (k, v, s) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const parts = {'Giro veloce': 'lap', 'Passo gara': 'pace', 'Consumo': 'cons'};
+  const tile = (k, v, s) => `<button class="tile" data-act="perf" data-part="${parts[k]}" style="text-align:left;font:inherit;color:inherit" aria-label="Modifica ${k.toLowerCase()}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></button>`;
   const p = A && V ? DB.perf[kk(A.id, V.id)] : null;
   if (!p) return tile('Giro veloce', '—', 'nessun dato') + tile('Passo gara', '—', 'nessun dato') + tile('Consumo', '—', 'nessun dato');
   const main = p.cons.find(c => c.main) || p.cons[0];
@@ -1076,31 +1077,35 @@ function saveDrawing() {
 
 /* --- Dati rapidi: giro, passo, consumo --- */
 const TIME_RE = /^\d+:\d{2}(\.\d{1,3})?$/;
-function editPerf() {
+function editPerf(part) {
   if (!needCtx('av')) return;
+  UI.pfPart = typeof part === 'string' ? part : 'all';
   UI.pf = clone(DB.perf[kk(A.id, V.id)] || {lapD:'', lapW:'', paceD:'', paceW:'', cons:[]});
   drawPerf();
 }
 function drawPerf() {
   const p = UI.pf, mapL = G.mapLabel || 'Mappa';
   const rows = p.cons.map((c, i) => `<div class="row2" data-ci="${i}"><input class="cm" value="${esc(c.map)}" placeholder="${esc(mapL)}" aria-label="${esc(mapL)}"><input class="cv" inputmode="decimal" value="${esc(c.v)}" placeholder="${esc(G.unit)}" aria-label="Consumo"><button class="sec2" data-act="pfmain" data-i="${i}" aria-pressed="${!!c.main}" style="flex:none">Principale</button><button class="x" data-act="pfdel" data-i="${i}" aria-label="Elimina prova">✕</button></div>`).join('');
-  sheet('Dati rapidi', `
+  const pt = UI.pfPart || 'all', showLap = pt === 'all' || pt === 'lap', showPace = pt === 'all' || pt === 'pace', showCons = pt === 'all' || pt === 'cons';
+  const ttl = pt === 'lap' ? 'Giro veloce' : pt === 'pace' ? 'Passo gara' : pt === 'cons' ? 'Consumo' : 'Dati rapidi';
+  sheet(ttl, `
     <div class="zg">
-      <label class="f">Giro veloce asciutto<input id="pLD" value="${esc(p.lapD)}" placeholder="1:43.210"></label>
-      <label class="f">Giro veloce bagnato<input id="pLW" value="${esc(p.lapW)}" placeholder="1:52.800"></label>
-      <label class="f">Passo gara asciutto<input id="pPD" value="${esc(p.paceD)}" placeholder="1:45.900"></label>
-      <label class="f">Passo gara bagnato<input id="pPW" value="${esc(p.paceW)}" placeholder="1:55.100"></label>
+      ${showLap ? `<label class="f">Giro veloce asciutto<input id="pLD" value="${esc(p.lapD)}" placeholder="1:43.210"></label>
+      <label class="f">Giro veloce bagnato<input id="pLW" value="${esc(p.lapW)}" placeholder="1:52.800"></label>` : ''}
+      ${showPace ? `<label class="f">Passo gara asciutto<input id="pPD" value="${esc(p.paceD)}" placeholder="1:45.900"></label>
+      <label class="f">Passo gara bagnato<input id="pPW" value="${esc(p.paceW)}" placeholder="1:55.100"></label>` : ''}
     </div>
-    <h3>Consumo (${esc(G.unit)})</h3>
+    ${showCons ? `<h3>Consumo (${esc(G.unit)})</h3>
     <p class="meta">Una riga per ogni prova, con la sua ${esc(mapL.toLowerCase())}. Quella segnata Principale appare nella schermata.</p>
     <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
-    <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>
+    <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>` : ''}
     <div class="btns" style="margin-top:16px"><button class="pri" data-act="pfsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
 }
 const carNameFull = () => (A ? A.name : '') + ' · ' + varName();
 function collectPerf() {
   const p = UI.pf;
-  p.lapD = $('pLD').value.trim(); p.lapW = $('pLW').value.trim(); p.paceD = $('pPD').value.trim(); p.paceW = $('pPW').value.trim();
+  const gv = (id, k) => { if ($(id)) p[k] = $(id).value.trim(); };
+  gv('pLD', 'lapD'); gv('pLW', 'lapW'); gv('pPD', 'paceD'); gv('pPW', 'paceW');
   document.querySelectorAll('#clist [data-ci]').forEach(r => { const c = p.cons[+r.dataset.ci]; c.map = r.querySelector('.cm').value.trim(); c.v = r.querySelector('.cv').value.trim(); });
 }
 function savePerf() {
@@ -1680,7 +1685,7 @@ function fillCopies() {
 const ACT = {
   dict: openDict, dictmic: dictMic, dictparse: dictParse, dictsave: dictSave,
   close: closeSheet,
-  draw: editDrawing, turns: editTurns, perf: editPerf, strat: openStrat, notes: openNotes,
+  draw: editDrawing, turns: editTurns, perf: b => editPerf(b && b.dataset ? b.dataset.part : 'all'), strat: openStrat, notes: openNotes,
   later: () => { UI.placing = null; drawMap(); toast('Resta da posizionare: il promemoria è sopra la mappa'); },
   move: () => { UI.move = !UI.move; UI.edit = false; UI.placing = null; drawMap(); },
   edit: () => { UI.edit = !UI.edit; UI.move = false; UI.placing = null; UI.selPt = null; UI.undo = []; drawMap(); },
