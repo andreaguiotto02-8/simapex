@@ -176,7 +176,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.6';   // versione dell'app
+const APP_V = '0.7';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -468,9 +468,13 @@ function drawMap() {
   }
   const H = sh.h || 240, vb = getVB(), k = vb.w / 400, vh = vb.w * H / 400, turns = turnsOf();
   const d = pathFrom(sh.pts, sh.closed !== false);
-  let s = `<svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vh}" style="touch-action:${(vb.w < 400 || UI.move) ? 'none' : 'pan-y'}${UI.placing ? ';cursor:crosshair' : UI.move ? ';cursor:move' : ''}" role="img" aria-label="Mappa del circuito con le curve numerate">`;
+  let s = `<svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vh}" style="touch-action:${(vb.w < 400 || UI.move || UI.edit) ? 'none' : 'pan-y'}${UI.placing ? ';cursor:crosshair' : UI.move ? ';cursor:move' : ''}" role="img" aria-label="Mappa del circuito con le curve numerate">`;
   s += `<path d="${d}" fill="none" stroke="var(--track-edge)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>`;
   s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (UI.edit) sh.pts.forEach((q, i) => {
+    const on = UI.selPt === i;
+    s += `<g data-pt="${i}"><circle cx="${q[0]}" cy="${q[1]}" r="${(7 * k).toFixed(1)}" fill="transparent"/><circle cx="${q[0]}" cy="${q[1]}" r="${((on ? 7 : 4.5) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : '#fff'}" stroke="${on ? '#fff' : 'var(--accent)'}" stroke-width="${(1.8 * k).toFixed(1)}" pointer-events="none"/></g>`;
+  });
   const miss = [];
   turns.forEach((t, i) => {
     if (t.x == null) { miss.push({id: t.id, n: i + 1}); return; }
@@ -481,7 +485,9 @@ function drawMap() {
   });
   s += '</svg>';
   let ban = '';
-  if (UI.placing) {
+  if (UI.edit) {
+    ban = `<div class="ban"><span><b>Modifica punti.</b> Trascina un punto per spostarlo, tocca la linea per aggiungerne uno, tocca un punto e poi Elimina per toglierlo. Con troppi punti ravvicinati usa Meno punti o ingrandisci.</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" data-act="ptdel"${UI.selPt == null ? ' disabled' : ''}>Elimina punto</button><button class="chip" data-act="ptsimp">Meno punti</button><button class="chip" data-act="ptundo"${(UI.undo || []).length ? '' : ' disabled'}>Annulla</button><button class="chip" data-act="edit">Fine</button></span></div>`;
+  } else if (UI.placing) {
     const pn = turns.findIndex(t => t.id === UI.placing) + 1;
     ban = `<div class="ban"><b>Tocca la mappa dove va il numero ${pn}</b><button class="sec2" data-act="later">Sistemare più tardi</button></div>`;
   } else if (UI.move) {
@@ -490,7 +496,7 @@ function drawMap() {
     ban = `<div class="ban"><span><b>Curve da posizionare:</b> ${miss.map(m => m.n).join(', ')}</span><span style="display:flex;gap:6px;flex-wrap:wrap">${miss.map(m => `<button class="chip" data-place="${m.id}">Posiziona ${m.n}</button>`).join('')}</span></div>`;
   }
   const scopeBar = V.games.length > 1 ? `<div class="ban"><span>Pista condivisa con ${esc(V.games.filter(x => x !== GAME.id).map(gameName).join(', '))}</span><label style="display:flex;align-items:center;gap:6px;font-size:14px">Modifiche per <select data-scope style="width:auto;min-height:40px"><option value="all"${UI.scope !== 'this' ? ' selected' : ''}>tutti i giochi</option><option value="this"${UI.scope === 'this' ? ' selected' : ''}>solo ${esc(GAME.name)}</option></select></label></div>` : '';
-  const tb = `<div class="mt"><button data-zoom="out" aria-label="Riduci">−</button><button data-zoom="in" aria-label="Ingrandisci">+</button><button data-zoom="fit">Adatta</button><button data-act="move" aria-pressed="${!!UI.move}">Sposta numeri</button><button data-act="draw">Ridisegna</button></div>`;
+  const tb = `<div class="mt"><button data-zoom="out" aria-label="Riduci">−</button><button data-zoom="in" aria-label="Ingrandisci">+</button><button data-zoom="fit">Adatta</button><button data-act="move" aria-pressed="${!!UI.move}">Sposta numeri</button><button data-act="edit" aria-pressed="${!!UI.edit}">Modifica punti</button><button data-act="draw">Ridisegna</button></div>`;
   box.innerHTML = scopeBar + tb + ban + s;
 }
 function zoomBy(f, cx, cy) {
@@ -512,6 +518,8 @@ document.addEventListener('pointerdown', e => {
   if (ids.length === 2) {
     const a = ptrs[ids[0]], b = ptrs[ids[1]];
     pinch = {d: Math.hypot(a.x - b.x, a.y - b.y) || 1, w: vb.w}; drag = null;
+  } else if (UI.edit && e.target.closest('[data-pt]')) {
+    UI.selPt = +e.target.closest('[data-pt]').dataset.pt; drag = {pt: UI.selPt};
   } else if (UI.move && e.target.closest('[data-turn]')) {
     if (ownVariant()) render();
     drag = {id: e.target.closest('[data-turn]').dataset.turn};
@@ -540,6 +548,10 @@ document.addEventListener('pointermove', e => {
     const u = vb.w / mapSvg().getBoundingClientRect().width, H = shapeH();
     vb.x -= dx * u; vb.y -= dy * u; fitVB();
     mapSvg().setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.w * H / 400}`);
+  } else if (drag.pt != null) {
+    if (!drag.snap) { if (ownVariant()) { render(); } pushUndo(); drag.snap = true; }
+    const q = toSvg(e.clientX, e.clientY), pt = V.shape.pts[drag.pt]; if (!pt) return;
+    pt[0] = clampN(Math.round(q.x * 10) / 10, 0, 400); pt[1] = clampN(Math.round(q.y * 10) / 10, 0, shapeH()); drag.ptDirty = true; drawMap();
   } else if (drag.id) {
     const q = toSvg(e.clientX, e.clientY), t = turnsOf().find(x => x.id === drag.id), H = shapeH();
     if (!t) return;
@@ -553,6 +565,7 @@ function endPtr(e) {
   delete ptrs[e.pointerId];
   if (Object.keys(ptrs).length < 2) pinch = null;
   if (moved) { noClick = true; setTimeout(() => { noClick = false; }, 80); }
+  if (drag && drag.ptDirty && V) { V.u = now(); save(); }
   if (drag && drag.dirty) { const t = turnsOf().find(x => x.id === drag.id); if (t) t.u = now(); save(); }
   if (!Object.keys(ptrs).length) drag = null;
 }
@@ -564,6 +577,21 @@ document.addEventListener('wheel', e => {
   e.preventDefault(); const q = toSvg(e.clientX, e.clientY); zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, q.x, q.y);
 }, {passive: false});
 
+function pushUndo() { (UI.undo = UI.undo || []).push(clone(V.shape.pts)); if (UI.undo.length > 30) UI.undo.shift(); }
+function addPointAt(q) {
+  const P = V.shape.pts, n = P.length, closed = V.shape.closed !== false, k = getVB().w / 400;
+  let best = null;
+  for (let i = 0, segs = closed ? n : n - 1; i < segs; i++) {
+    const a = P[i], b = P[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1;
+    const t = clampN(((q.x - a[0]) * dx + (q.y - a[1]) * dy) / l2, 0, 1), px = a[0] + t * dx, py = a[1] + t * dy, d = Math.hypot(q.x - px, q.y - py);
+    if (!best || d < best.d) best = {d, i, px, py};
+  }
+  if (!best || best.d > 16 * k) return false;
+  if (ownVariant()) render();
+  pushUndo();
+  V.shape.pts.splice(best.i + 1, 0, [Math.round(best.px * 10) / 10, Math.round(best.py * 10) / 10]);
+  UI.selPt = best.i + 1; V.u = now(); save(); drawMap(); return true;
+}
 function pickTurn(id) {
   const t = turnsOf().find(x => x.id === id);
   if (t && t.x == null && V.shape.pts && V.shape.pts.length > 2) { UI.selTurn = id; UI.placing = id; drawMap(); renderRows(); const b = $('mapBox'); if (b) b.scrollIntoView({block:'center', behavior:'smooth'}); return; }
@@ -1594,7 +1622,23 @@ const ACT = {
   close: closeSheet,
   draw: editDrawing, turns: editTurns, perf: editPerf, strat: openStrat, notes: openNotes,
   later: () => { UI.placing = null; drawMap(); toast('Resta da posizionare: il promemoria è sopra la mappa'); },
-  move: () => { UI.move = !UI.move; UI.placing = null; drawMap(); },
+  move: () => { UI.move = !UI.move; UI.edit = false; UI.placing = null; drawMap(); },
+  edit: () => { UI.edit = !UI.edit; UI.move = false; UI.placing = null; UI.selPt = null; UI.undo = []; drawMap(); },
+  ptdel: () => {
+    if (UI.selPt == null) return toast('Tocca prima un punto');
+    if (V.shape.pts.length <= 4) return toast('Servono almeno 4 punti');
+    if (ownVariant()) render();
+    pushUndo(); V.shape.pts.splice(UI.selPt, 1); UI.selPt = null; V.u = now(); save(); drawMap();
+  },
+  ptsimp: () => {
+    if (V.shape.pts.length < 24) return toast('Ci sono già pochi punti');
+    if (ownVariant()) render();
+    pushUndo(); V.shape.pts = V.shape.pts.filter((_, i) => i % 2 === 0); UI.selPt = null; V.u = now(); save(); drawMap(); toast(V.shape.pts.length + ' punti');
+  },
+  ptundo: () => {
+    const u = (UI.undo || []).pop(); if (!u) return;
+    V.shape.pts = u; UI.selPt = null; V.u = now(); save(); drawMap();
+  },
   setup: b => openSetup(b.dataset.cond),
   setupmode: b => openSetup(b.dataset.cond, b.dataset.mode),
   setupedit: b => editSetup(b.dataset.cond, b.dataset.scope),
@@ -1627,7 +1671,7 @@ const ACT = {
   quickedit: editQuick, quickadd: () => { collectQuick(); UI.sh.q.push({id: uid(), label: ''}); drawQuick(); },
   quickdel: b => { collectQuick(); UI.sh.q.splice(+b.dataset.i, 1); drawQuick(); }, quicksave: saveQuick
 };
-const resetMapState = () => { UI.scope = 'all'; UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; };
+const resetMapState = () => { UI.scope = 'all'; UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; UI.edit = false; UI.selPt = null; UI.undo = []; };
 
 document.addEventListener('click', e => {
   const t = e.target;
@@ -1650,6 +1694,12 @@ document.addEventListener('click', e => {
     const r = dsv.getBoundingClientRect(), x = Math.round((e.clientX - r.left) / r.width * 400), y = Math.round((e.clientY - r.top) / r.height * UI.dr.h);
     if (UI.dr.auto) { UI.dr.seed = [x, y]; UI.dr.warn = 'Cerco la pista...'; drawDrSvg(); runAuto(); return; }
     UI.dr.pts.push([x, y]); drawDrSvg(); return;
+  }
+  if (msvg && UI.edit) {
+    const h = t.closest('[data-pt]');
+    if (h) { UI.selPt = +h.dataset.pt; drawMap(); return; }
+    if (!addPointAt(toSvg(e.clientX, e.clientY))) { UI.selPt = null; drawMap(); }
+    return;
   }
   const mk = t.closest('[data-turn]'); if (mk) { pickTurn(mk.dataset.turn); return; }
   const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) return ACT[ac.dataset.act](ac);
