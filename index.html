@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.11';   // versione dell'app
+const APP_V = '0.12';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1132,10 +1132,32 @@ function savePerf() {
 }
 
 /* --- Setup: visualizzazione e modifica --- */
+function carSections() {   // i parametri del gruppo, meno quelli che questa auto non ha, piu' gli extra dell'auto
+  const hide = (A && A.hide) || {}, f = l => l.filter(p => !hide[p.id]);
+  const out = G.sections.map(x => ({...x, params: f(x.params), subs: (x.subs || []).map(b => ({...b, params: f(b.params)})).filter(b => b.params.length)})).filter(x => x.params.length || x.subs.length);
+  if (A && A.extra && A.extra.length) out.push({id: 'extra', name: 'Extra di questa auto', params: A.extra.map(e => ({id: e.id, label: e.label})), subs: []});
+  return out;
+}
+function openCarParams(cond) {
+  if (!needCtx('av')) return;
+  UI.cp = {cond, extra: clone(A.extra || [])};
+  drawCarParams();
+}
+function drawCarParams() {
+  const hide = A.hide || {}, chk = p => `<label class="par" style="gap:10px;justify-content:flex-start"><input type="checkbox" data-hid="${p.id}"${hide[p.id] ? '' : ' checked'} style="width:22px;height:22px;flex:none"><span class="l">${esc(p.label)}</span></label>`;
+  const body = G.sections.map(x => `<details><summary><span>${esc(x.name)}</span></summary>${x.params.map(chk).join('')}${(x.subs || []).map(b => `<div class="subh">${esc(b.name)}</div>${b.params.map(chk).join('')}`).join('')}</details>`).join('');
+  const ex = UI.cp.extra.map((e, i) => `<div class="row2" data-xi="${i}"><input class="xn" value="${esc(e.label)}" placeholder="Nome parametro" aria-label="Parametro extra"><button class="x" data-act="cpdel" data-i="${i}" aria-label="Elimina">✕</button></div>`).join('');
+  sheet('Parametri di ' + A.name, `<p class="meta">Togli la spunta ai parametri che questa auto non ha: spariscono solo da questa auto. In fondo puoi aggiungere parametri che hanno solo lei. I valori già inseriti non vengono cancellati.</p>
+    ${body}<h3>Extra di questa auto</h3><div id="xlist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${ex}</div>
+    <div class="btns"><button class="sec2" data-act="cpadd">+ Parametro extra</button></div>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="cpsave">Salva</button><button class="sec2" data-act="cpback">Annulla</button></div>`, carNameFull());
+  document.querySelectorAll('.sheet details').forEach(d => { if ([...d.querySelectorAll('[data-hid]')].some(i => !i.checked)) d.open = true; });
+}
+function collectCarParams() { document.querySelectorAll('#xlist [data-xi]').forEach(r => { UI.cp.extra[+r.dataset.xi].label = r.querySelector('.xn').value.trim(); }); }
 function openSetup(cond, mode) {
   if (!needCtx('av')) return;
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
-  if (!G.sections.length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili in Dati, modificando il gruppo.</div>', sub);
+  if (!carSections().length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili in Dati, modificando il gruppo.</div>', sub);
   const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
   if (!gen && !sp) {
     return sheet('Setup ' + cname, `<div class="empty">Nessun setup ${cname} inserito per questa auto.</div>
@@ -1148,7 +1170,7 @@ function openSetup(cond, mode) {
   else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
   html += '<div class="seg"><button class="sec2" id="openAll" data-act="openall" aria-pressed="false">Apri tutto</button></div>';
   let total = 0;
-  G.sections.forEach(sec => {
+  carSections().forEach(sec => {
     let cnt = 0, rows = '';
     const addRows = list => list.forEach(p => {
       const g = baseGen[p.id], ch = mode === 'spec' && sp && sp.vals[p.id] != null && sp.vals[p.id] !== g;
@@ -1163,7 +1185,7 @@ function openSetup(cond, mode) {
   });
   const d = mode === 'spec' && sp ? sp.u : gen && gen.u;
   html += `<p class="meta">Modificato ${fd(d)}${mode === 'spec' ? ' · ' + total + ' valori diversi dal generale' : ''}</p>
-    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button></div>`;
+    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="carparams" data-cond="${cond}">Parametri di questa auto</button></div>`;
   sheet('Setup ' + cname, html, sub);
 }
 function editSetup(cond, scope) {
@@ -1177,7 +1199,7 @@ function editSetup(cond, scope) {
     ? '<p class="meta">Compila tutti i valori del setup generale di questa auto.</p>'
     : '<p class="meta">Scrivi solo i valori diversi dal generale. I campi vuoti usano il valore generale, mostrato in grigio.</p>';
   if (scope === 'gen' && cond === 'wet' && dryGen && Object.keys(dryGen).length) html += '<div class="btns" style="margin:0 0 10px"><button class="sec2" data-act="setupcopy">Parti dall\'asciutto</button></div>';
-  G.sections.forEach(sec => {
+  carSections().forEach(sec => {
     const inp = (p, pre) => `<div class="par"><span class="l">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></div>`;
     html += `<details open><summary><span>${esc(sec.name)}</span></summary>` + sec.params.map(p => inp(p)).join('') + (sec.subs || []).map(b => `<div class="subh">${esc(b.name)}</div>` + b.params.map(p => inp(p, b.name)).join('')).join('') + '</details>';
   });
@@ -1822,6 +1844,16 @@ const ACT = {
   setupedit: b => editSetup(b.dataset.cond, b.dataset.scope),
   setupsave: saveSetup,
   setupback: () => openSetup(UI.sh.cond),
+  carparams: b => openCarParams(b.dataset.cond),
+  cpadd: () => { collectCarParams(); const hid = {...(A.hide || {})}; document.querySelectorAll('[data-hid]').forEach(i => { if (!i.checked) hid[i.dataset.hid] = true; else delete hid[i.dataset.hid]; }); A.hide = hid; UI.cp.extra.push({id: uid(), label: ''}); drawCarParams(); },
+  cpdel: b => { collectCarParams(); UI.cp.extra.splice(+b.dataset.i, 1); drawCarParams(); },
+  cpback: () => openSetup(UI.cp.cond),
+  cpsave: () => {
+    collectCarParams();
+    const hide = {}; document.querySelectorAll('[data-hid]').forEach(i => { if (!i.checked) hide[i.dataset.hid] = true; });
+    A.hide = hide; A.extra = UI.cp.extra.filter(e => e.label); A.u = now();
+    save(); const c = UI.cp.cond; render(); openSetup(c); toast('Parametri di questa auto salvati');
+  },
   setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
   openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
