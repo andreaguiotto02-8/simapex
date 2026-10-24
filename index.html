@@ -176,7 +176,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.8';   // versione dell'app
+const APP_V = '0.8.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -480,8 +480,9 @@ function drawMap() {
     if (t.x == null) { miss.push({id: t.id, n: i + 1}); return; }
     const on = UI.selTurn === t.id;
     s += `<g class="mk" data-turn="${t.id}" tabindex="0" role="button" aria-label="Curva ${i + 1}${t.n ? ', ' + esc(t.n) : ''}">`;
-    s += `<circle cx="${t.x}" cy="${t.y}" r="${((on ? 15 : 11) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : 'var(--fg)'}"/>`;
-    s += `<text x="${t.x}" y="${(t.y + 5 * k).toFixed(1)}" font-size="${((on ? 16 : 13) * k).toFixed(1)}" font-weight="700" text-anchor="middle" fill="${on ? 'var(--on-accent)' : 'var(--bg)'}" font-family="var(--font)">${i + 1}</text></g>`;
+    s += `<circle cx="${t.x}" cy="${t.y}" r="${(13 * k).toFixed(1)}" fill="transparent"/>`;
+    s += `<circle cx="${t.x}" cy="${t.y}" r="${((on ? 9 : 6.5) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : 'var(--fg)'}"/>`;
+    s += `<text x="${t.x}" y="${(t.y + 3.4 * k).toFixed(1)}" font-size="${((on ? 10.5 : 8.5) * k).toFixed(1)}" font-weight="700" text-anchor="middle" fill="${on ? 'var(--on-accent)' : 'var(--bg)'}" font-family="var(--font)">${i + 1}</text></g>`;
   });
   s += '</svg>';
   let ban = '';
@@ -557,7 +558,7 @@ document.addEventListener('pointermove', e => {
     if (!t) return;
     t.x = clampN(Math.round(q.x), 0, 400); t.y = clampN(Math.round(q.y), 0, H); drag.dirty = true;
     const g = document.querySelector(`#mapBox [data-turn="${drag.id}"]`);
-    if (g) { const kk2 = vb.w / 400; g.querySelector('circle').setAttribute('cx', t.x); g.querySelector('circle').setAttribute('cy', t.y); g.querySelector('text').setAttribute('x', t.x); g.querySelector('text').setAttribute('y', t.y + 5 * kk2); }
+    if (g) { const kk2 = vb.w / 400; g.querySelectorAll('circle').forEach(c => { c.setAttribute('cx', t.x); c.setAttribute('cy', t.y); }); g.querySelector('text').setAttribute('x', t.x); g.querySelector('text').setAttribute('y', t.y + 3.4 * kk2); }
   }
 });
 function endPtr(e) {
