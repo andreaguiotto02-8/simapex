@@ -175,7 +175,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.4';   // versione dell'app
+const APP_V = '0.5';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -824,31 +824,73 @@ function pruneSpurs(m, W, H, maxLen) {         // toglie i rametti corti
     }
   }
 }
-function walkSkel(m, W, H, sx, sy) {           // percorre la linea in ordine partendo dal punto toccato, andando dritto agli incroci
-  let start = -1, bd = 1e9, total = 0;
-  for (let i = 0; i < m.length; i++) if (m[i]) { total++; const d = Math.hypot(i % W - sx, Math.floor(i / W) - sy); if (d < bd) { bd = d; start = i; } }
-  if (start < 0) return null;
-  const seen = new Uint8Array(m.length); seen[start] = 1;
-  const go = from => {
-    const path = [from]; let cur = from;
+function walkSkel(m, W, H, sx, sy) {           // ordina la linea: percorre ogni pezzo e poi unisce i pezzi spezzati (frecce, linee del traguardo, scritte)
+  const MAXGAP = 110, L = labelComps(m, W, H, 1), nc = L.sizes.length;
+  const first = new Int32Array(nc).fill(-1), ep = new Int32Array(nc).fill(-1);
+  let total = 0;
+  for (let i = 0; i < m.length; i++) if (m[i]) { total++; const c = L.lab[i]; if (first[c] < 0) first[c] = i; if (ep[c] < 0 && nbrs(m, W, i).length === 1) ep[c] = i; }
+  if (!total) return null;
+  const px = i => i % W, py = i => Math.floor(i / W), dist = (p, q) => Math.hypot(px(p) - px(q), py(p) - py(q));
+  const seen = new Uint8Array(m.length);
+  const go = from => {                               // va avanti sempre il più dritto possibile
+    const path = [from]; seen[from] = 1; let cur = from;
     for (;;) {
       const ns = nbrs(m, W, cur).filter(n => !seen[n]); if (!ns.length) break;
       let best = ns[0];
       if (ns.length > 1 && path.length > 6) {
-        const a = path[path.length - 6], ax = cur % W - a % W, ay = Math.floor(cur / W) - Math.floor(a / W);
+        const a = path[path.length - 6], ax = px(cur) - px(a), ay = py(cur) - py(a);
         let bs = -9;
-        ns.forEach(n => { const dx = n % W - cur % W, dy = Math.floor(n / W) - Math.floor(cur / W), sc = (dx * ax + dy * ay) / (Math.hypot(dx, dy) * Math.hypot(ax, ay) || 1) - (dx && dy ? 0.01 : 0); if (sc > bs) { bs = sc; best = n; } });
+        ns.forEach(n => { const dx = px(n) - px(cur), dy = py(n) - py(cur), sc = (dx * ax + dy * ay) / (Math.hypot(dx, dy) * Math.hypot(ax, ay) || 1) - (dx && dy ? 0.01 : 0); if (sc > bs) { bs = sc; best = n; } });
       }
       seen[best] = 1; path.push(best); cur = best;
     }
     return path;
   };
-  let path = go(start);
-  let closed = Math.hypot(path[0] % W - path[path.length - 1] % W, Math.floor(path[0] / W) - Math.floor(path[path.length - 1] / W)) <= 4 && path.length > 20;
-  if (!closed) path = go(start).reverse().concat(path.slice(1));      // tracciato aperto: percorre anche dall'altra parte
-  const cov = new Uint8Array(m.length); path.forEach(i => { cov[i] = 1; nbrs(m, W, i).forEach(j => { cov[j] = 1; }); });
-  let c = 0; for (let i = 0; i < m.length; i++) if (m[i] && cov[i]) c++;
-  return {pts: path.map(i => [i % W, Math.floor(i / W)]), closed, coverage: c / total};
+  const endDir = (p, e) => { const a = p[e ? p.length - 1 : 0], b = p[e ? Math.max(0, p.length - 13) : Math.min(p.length - 1, 12)]; return [px(a) - px(b), py(a) - py(b)]; };
+  let chains = [];                                   // {p: pixel in ordine, closed}
+  for (let c = 1; c < nc; c++) {
+    if (first[c] < 0 || L.sizes[c] < 8) continue;
+    let st = first[c], sd = 1e9;                       // si parte dal punto del pezzo più vicino a quello toccato e si va nei due sensi
+    for (let i = 0; i < m.length; i++) if (m[i] && L.lab[i] === c) { const d = Math.hypot(px(i) - sx, py(i) - sy); if (d < sd) { sd = d; st = i; } }
+    const p1 = go(st), p2 = go(st), p = p2.length > 1 ? p2.reverse().concat(p1.slice(1)) : p1;
+    if (p.length < 8) continue;
+    chains.push({p, closed: dist(p[0], p[p.length - 1]) <= 4 && p.length > 40});
+  }
+  for (let i = 0; i < m.length; i++) {               // rami rimasti fuori dal primo giro (incroci, tratti vicini): diventano pezzi da unire
+    if (!m[i] || seen[i]) continue;
+    const p1 = go(i), p2 = go(i), p = p2.length > 1 ? p2.reverse().concat(p1.slice(1)) : p1;
+    if (p.length >= 15) chains.push({p, closed: false});
+  }
+  if (!chains.length) return null;
+  const covered = chains.reduce((t, c) => t + c.p.length, 0);
+  for (;;) {                                         // unisce le due estremità più vicine, finché sono vicine abbastanza
+    let best = null, bd = MAXGAP + 1;
+    const open = chains.filter(c => !c.closed);
+    for (let i = 0; i < open.length; i++) for (let j = i; j < open.length; j++) {
+      const A = open[i], B = open[j];
+      if (i === j && A.p.length < 100) continue;
+      for (const ea of [0, 1]) for (const eb of [0, 1]) {
+        if (i === j && !(ea === 0 && eb === 1)) continue;
+        const pa = A.p[ea ? A.p.length - 1 : 0], pb = B.p[eb ? B.p.length - 1 : 0], d = dist(pa, pb);
+        if (d >= bd) continue;
+        if (d > 30) {                                // salto lungo: le due estremità devono "guardarsi"
+          const da = endDir(A.p, ea), db = endDir(B.p, eb), vx = px(pb) - px(pa), vy = py(pb) - py(pa);
+          if ((da[0] * vx + da[1] * vy) / (d * (Math.hypot(da[0], da[1]) || 1)) < 0.3) continue;
+          if ((-db[0] * vx - db[1] * vy) / (d * (Math.hypot(db[0], db[1]) || 1)) < 0.3) continue;
+        }
+        bd = d; best = {A, B, ea, eb};
+      }
+    }
+    if (!best) break;
+    const {A, B, ea, eb} = best;
+    if (A === B) { A.closed = true; continue; }
+    const pa = ea ? A.p : A.p.slice().reverse(), pb = eb ? B.p.slice().reverse() : B.p;
+    A.p = pa.concat(pb); chains = chains.filter(c => c !== B);
+  }
+  let pick = chains[0], pd = 1e9;                    // la catena più vicina al punto toccato
+  chains.forEach(c => c.p.forEach(i => { const d = Math.hypot(px(i) - sx, py(i) - sy); if (d < pd) { pd = d; pick = c; } }));
+  if (!pick.closed && dist(pick.p[0], pick.p[pick.p.length - 1]) <= MAXGAP && pick.p.length > 100) pick.closed = true;
+  return {pts: pick.p.map(i => [px(i), py(i)]), closed: pick.closed, coverage: pick.p.length / covered};
 }
 function autoTrace(photo, h, seed, tol) {
   return new Promise(resolve => {
@@ -861,25 +903,37 @@ function autoTrace(photo, h, seed, tol) {
       let r = 0, g = 0, b = 0, n = 0;
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = clampN(sx + dx, 0, W - 1), y = clampN(sy + dy, 0, H - 1), i = (y * W + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
       r /= n; g /= n; b /= n;
-      let m = new Uint8Array(W * H);
-      for (let i = 0; i < W * H; i++) { const dr = px[i * 4] - r, dg = px[i * 4 + 1] - g, db = px[i * 4 + 2] - b; m[i] = dr * dr + dg * dg + db * db < tol * tol ? 1 : 0; }
-      m = boxOp(boxOp(m, W, H, 2, true), W, H, 2, false);                // chiude i buchi piccoli
-      let L = labelComps(m, W, H, 1), big = 1;
-      for (let i = 1; i < L.sizes.length; i++) if (L.sizes[i] > L.sizes[big]) big = i;
-      if (L.sizes.length < 2 || L.sizes[big] < 150) return resolve(null);
-      for (let i = 0; i < m.length; i++) m[i] = L.lab[i] === big ? 1 : 0;   // tiene solo il pezzo più grande
-      const B = labelComps(m, W, H, 0);
-      for (let i = 0; i < m.length; i++) if (!m[i] && !B.border[B.lab[i]] && B.sizes[B.lab[i]] < 120) m[i] = 1;   // riempie i buchi piccoli (scritte)
-      const mc = document.createElement('canvas'); mc.width = W; mc.height = H;
-      const mx = mc.getContext('2d'), md = mx.createImageData(W, H);
-      for (let i = 0; i < m.length; i++) if (m[i]) { md.data[i * 4] = 0; md.data[i * 4 + 1] = 200; md.data[i * 4 + 2] = 255; md.data[i * 4 + 3] = 255; }
-      mx.putImageData(md, 0, 0);
-      const maskUrl = mc.toDataURL('image/png');
-      for (let x = 0; x < W; x++) { m[x] = 0; m[(H - 1) * W + x] = 0; }
-      for (let y = 0; y < H; y++) { m[y * W] = 0; m[y * W + W - 1] = 0; }
-      thin(m, W, H); pruneSpurs(m, W, H, 14);
-      const w = walkSkel(m, W, H, sx, sy);
-      if (!w || w.pts.length < 30) return resolve(null);
+      const m0 = new Uint8Array(W * H);
+      for (let i = 0; i < W * H; i++) { const dr = px[i * 4] - r, dg = px[i * 4 + 1] - g, db = px[i * 4 + 2] - b; m0[i] = dr * dr + dg * dg + db * db < tol * tol ? 1 : 0; }
+      const attempt = (rad, thinOff) => {                              // rad = quanto chiudere i buchi (più grande unisce pezzi più lontani); thinOff = toglie le linee sottili (corsia box)
+        let m = boxOp(boxOp(m0, W, H, rad, true), W, H, rad, false);
+        if (thinOff) m = boxOp(boxOp(m, W, H, 1, false), W, H, 1, true);
+        const L = labelComps(m, W, H, 1); let big = 1;
+        for (let i = 1; i < L.sizes.length; i++) if (L.sizes[i] > L.sizes[big]) big = i;
+        if (L.sizes.length < 2 || L.sizes[big] < 150) return null;
+        for (let i = 0; i < m.length; i++) m[i] = L.lab[i] && L.sizes[L.lab[i]] >= L.sizes[big] * 0.05 ? 1 : 0;   // tiene i pezzi grandi (la pista può essere spezzata da frecce o linee del traguardo)
+        const B = labelComps(m, W, H, 0);
+        for (let i = 0; i < m.length; i++) if (!m[i] && !B.border[B.lab[i]] && B.sizes[B.lab[i]] < 120) m[i] = 1;   // riempie i buchi piccoli (scritte)
+        const mc = document.createElement('canvas'); mc.width = W; mc.height = H;
+        const mx = mc.getContext('2d'), md = mx.createImageData(W, H);
+        for (let i = 0; i < m.length; i++) if (m[i]) { md.data[i * 4] = 0; md.data[i * 4 + 1] = 200; md.data[i * 4 + 2] = 255; md.data[i * 4 + 3] = 255; }
+        mx.putImageData(md, 0, 0);
+        const maskUrl = mc.toDataURL('image/png');
+        for (let x = 0; x < W; x++) { m[x] = 0; m[(H - 1) * W + x] = 0; }
+        for (let y = 0; y < H; y++) { m[y * W] = 0; m[y * W + W - 1] = 0; }
+        thin(m, W, H); pruneSpurs(m, W, H, 14);
+        const w = walkSkel(m, W, H, sx, sy);
+        return w && w.pts.length >= 30 ? {w, maskUrl} : null;
+      };
+      const score = x => x ? (x.w.closed ? 1 : 0) + x.w.coverage : -1;
+      let res = attempt(3, false);
+      for (const [rad, off] of [[2, false], [3, true]]) {              // se non è venuto bene, riprova in altri modi e tiene il migliore
+        if (res && res.w.closed && res.w.coverage >= 0.85) break;
+        const r2 = attempt(rad, off);
+        if (score(r2) > score(res)) res = r2;
+      }
+      if (!res) return resolve(null);
+      const w = res.w, maskUrl = res.maskUrl;
       let pts = w.pts;
       const sm = (a, win, closed) => a.map((_, i) => { let sxx = 0, syy = 0, c = 0; for (let j = -win; j <= win; j++) { let q = i + j; if (closed) q = (q + a.length) % a.length; else if (q < 0 || q >= a.length) continue; sxx += a[q][0]; syy += a[q][1]; c++; } return [sxx / c, syy / c]; });
       pts = sm(pts, 5, w.closed);
@@ -1194,7 +1248,7 @@ function viewData() {
       <p class="meta" style="margin-top:6px">Tutto quello che vedi qui sotto appartiene al gioco selezionato.</p></div>
     <div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
     <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
-    <div class="card"><div class="head"><h2>Circuiti</h2><span style="display:flex;gap:6px">${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Da altro gioco</button>' : ''}<button class="sec2" data-edit="circuit">+ Nuovo</button></span></div>${circuits}</div>
+    <div class="card"><div class="head"><h2>Circuiti</h2><span style="display:flex;gap:6px"><button class="sec2" data-act="catalog">Catalogo</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Da altro gioco</button>' : ''}<button class="sec2" data-edit="circuit">+ Nuovo</button></span></div>${circuits}</div>
     <div class="card"><div class="head"><h2>Pulsanti rapidi</h2><button class="sec2" data-act="quickedit">Modifica</button></div>
       <p class="meta">Le scorciatoie che compaiono quando inserisci una staccata.</p>
       <div class="chips">${DB.settings.quick.map(q => `<span class="chip">${esc(q.label)}</span>`).join('') || '<span class="meta">Nessun pulsante.</span>'}</div></div>`;
@@ -1256,6 +1310,49 @@ function saveQuick() {
     }));
   }
   DB.settings.quick = nq; save(); closeSheet(); render(); toast('Pulsanti salvati');
+}
+
+/* --- Catalogo di piste già disegnate (file catalogo-acc.json) --- */
+const norm = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const hasShape = v => !!(v && v.shape && v.shape.pts && v.shape.pts.length > 2);
+function catMatch(e) {                                   // la variante di questo gioco che sembra essere quella del catalogo
+  for (const c of gCircuits()) {
+    const n = norm(c.name);
+    if (!e.keys.some(k => n.includes(k) || (n.length >= 3 && k.includes(n)))) continue;
+    const vs = gVariants(c.id); if (vs.length) return vs.find(v => norm(v.name).includes('gp')) || vs[0];
+  }
+  return null;
+}
+function openCatalog() {
+  sheet('Catalogo piste', '<p class="meta">Carico il catalogo...</p>', 'Gioco: ' + GAME.name);
+  fetch('catalogo-acc.json').then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(cat => {
+    UI.cat = cat;
+    const all = gVariants().map(v => ({v, label: ((DB.circuits.find(c => c.id === v.cid) || {}).name || '') + ' ' + v.name}));
+    const rows = cat.circuits.map((e, i) => {
+      const m = catMatch(e), def = m ? (hasShape(m) ? 'skip' : m.id) : 'new';
+      return `<div class="f2"><span><b>${esc(e.name)}</b> \u00b7 ${esc(e.variant)}</span><select data-cat="${i}"><option value="skip"${def === 'skip' ? ' selected' : ''}>Non toccare</option><option value="new"${def === 'new' ? ' selected' : ''}>Crea nuova pista</option>${all.map(o => `<option value="${o.v.id}"${def === o.v.id ? ' selected' : ''}>Disegna su: ${esc(o.label)}${hasShape(o.v) ? ' (sostituisce il disegno)' : ''}</option>`).join('')}</select></div>`;
+    }).join('');
+    sheet('Catalogo piste', `<p class="meta">Piste gi\u00e0 disegnate. Per ognuna ho scelto la pista che hai gi\u00e0 nell'app; puoi cambiarla. Le curve (numeri e nomi) restano come sono.</p><div style="margin-top:10px">${rows}</div>
+      <div class="btns"><button class="pri" data-act="catapply">Applica</button><button class="sec2" data-act="close">Annulla</button></div>`, 'Gioco: ' + GAME.name);
+  }).catch(() => sheet('Catalogo piste', '<div class="empty">Non riesco a caricare il catalogo. Controlla la connessione e riprova.</div>'));
+}
+function applyCatalog() {
+  let n = 0;
+  document.querySelectorAll('select[data-cat]').forEach(sel => {
+    const e = UI.cat.circuits[+sel.dataset.cat], val = sel.value; if (val === 'skip') return;
+    let v;
+    if (val === 'new') {
+      let c = DB.circuits.find(x => { const nn = norm(x.name); return e.keys.some(k => nn === k || nn.includes(k)); });
+      if (!c) { c = {id: uid(), name: e.name, u: now()}; DB.circuits.push(c); }
+      v = DB.variants.find(x => x.cid === c.id && x.name === e.variant);
+      if (v) { if (!v.games.includes(GAME.id)) v.games.push(GAME.id); }
+      else { v = {id: uid(), cid: c.id, name: e.variant, games: [GAME.id], u: now()}; DB.variants.push(v); }
+    } else v = DB.variants.find(x => x.id === val);
+    if (!v) return;
+    v.shape = {pts: clone(e.shape.pts), closed: e.shape.closed, h: e.shape.h, photo: null, turns: ((v.shape && v.shape.turns) || []).map(t => ({id: t.id, n: t.n, u: now()}))};
+    n++;
+  });
+  save(); closeSheet(); resetMapState(); render(); toast(n + (n === 1 ? ' pista disegnata' : ' piste disegnate'));
 }
 
 /* --- Gruppo auto --- */
@@ -1507,7 +1604,7 @@ const ACT = {
   noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
   noteback: openNotes, notesave: saveNote,
   notedel: b => { if (!armed(b, 'Conferma eliminazione')) return; DB.notes = DB.notes.filter(n => n.id !== UI.sh.note.id); save(); render(); toast('Nota eliminata'); openNotes(); },
-  importvar: openImportVar,
+  importvar: openImportVar, catalog: openCatalog, catapply: applyCatalog,
   varshare: b => { const v = DB.variants.find(x => x.id === b.dataset.id); v.games.push(GAME.id); save(); closeSheet(); render(); toast('Pista aggiunta a ' + GAME.name); },
   varcopy: b => { const o = DB.variants.find(x => x.id === b.dataset.id), n = {id: uid(), cid: o.cid, name: o.name, games: [GAME.id], u: now()}; DB.variants.push(n); copyVariantData(o.id, n.id); save(); closeSheet(); render(); toast('Pista copiata in ' + GAME.name); },
   quickedit: editQuick, quickadd: () => { collectQuick(); UI.sh.q.push({id: uid(), label: ''}); drawQuick(); },
