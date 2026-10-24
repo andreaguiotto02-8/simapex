@@ -175,8 +175,8 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.3.1';   // versione dell'app
-const DATA_V = 2;      // versione del formato dei dati
+const APP_V = '0.4';   // versione dell'app
+const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
 // i dati vecchi al formato nuovo. MIGRATIONS[1] porta i dati dalla versione 1 alla 2.
@@ -185,6 +185,14 @@ const MIGRATIONS = {
     db.brakes = db.brakes || {}; db.pits = db.pits || {}; db.perf = db.perf || {};
     db.setupGen = db.setupGen || {}; db.setupSpec = db.setupSpec || {}; db.notes = db.notes || [];
     db.settings.quick = db.settings.quick || DEFAULT_QUICK.map(l => ({id: uid(), label: l}));
+  },
+  // 2 -> 3: i giochi diventano un elenco; ogni gruppo sta in un gioco, ogni variante dice in quali giochi esiste
+  2: db => {
+    const names = [...new Set(db.groups.map(g => (g.game || '').trim()).filter(Boolean))];
+    if (!names.length) names.push('ACC');
+    db.games = names.map(n => ({id: uid(), name: n}));
+    db.groups.forEach(g => { const m = db.games.find(x => x.name === (g.game || '').trim()) || db.games[0]; g.gameId = m.id; delete g.game; });
+    db.variants.forEach(v => { v.games = db.games.map(x => x.id); });
   }
 };
 
@@ -207,7 +215,7 @@ const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 
 let DB = null;                 // tutti i dati dell'utente
 const UI = {tab:'home'};       // stato dello schermo (non viene salvato)
-let C = null, V = null, G = null, A = null;   // circuito, variante, gruppo e auto selezionati
+let C = null, V = null, G = null, A = null, GAME = null;   // circuito, variante, gruppo e auto selezionati
 
 function toast(t) {
   const e = document.createElement('div');
@@ -238,7 +246,7 @@ function tx(store, mode, fn) {
 }
 
 const newDB = () => ({
-  v: DATA_V, groups: [], cars: [], circuits: [], variants: [],
+  v: DATA_V, games: [{id: uid(), name: 'ACC'}], groups: [], cars: [], circuits: [], variants: [],
   brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [],
   settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null, quick: DEFAULT_QUICK.map(l => ({id: uid(), label: l}))},
   u: now()
@@ -332,12 +340,18 @@ function applyRestore() {
 }
 
 /* ---------- Selezione a cascata ---------- */
+const gGroups = () => DB.groups.filter(g => g.gameId === GAME.id);
+const gCarsAll = () => { const ids = new Set(gGroups().map(g => g.id)); return DB.cars.filter(a => ids.has(a.gid)); };
+const gVariants = cid => DB.variants.filter(v => (cid == null || v.cid === cid) && v.games.includes(GAME.id));
+const gCircuits = () => DB.circuits.filter(c => gVariants(c.id).length);
+const gameName = id => (DB.games.find(x => x.id === id) || {name: '?'}).name;
 function fixSel() {
   const s = DB.settings.sel || (DB.settings.sel = {});
-  const c = DB.circuits.find(x => x.id === s.c) || DB.circuits[0]; s.c = c ? c.id : null;
-  const vs = c ? DB.variants.filter(v => v.cid === c.id) : [];
+  GAME = DB.games.find(x => x.id === s.game) || DB.games[0]; s.game = GAME.id;
+  const cs = gCircuits(), c = cs.find(x => x.id === s.c) || cs[0]; s.c = c ? c.id : null;
+  const vs = c ? gVariants(c.id) : [];
   const v = vs.find(x => x.id === s.v) || vs[0]; s.v = v ? v.id : null;
-  const g = DB.groups.find(x => x.id === s.g) || DB.groups[0]; s.g = g ? g.id : null;
+  const gs = gGroups(), g = gs.find(x => x.id === s.g) || gs[0]; s.g = g ? g.id : null;
   const as = g ? DB.cars.filter(a => a.gid === g.id) : [];
   const a = as.find(x => x.id === s.a) || as[0]; s.a = a ? a.id : null;
   C = c || null; V = v || null; G = g || null; A = a || null;
@@ -368,16 +382,63 @@ function removeGroupData(gid) {
 function removeTurnData(vid, tid) {
   Object.keys(DB.brakes).forEach(k => { if (k.startsWith(vid + '|')) delete DB.brakes[k][tid]; });
 }
-/* Copia da una variante a un'altra: disegno e curve, staccate, tempi di sosta, setup specifici. */
+/* Copia da una variante a un'altra: disegno e curve sempre; staccate, tempi di sosta e setup specifici
+   solo per i giochi che le due varianti hanno in comune. */
 function copyVariantData(fromId, toId) {
   const src = DB.variants.find(v => v.id === fromId), dst = DB.variants.find(v => v.id === toId);
   if (!src || !dst) return;
   const label = (DB.circuits.find(c => c.id === src.cid) || {}).name + ' ' + src.name;
   if (src.shape) dst.shape = clone(src.shape);
-  Object.keys(DB.brakes).filter(k => k.startsWith(fromId + '|')).forEach(k => { DB.brakes[toId + k.slice(fromId.length)] = clone(DB.brakes[k]); });
-  Object.keys(DB.pits).filter(k => k.startsWith(fromId + '|')).forEach(k => { DB.pits[toId + k.slice(fromId.length)] = {...clone(DB.pits[k]), st:'copiato', from: label, u: now()}; });
-  Object.keys(DB.setupSpec).filter(k => k.endsWith('|' + fromId)).forEach(k => { DB.setupSpec[k.slice(0, k.length - fromId.length) + toId] = clone(DB.setupSpec[k]); });
+  const common = src.games.filter(g => dst.games.includes(g));
+  const groups = new Set(DB.groups.filter(g => common.includes(g.gameId)).map(g => g.id));
+  const cars = new Set(DB.cars.filter(a => groups.has(a.gid)).map(a => a.id));
+  Object.keys(DB.brakes).filter(k => k.startsWith(fromId + '|') && groups.has(k.slice(fromId.length + 1))).forEach(k => { DB.brakes[toId + k.slice(fromId.length)] = clone(DB.brakes[k]); });
+  Object.keys(DB.pits).filter(k => k.startsWith(fromId + '|') && groups.has(k.slice(fromId.length + 1))).forEach(k => { DB.pits[toId + k.slice(fromId.length)] = {...clone(DB.pits[k]), st:'copiato', from: label, u: now()}; });
+  Object.keys(DB.setupSpec).filter(k => k.endsWith('|' + fromId) && cars.has(k.slice(0, k.length - fromId.length - 1))).forEach(k => { DB.setupSpec[k.slice(0, k.length - fromId.length) + toId] = clone(DB.setupSpec[k]); });
 }
+/* Dati di una variante che appartengono a un gioco (gruppi e auto di quel gioco) */
+function gameKeys(gid) {
+  const groups = new Set(DB.groups.filter(g => g.gameId === gid).map(g => g.id));
+  return {groups, cars: new Set(DB.cars.filter(a => groups.has(a.gid)).map(a => a.id))};
+}
+function variantHasData(vid, gid) {
+  const {groups, cars} = gameKeys(gid);
+  return Object.keys(DB.brakes).some(k => k.startsWith(vid + '|') && groups.has(k.slice(vid.length + 1))) ||
+    Object.keys(DB.pits).some(k => k.startsWith(vid + '|') && groups.has(k.slice(vid.length + 1))) ||
+    Object.keys(DB.perf).some(k => k.endsWith('|' + vid) && cars.has(k.slice(0, k.length - vid.length - 1))) ||
+    Object.keys(DB.setupSpec).some(k => k.endsWith('|' + vid) && cars.has(k.slice(0, k.length - vid.length - 1)));
+}
+function detachVariantFromGame(v, gid) {      // toglie una variante da un gioco e cancella i dati di quel gioco
+  const {groups, cars} = gameKeys(gid);
+  dropKeys(DB.brakes, k => k.startsWith(v.id + '|') && groups.has(k.slice(v.id.length + 1)));
+  dropKeys(DB.pits, k => k.startsWith(v.id + '|') && groups.has(k.slice(v.id.length + 1)));
+  dropKeys(DB.perf, k => k.endsWith('|' + v.id) && cars.has(k.slice(0, k.length - v.id.length - 1)));
+  dropKeys(DB.setupSpec, k => k.endsWith('|' + v.id) && cars.has(k.slice(0, k.length - v.id.length - 1)));
+  DB.notes = DB.notes.filter(n => !(n.lvl === 'both' && n.key.endsWith('|' + v.id) && cars.has(n.key.slice(0, n.key.length - v.id.length - 1))));
+  v.games = v.games.filter(x => x !== gid);
+}
+/* "Solo questo gioco": la variante condivisa viene sdoppiata, il gioco corrente passa alla copia */
+function forkVariant(vid, gid) {
+  const o = DB.variants.find(v => v.id === vid), n = {id: uid(), cid: o.cid, name: o.name, games: [gid], u: now()};
+  if (o.shape) n.shape = clone(o.shape);
+  DB.variants.push(n);
+  o.games = o.games.filter(x => x !== gid);
+  const {groups, cars} = gameKeys(gid);
+  const mv = (obj, test, toKey) => Object.keys(obj).forEach(k => { if (test(k)) { obj[toKey(k)] = obj[k]; delete obj[k]; } });
+  mv(DB.brakes, k => k.startsWith(vid + '|') && groups.has(k.slice(vid.length + 1)), k => n.id + k.slice(vid.length));
+  mv(DB.pits, k => k.startsWith(vid + '|') && groups.has(k.slice(vid.length + 1)), k => n.id + k.slice(vid.length));
+  const carKey = k => k.endsWith('|' + vid) && cars.has(k.slice(0, k.length - vid.length - 1));
+  mv(DB.perf, carKey, k => k.slice(0, k.length - vid.length) + n.id);
+  mv(DB.setupSpec, carKey, k => k.slice(0, k.length - vid.length) + n.id);
+  DB.notes.filter(x => x.lvl === 'both' && carKey(x.key)).forEach(x => { x.key = x.key.slice(0, x.key.length - vid.length) + n.id; });
+  DB.notes.filter(x => x.lvl === 'variant' && x.key === vid).forEach(x => DB.notes.push({...clone(x), id: uid(), key: n.id}));
+  DB.settings.sel.v = n.id; fixSel();
+}
+function ownVariant() {                         // da chiamare prima di cambiare disegno o curve
+  if (!V || V.games.length < 2 || UI.scope !== 'this') return false;
+  forkVariant(V.id, GAME.id); return true;
+}
+const scopeNote = () => V && V.games.length > 1 ? (UI.scope === 'this' ? ' \u00b7 solo ' + GAME.name : ' \u00b7 tutti i giochi') : '';
 
 /* ===================================================================
    MAPPA (disegno del circuito, curve, zoom, spostamento dei numeri)
@@ -427,8 +488,9 @@ function drawMap() {
   } else if (miss.length) {
     ban = `<div class="ban"><span><b>Curve da posizionare:</b> ${miss.map(m => m.n).join(', ')}</span><span style="display:flex;gap:6px;flex-wrap:wrap">${miss.map(m => `<button class="chip" data-place="${m.id}">Posiziona ${m.n}</button>`).join('')}</span></div>`;
   }
+  const scopeBar = V.games.length > 1 ? `<div class="ban"><span>Pista condivisa con ${esc(V.games.filter(x => x !== GAME.id).map(gameName).join(', '))}</span><label style="display:flex;align-items:center;gap:6px;font-size:14px">Modifiche per <select data-scope style="width:auto;min-height:40px"><option value="all"${UI.scope !== 'this' ? ' selected' : ''}>tutti i giochi</option><option value="this"${UI.scope === 'this' ? ' selected' : ''}>solo ${esc(GAME.name)}</option></select></label></div>` : '';
   const tb = `<div class="mt"><button data-zoom="out" aria-label="Riduci">−</button><button data-zoom="in" aria-label="Ingrandisci">+</button><button data-zoom="fit">Adatta</button><button data-act="move" aria-pressed="${!!UI.move}">Sposta numeri</button><button data-act="draw">Ridisegna</button></div>`;
-  box.innerHTML = tb + ban + s;
+  box.innerHTML = scopeBar + tb + ban + s;
 }
 function zoomBy(f, cx, cy) {
   const vb = getVB(), H = shapeH();
@@ -450,6 +512,7 @@ document.addEventListener('pointerdown', e => {
     const a = ptrs[ids[0]], b = ptrs[ids[1]];
     pinch = {d: Math.hypot(a.x - b.x, a.y - b.y) || 1, w: vb.w}; drag = null;
   } else if (UI.move && e.target.closest('[data-turn]')) {
+    if (ownVariant()) render();
     drag = {id: e.target.closest('[data-turn]').dataset.turn};
   } else if (vb.w < 400) {
     drag = {pan: true};
@@ -522,20 +585,21 @@ function render() {
 }
 
 function viewHome() {
-  const ok = [DB.groups.length, DB.cars.length, DB.circuits.length && DB.variants.length];
+  const ok = [gGroups().length, gCarsAll().length, gCircuits().length];
   if (!ok[0] || !ok[1] || !ok[2]) {
     const step = (done, t) => `<li>${done ? '<span class="done">Fatto.</span> ' : ''}${t}</li>`;
     return `<div class="card"><h2>Per cominciare</h2>
-      <p class="meta">Servono pochi dati di base. Si inseriscono nella scheda Dati.</p>
+      <p class="meta">Gioco selezionato: <b>${esc(GAME.name)}</b>. Servono pochi dati di base, nella scheda Dati.</p>
       <ol class="steps">${step(ok[0], 'Crea un gruppo auto, per esempio ACC GT3.')}${step(ok[1], 'Crea un\'auto dentro il gruppo.')}${step(ok[2], 'Crea un circuito con almeno una variante.')}</ol>
       <button class="pri" data-go="data">Vai a Dati</button></div>`;
   }
-  const s = DB.settings.sel, vs = DB.variants.filter(v => v.cid === C.id), as = DB.cars.filter(a => a.gid === G.id);
+  const s = DB.settings.sel, vs = gVariants(C.id), as = DB.cars.filter(a => a.gid === G.id);
   return `<div class="home"><div class="col">
       <div class="sel">
-        <label class="f">Circuito<select data-sel="c">${opts(DB.circuits, s.c)}</select></label>
+        <label class="f" style="grid-column:1/-1">Gioco<select data-sel="game">${opts(DB.games, s.game)}</select></label>
+        <label class="f">Circuito<select data-sel="c">${opts(gCircuits(), s.c)}</select></label>
         <label class="f">Variante<select data-sel="v">${opts(vs, s.v)}</select></label>
-        <label class="f">Gruppo auto<select data-sel="g">${opts(DB.groups, s.g)}</select></label>
+        <label class="f">Gruppo auto<select data-sel="g">${opts(gGroups(), s.g)}</select></label>
         <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
       </div>
       <div class="map" id="mapBox"></div>
@@ -644,11 +708,11 @@ function drawTurns() {
     <div id="tlist" style="display:flex;flex-direction:column;gap:8px;margin:10px 0">${rows || '<div class="empty">Nessuna curva.</div>'}</div>
     <div class="btns"><button class="sec2" data-act="turnadd">+ Curva</button><button class="sec2" data-act="turnpaste">Incolla elenco di nomi</button></div>
     <div id="tpaste" hidden style="margin-top:10px"><textarea id="tpTx" placeholder="Una riga per curva&#10;Prima variante&#10;Curva Grande"></textarea><button class="sec2" data-act="turnpasteadd" style="margin-top:6px">Aggiungi all'elenco</button></div>
-    <div class="btns" style="margin-top:16px"><button class="pri" data-act="turnsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, varName());
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="turnsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, varName() + scopeNote());
 }
 function collectTurns() { document.querySelectorAll('#tlist [data-tid]').forEach(r => { const t = UI.tu.find(x => x.id === r.dataset.tid); if (t) t.n = r.querySelector('.tnm').value.trim(); }); }
 function saveTurns() {
-  collectTurns();
+  collectTurns(); ownVariant();
   const old = turnsOf(), keep = new Set(UI.tu.map(t => t.id));
   old.filter(t => !keep.has(t.id)).forEach(t => removeTurnData(V.id, t.id));
   if (!V.shape) V.shape = {pts: [], closed: true, h: 240, turns: []};
@@ -673,7 +737,7 @@ function drawDrawing() {
     <div class="trace"><svg id="drSvg" viewBox="0 0 400 ${d.h}" role="img" aria-label="Foto del circuito: tocca per aggiungere punti"></svg></div>
     <div class="btns"><button class="sec2" data-act="drundo">Annulla ultimo</button><button class="sec2" data-act="drclose" aria-pressed="${d.closed}">${d.closed ? 'Circuito chiuso' : 'Circuito aperto'}</button><button class="sec2" data-act="drreset">Ricomincia</button></div>
     <p class="meta" id="drCount" style="margin-top:8px"></p><p class="meta" id="drWarn" style="color:var(--accent)"></p>` : ''}
-    <div class="btns" style="margin-top:12px"><button class="pri" data-act="drsave">Salva disegno</button><button class="sec2" data-act="close">Annulla</button></div>`, varName());
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="drsave">Salva disegno</button><button class="sec2" data-act="close">Annulla</button></div>`, varName() + scopeNote());
   drawDrSvg();
 }
 function drawDrSvg() {
@@ -861,6 +925,7 @@ function loadPhoto(file) {
 function saveDrawing() {
   const d = UI.dr;
   if (d.pts.length < 3) return toast('Servono almeno 3 punti sulla pista');
+  ownVariant();
   const old = V.shape || {};
   V.shape = {pts: d.pts, closed: d.closed, h: d.h, photo: d.photo, turns: old.turns || []};
   UI.vb = null; save(); closeSheet(); render(); toast('Disegno salvato');
@@ -1112,25 +1177,63 @@ function openStrat() {
    SCHEDA DATI (gruppi, auto, circuiti, pulsanti rapidi)
    =================================================================== */
 function viewData() {
-  const groups = DB.groups.map(g => {
-    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, s) => t + s.params.length, 0);
-    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${esc(g.game)} · ${n} auto · ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun gruppo. Un gruppo raccoglie auto simili di un gioco, per esempio ACC GT3.</div>';
-  const cars = DB.cars.map(a => {
+  const groups = gGroups().map(g => {
+    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, x) => t + x.params.length, 0);
+    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${n} auto \u00b7 ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun gruppo in questo gioco. Un gruppo raccoglie auto simili, per esempio GT3.</div>';
+  const cars = gCarsAll().map(a => {
     const g = DB.groups.find(x => x.id === a.gid);
-    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' · serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
+    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' \u00b7 serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
   }).join('') || '<div class="empty">Nessuna auto.</div>';
-  const circuits = DB.circuits.map(c => {
-    const vs = DB.variants.filter(v => v.cid === c.id);
-    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun circuito. Ogni circuito ha una o più varianti, per esempio GT e F1 22.</div>';
-  return `<div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
+  const circuits = gCircuits().map(c => {
+    const vs = gVariants(c.id);
+    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}${v.games.length > 1 ? ' \u00b7 condivisa' : ''}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
+  }).join('') || '<div class="empty">Nessun circuito in questo gioco. Ogni circuito ha una o pi\u00f9 varianti, per esempio GT e F1 22.</div>';
+  return `<div class="card"><div class="head"><h2>Gioco</h2><button class="sec2" data-edit="game">+ Nuovo</button></div>
+      <div class="row2"><select data-sel="game" aria-label="Gioco">${opts(DB.games, GAME.id)}</select><button class="ed" data-edit="game" data-id="${GAME.id}" style="flex:none">Rinomina</button></div>
+      <p class="meta" style="margin-top:6px">Tutto quello che vedi qui sotto appartiene al gioco selezionato.</p></div>
+    <div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
     <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
-    <div class="card"><div class="head"><h2>Circuiti</h2><button class="sec2" data-edit="circuit">+ Nuovo</button></div>${circuits}</div>
+    <div class="card"><div class="head"><h2>Circuiti</h2><span style="display:flex;gap:6px">${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Da altro gioco</button>' : ''}<button class="sec2" data-edit="circuit">+ Nuovo</button></span></div>${circuits}</div>
     <div class="card"><div class="head"><h2>Pulsanti rapidi</h2><button class="sec2" data-act="quickedit">Modifica</button></div>
       <p class="meta">Le scorciatoie che compaiono quando inserisci una staccata.</p>
       <div class="chips">${DB.settings.quick.map(q => `<span class="chip">${esc(q.label)}</span>`).join('') || '<span class="meta">Nessun pulsante.</span>'}</div></div>`;
 }
+/* --- Gioco --- */
+function editGame(id) {
+  const g = id ? DB.games.find(x => x.id === id) : {id: null, name: ''};
+  UI.ec = {kind: 'game', id: g.id};
+  sheet(g.id ? 'Rinomina gioco' : 'Nuovo gioco', `
+    <label class="f">Nome<input id="mN" value="${esc(g.name)}" placeholder="F1 22"></label>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${g.id && DB.games.length > 1 ? '<button class="sec2" data-ec="del">Elimina gioco</button>' : ''}</div>`);
+}
+function gameAction(act, btn) {
+  const id = UI.ec.id;
+  if (act === 'cancel') return closeSheet();
+  if (act === 'save') {
+    const name = $('mN').value.trim();
+    if (!name) return toast('Scrivi il nome del gioco');
+    if (DB.games.some(x => x.name.toLowerCase() === name.toLowerCase() && x.id !== id)) return toast('Esiste gi\u00e0 un gioco con questo nome');
+    if (id) DB.games.find(x => x.id === id).name = name;
+    else { const g = {id: uid(), name}; DB.games.push(g); DB.settings.sel = {game: g.id}; resetMapState(); }
+    save(); closeSheet(); render(); return toast('Gioco salvato');
+  }
+  if (act === 'del') {
+    if (DB.groups.some(g => g.gameId === id)) return toast('Prima elimina i gruppi auto di questo gioco');
+    if (!armed(btn, 'Conferma eliminazione')) return;
+    DB.variants.filter(v => v.games.includes(id)).forEach(v => { detachVariantFromGame(v, id); if (!v.games.length) removeVariant(v.id); });
+    DB.circuits = DB.circuits.filter(c => DB.variants.some(v => v.cid === c.id));
+    DB.games = DB.games.filter(x => x.id !== id); DB.settings.sel = {};
+    save(); closeSheet(); render(); toast('Gioco eliminato');
+  }
+}
+/* --- Piste di altri giochi: usale anche qui (condivise) oppure copiale (indipendenti) --- */
+function openImportVar() {
+  const list = DB.variants.filter(v => !v.games.includes(GAME.id));
+  sheet('Piste da altri giochi', `<p class="meta">Usa anche qui: stesso disegno e stesse curve, se lo modifichi puoi scegliere se vale per tutti i giochi. Copia: parte uguale ma poi \u00e8 indipendente. Le staccate e i setup restano sempre separati per gioco.</p>
+    <div style="margin-top:8px">${list.map(v => `<div class="item"><div><b>${esc((DB.circuits.find(c => c.id === v.cid) || {}).name)} ${esc(v.name)}</b><span class="meta">${esc(v.games.map(gameName).join(', '))}</span></div><span style="display:flex;gap:6px"><button class="ed" data-act="varshare" data-id="${v.id}">Usa anche qui</button><button class="ed" data-act="varcopy" data-id="${v.id}">Copia</button></span></div>`).join('')}</div>`, 'Gioco: ' + GAME.name);
+}
+
 function editQuick() { UI.sh = {q: clone(DB.settings.quick)}; drawQuick(); }
 function drawQuick() {
   const q = UI.sh.q;
@@ -1157,7 +1260,7 @@ function saveQuick() {
 
 /* --- Gruppo auto --- */
 function editGroup(id, working) {
-  const g = working || (id ? clone(DB.groups.find(x => x.id === id)) : {id:null, name:'', game:'ACC', unit:'L/giro', mapLabel:'Mappa motore', sections:[]});
+  const g = working || (id ? clone(DB.groups.find(x => x.id === id)) : {id:null, name:'', gameId: GAME.id, unit:'L/giro', mapLabel:'Mappa motore', sections:[]});
   UI.eg = g;
   const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
       <div class="row2"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione"><button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
@@ -1166,7 +1269,7 @@ function editGroup(id, working) {
   sheet(g.id ? 'Modifica gruppo' : 'Nuovo gruppo', `
     <div class="grid">
       <label class="f full">Nome<input id="gN" value="${esc(g.name)}" placeholder="ACC GT3"></label>
-      <label class="f">Gioco<input id="gG" value="${esc(g.game)}" list="games"><datalist id="games"><option>ACC</option><option>F1</option><option>Le Mans Ultimate</option></datalist></label>
+      <label class="f">Gioco<select id="gG">${opts(DB.games, g.gameId)}</select></label>
       <label class="f">Unità di consumo<input id="gU" value="${esc(g.unit)}"></label>
       <label class="f full">Nome della mappa motore<input id="gM" value="${esc(g.mapLabel)}"></label>
     </div>
@@ -1181,7 +1284,7 @@ function editGroup(id, working) {
 }
 function collectGroup() {
   const g = UI.eg;
-  g.name = $('gN').value.trim(); g.game = $('gG').value.trim(); g.unit = $('gU').value.trim(); g.mapLabel = $('gM').value.trim();
+  g.name = $('gN').value.trim(); g.gameId = $('gG').value; g.unit = $('gU').value.trim(); g.mapLabel = $('gM').value.trim();
   g.sections = [...document.querySelectorAll('#secs .sec')].map(el => ({
     id: el.dataset.sid, name: el.querySelector('.sn').value.trim(),
     params: [...el.querySelectorAll('.pn')].map(i => ({id: i.dataset.pid, label: i.value.trim()}))
@@ -1227,13 +1330,13 @@ function groupAction(act, btn) {
 
 /* --- Auto --- */
 function editCar(id) {
-  if (!DB.groups.length) { toast('Crea prima un gruppo auto'); return; }
-  const a = id ? DB.cars.find(x => x.id === id) : {id:null, name:'', gid: DB.settings.sel.g || DB.groups[0].id, tank:''};
+  if (!gGroups().length) { toast('Crea prima un gruppo auto in questo gioco'); return; }
+  const a = id ? DB.cars.find(x => x.id === id) : {id:null, name:'', gid: (G && G.id) || gGroups()[0].id, tank:''};
   UI.ec = {kind:'car', id: a.id};
   sheet(a.id ? 'Modifica auto' : 'Nuova auto', `
     <div class="grid">
       <label class="f full">Nome<input id="cN" value="${esc(a.name)}" placeholder="Ferrari 296 GT3"></label>
-      <label class="f">Gruppo<select id="cG">${opts(DB.groups, a.gid)}</select></label>
+      <label class="f">Gruppo<select id="cG">${opts(gGroups(), a.gid)}</select></label>
       <label class="f">Serbatoio (litri)<input id="cT" inputmode="decimal" value="${esc(a.tank)}"></label>
     </div>
     <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${a.id ? '<button class="sec2" data-ec="del">Elimina auto</button>' : ''}</div>`);
@@ -1259,19 +1362,20 @@ function carAction(act, btn) {
 /* --- Circuito e varianti --- */
 function editCircuit(id) {
   const c = id ? DB.circuits.find(x => x.id === id) : {id:null, name:''};
-  const vs = id ? DB.variants.filter(v => v.cid === id).map(v => ({id: v.id, name: v.name, isNew: false})) : [{id: uid(), name: '', isNew: true, from: ''}];
+  const vs = id ? DB.variants.filter(v => v.cid === id).map(v => ({id: v.id, name: v.name, isNew: false, games: v.games.slice()})) : [{id: uid(), name: '', isNew: true, from: '', games: [GAME.id]}];
   UI.ec = {kind:'circuit', id: c.id, vs};
   drawCircuit(c.name);
 }
 function drawCircuit(name) {
   const e = UI.ec;
-  const others = DB.variants.map(v => ({id: v.id, label: ((DB.circuits.find(c => c.id === v.cid) || {}).name || '') + ' ' + v.name}));
+  const others = DB.variants.map(v => ({id: v.id, label: ((DB.circuits.find(c => c.id === v.cid) || {}).name || '') + ' ' + v.name + ' (' + v.games.map(gameName).join(', ') + ')'}));
   sheet(e.id ? 'Modifica circuito' : 'Nuovo circuito', `
     <label class="f">Nome del circuito<input id="kN" value="${esc(name)}" placeholder="Barcellona"></label>
     <h3>Varianti</h3>
     <p class="meta">Una variante è un tracciato o una versione del gioco, per esempio GT, F1 22. Una nuova variante può partire dai dati di un'altra: disegno, curve, staccate, tempi di sosta e setup specifici.</p>
     <div id="vars" style="display:flex;flex-direction:column;gap:12px">${e.vs.map((v, i) => `<div class="vrow" data-vid="${v.id}">
       <div class="row2"><input class="vn" value="${esc(v.name)}" placeholder="Nome variante" aria-label="Nome variante"><button class="x" data-ec="delvar" data-i="${i}" aria-label="Elimina variante">✕</button></div>
+      <div class="chips" style="margin:0"><span class="meta" style="align-self:center">Esiste in:</span>${DB.games.map(g => `<label class="zc" style="min-height:40px"><input type="checkbox" class="vg" data-g="${g.id}"${v.games.includes(g.id) ? ' checked' : ''}> ${esc(g.name)}</label>`).join('')}</div>
       ${v.isNew && others.length ? `<select class="vc" aria-label="Copia i dati da"><option value="">Nuova, senza dati</option>${others.map(o => `<option value="${o.id}"${v.from === o.id ? ' selected' : ''}>Copia i dati da ${esc(o.label)}</option>`).join('')}</select>` : ''}</div>`).join('')}</div>
     <div class="btns"><button class="sec2" data-ec="addvar">+ Variante</button></div>
     <div class="btns" style="margin-top:16px"><button class="pri" data-ec="save">Salva</button><button class="sec2" data-ec="cancel">Annulla</button>${e.id ? '<button class="sec2" data-ec="del">Elimina circuito</button>' : ''}</div>`);
@@ -1283,13 +1387,14 @@ function collectCircuit() {
     const v = e.vs.find(x => x.id === r.dataset.vid); if (!v) return;
     v.name = r.querySelector('.vn').value.trim();
     const sel = r.querySelector('.vc'); if (sel) v.from = sel.value;
+    v.games = [...r.querySelectorAll('.vg:checked')].map(i => i.dataset.g);
   });
 }
 function circuitAction(act, btn) {
   const e = UI.ec;
   if (act === 'cancel') return closeSheet();
   collectCircuit();
-  if (act === 'addvar') { e.vs.push({id: uid(), name: '', isNew: true, from: ''}); return drawCircuit(e.name); }
+  if (act === 'addvar') { e.vs.push({id: uid(), name: '', isNew: true, from: '', games: [GAME.id]}); return drawCircuit(e.name); }
   if (act === 'delvar') {
     const v = e.vs[+btn.dataset.i];
     if (!v.isNew && !armed(btn, 'Conferma: cancella anche i dati')) return;
@@ -1299,6 +1404,10 @@ function circuitAction(act, btn) {
     const vs = e.vs.filter(v => v.name);
     if (!e.name) return toast('Scrivi il nome del circuito');
     if (!vs.length) return toast('Aggiungi almeno una variante');
+    if (vs.some(v => !v.games.length)) return toast('Ogni variante deve esistere in almeno un gioco');
+    const lost = [];
+    vs.forEach(v => { const old = DB.variants.find(x => x.id === v.id); if (old) old.games.filter(g => !v.games.includes(g)).forEach(g => { if (variantHasData(old.id, g)) lost.push(g); }); });
+    if (lost.length && !armed(btn, 'Conferma: cancella i dati in ' + [...new Set(lost)].map(gameName).join(', '))) return;
     let c = e.id ? DB.circuits.find(x => x.id === e.id) : null;
     if (!c) { c = {id: uid()}; DB.circuits.push(c); }
     c.name = e.name; c.u = now();
@@ -1306,8 +1415,8 @@ function circuitAction(act, btn) {
     DB.variants.filter(v => v.cid === c.id && !keep.has(v.id)).forEach(v => removeVariant(v.id));
     vs.forEach(v => {
       const old = DB.variants.find(x => x.id === v.id);
-      if (old) { old.name = v.name; old.u = now(); }
-      else { DB.variants.push({id: v.id, cid: c.id, name: v.name, u: now()}); if (v.from) copyVariantData(v.from, v.id); }
+      if (old) { old.games.filter(g => !v.games.includes(g)).forEach(g => detachVariantFromGame(old, g)); old.games = v.games.slice(); old.name = v.name; old.u = now(); }
+      else { DB.variants.push({id: v.id, cid: c.id, name: v.name, games: v.games.slice(), u: now()}); if (v.from) copyVariantData(v.from, v.id); }
     });
     save(); closeSheet(); render(); return toast('Circuito salvato');
   }
@@ -1398,10 +1507,13 @@ const ACT = {
   noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
   noteback: openNotes, notesave: saveNote,
   notedel: b => { if (!armed(b, 'Conferma eliminazione')) return; DB.notes = DB.notes.filter(n => n.id !== UI.sh.note.id); save(); render(); toast('Nota eliminata'); openNotes(); },
+  importvar: openImportVar,
+  varshare: b => { const v = DB.variants.find(x => x.id === b.dataset.id); v.games.push(GAME.id); save(); closeSheet(); render(); toast('Pista aggiunta a ' + GAME.name); },
+  varcopy: b => { const o = DB.variants.find(x => x.id === b.dataset.id), n = {id: uid(), cid: o.cid, name: o.name, games: [GAME.id], u: now()}; DB.variants.push(n); copyVariantData(o.id, n.id); save(); closeSheet(); render(); toast('Pista copiata in ' + GAME.name); },
   quickedit: editQuick, quickadd: () => { collectQuick(); UI.sh.q.push({id: uid(), label: ''}); drawQuick(); },
   quickdel: b => { collectQuick(); UI.sh.q.splice(+b.dataset.i, 1); drawQuick(); }, quicksave: saveQuick
 };
-const resetMapState = () => { UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; };
+const resetMapState = () => { UI.scope = 'all'; UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; };
 
 document.addEventListener('click', e => {
   const t = e.target;
@@ -1413,10 +1525,11 @@ document.addEventListener('click', e => {
   const pl = t.closest('[data-place]'); if (pl) { UI.selTurn = pl.dataset.place; UI.placing = UI.selTurn; drawMap(); renderRows(); return; }
   const msvg = t.closest('#mapBox svg');
   if (msvg && UI.placing) {
+    const forked = ownVariant();
     const q = toSvg(e.clientX, e.clientY), tt = turnsOf().find(x => x.id === UI.placing), H = shapeH();
     if (tt) { tt.x = clampN(Math.round(q.x), 0, 400); tt.y = clampN(Math.round(q.y), 0, H); tt.u = now(); }
     const num = turnsOf().indexOf(tt) + 1;
-    UI.placing = null; save(); drawMap(); renderRows(); toast('Curva ' + num + ' posizionata'); return;
+    UI.placing = null; save(); if (forked) render(); else { drawMap(); renderRows(); } toast('Curva ' + num + ' posizionata'); return;
   }
   const dsv = t.closest('#drSvg');
   if (dsv && UI.dr) {
@@ -1428,9 +1541,9 @@ document.addEventListener('click', e => {
   const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) return ACT[ac.dataset.act](ac);
   const row = t.closest('[data-row]'); if (row) { pickTurn(row.dataset.row); return; }
   const ed = t.closest('[data-edit]');
-  if (ed) { const k = ed.dataset.edit; return k === 'group' ? editGroup(ed.dataset.id) : k === 'car' ? editCar(ed.dataset.id) : editCircuit(ed.dataset.id); }
+  if (ed) { const k = ed.dataset.edit; return k === 'group' ? editGroup(ed.dataset.id) : k === 'car' ? editCar(ed.dataset.id) : k === 'game' ? editGame(ed.dataset.id) : editCircuit(ed.dataset.id); }
   const eg = t.closest('[data-eg]'); if (eg && UI.eg) return groupAction(eg.dataset.eg, eg);
-  const ec = t.closest('[data-ec]'); if (ec && UI.ec) return UI.ec.kind === 'car' ? carAction(ec.dataset.ec, ec) : circuitAction(ec.dataset.ec, ec);
+  const ec = t.closest('[data-ec]'); if (ec && UI.ec) return UI.ec.kind === 'car' ? carAction(ec.dataset.ec, ec) : UI.ec.kind === 'game' ? gameAction(ec.dataset.ec, ec) : circuitAction(ec.dataset.ec, ec);
   const bk = t.closest('[data-bk]');
   if (bk) {
     const a = bk.dataset.bk;
@@ -1462,9 +1575,11 @@ document.addEventListener('change', e => {
     const s = DB.settings.sel; s[t.dataset.sel] = t.value;
     if (t.dataset.sel === 'c') s.v = null;
     if (t.dataset.sel === 'g') s.a = null;
-    if (t.dataset.sel === 'c' || t.dataset.sel === 'v') resetMapState();
+    if (t.dataset.sel === 'game') { s.c = s.v = s.g = s.a = null; }
+    if (t.dataset.sel === 'c' || t.dataset.sel === 'v' || t.dataset.sel === 'game') resetMapState();
     save(); render(); return;
   }
+  if ('scope' in t.dataset) { UI.scope = t.value; drawMap(); return; }
   if (t.dataset.cp) {
     DB.settings.copies[t.dataset.cp] = t.dataset.cp === 'keep' ? +t.value : t.value;
     save(); pruneCopies().then(fillCopies);
