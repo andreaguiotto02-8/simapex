@@ -176,7 +176,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.7';   // versione dell'app
+const APP_V = '0.8';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -635,7 +635,7 @@ function viewHome() {
       <div><div class="head"><h2>Dati rapidi</h2><button class="sec2" data-act="perf">Modifica</button></div><div class="tiles">${tilesHtml()}</div></div>
       <div class="btns3">${btnsHtml()}</div>
     </div>
-    <div class="col"><div class="head"><h2>Staccate</h2><button class="sec2" data-act="turns">Curve</button></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
+    <div class="col"><div class="head"><h2>Staccate</h2><span style="display:flex;gap:8px"><button class="sec2" data-act="dict">Detta</button><button class="sec2" data-act="turns">Curve</button></span></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
 }
 
 function tilesHtml() {
@@ -693,7 +693,7 @@ function sheet(title, inner, sub) {
   $('cl').onclick = closeSheet;
   $('bk').onclick = e => { if (e.target.id === 'bk') closeSheet(); };
 }
-function closeSheet() { $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; UI.sh = null; }
+function closeSheet() { if (UI.dc && UI.dc.rec) { const r = UI.dc.rec; UI.dc.rec = null; try { r.stop(); } catch (_) {} } UI.dc = null; $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; UI.sh = null; }
 function armed(btn, text) {
   if (btn.dataset.armed) return true;
   btn.dataset.armed = '1'; btn.dataset.orig = btn.textContent; btn.textContent = text; btn.classList.add('danger');
@@ -725,6 +725,57 @@ function saveBrake() {
   const key = kk(V.id, G.id);
   (DB.brakes[key] = DB.brakes[key] || {})[UI.sh.tid] = {dry, wet: wet || null, note, u: now()};
   save(); closeSheet(); renderRows(); toast('Staccata salvata');
+}
+
+/* --- Dettatura delle staccate --- */
+const NUMW = (() => {
+  const u = ['', 'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove'], t = ['dieci', 'undici', 'dodici', 'tredici', 'quattordici', 'quindici', 'sedici', 'diciassette', 'diciotto', 'diciannove'], m = {un: 1};
+  u.forEach((w, i) => { if (w) m[w] = i; }); t.forEach((w, i) => { m[w] = 10 + i; });
+  ['venti', 'trenta'].forEach((p, k) => { m[p] = 20 + 10 * k; u.forEach((w, i) => { if (w) { m[p + w] = 20 + 10 * k + i; m[p.slice(0, -1) + w] = 20 + 10 * k + i; } }); });
+  return m;
+})();
+function parseDictation(txt) {
+  const re = /\bcurva\s+(\d{1,2}|[a-z\u00e0]+)\b/gi, marks = []; let m;
+  while ((m = re.exec(txt))) { const w = m[1].toLowerCase(), n = /^\d+$/.test(w) ? +w : NUMW[w]; if (n) marks.push({n, s: m.index, e: re.lastIndex}); }
+  return marks.map((k, i) => ({n: k.n, t: txt.slice(k.e, i + 1 < marks.length ? marks[i + 1].s : txt.length).replace(/^[\s,.:;\-\u2013]+|[\s,.:;\-\u2013]+$/g, '').replace(/^(staccata|stacco|frenata)\s+/i, '')})).filter(x => x.t);
+}
+function openDict() {
+  if (!needCtx('gv')) return;
+  if (!turnsOf().length) return toast('Questa variante non ha ancora curve');
+  UI.dc = {rec: null};
+  sheet('Detta le staccate', `<p class="meta">Di\u2019 \u201ccurva 1, cartello 150, curva 2, fine cordolo esterno\u2026\u201d. Puoi anche usare il microfono della tastiera o scrivere. Poi tocca Controlla.</p>
+    <div class="f2"><span>Per</span><select id="dcC"><option value="dry">Asciutto</option><option value="wet">Bagnato</option></select></div>
+    <div class="btns"><button class="pri" data-act="dictmic" id="dcMic">Registra</button></div>
+    <textarea id="dcTx" style="margin-top:10px;min-height:110px" placeholder="curva 1 cartello 150 curva 2 fine cordolo esterno curva 3 ponte"></textarea>
+    <div class="btns" style="margin-top:8px"><button class="sec2" data-act="dictparse">Controlla</button></div>
+    <div id="dcList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>`, G.name + ' \u00b7 ' + varName());
+}
+function dictMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition, dc = UI.dc, btn = $('dcMic');
+  if (!SR) return toast('Dettatura non disponibile qui: usa il microfono della tastiera');
+  if (dc.rec) { const r = dc.rec; dc.rec = null; try { r.stop(); } catch (_) {} btn.textContent = 'Registra'; return dictParse(); }
+  const r = new SR(); r.lang = 'it-IT'; r.continuous = true; r.interimResults = false;
+  r.onresult = ev => { for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal && $('dcTx')) $('dcTx').value = ($('dcTx').value + ' ' + ev.results[i][0].transcript).trim(); };
+  r.onend = () => { if (UI.dc && UI.dc.rec === r) { try { r.start(); } catch (_) {} } };
+  r.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { if (UI.dc) UI.dc.rec = null; if ($('dcMic')) $('dcMic').textContent = 'Registra'; toast('Permesso al microfono negato'); } };
+  dc.rec = r; btn.textContent = 'Ferma'; try { r.start(); } catch (_) { toast('Non riesco ad avviare il microfono'); }
+}
+function dictParse() {
+  const items = parseDictation($('dcTx').value), turns = turnsOf();
+  if (!items.length) { $('dcList').innerHTML = '<div class="empty">Non trovo nessuna \u201ccurva N\u201d seguita da testo.</div>'; return; }
+  $('dcList').innerHTML = items.map(x => {
+    const ok = x.n >= 1 && x.n <= turns.length;
+    return `<div class="row2"><div class="snum" style="flex:none;align-self:center${ok ? '' : ';opacity:.4'}">${x.n}</div>${ok ? `<input data-n="${x.n}" value="${esc(x.t)}" aria-label="Curva ${x.n}">` : `<span class="meta" style="align-self:center">Curva ${x.n} non esiste: ignorata</span>`}</div>`;
+  }).join('') + '<div class="btns"><button class="pri" data-act="dictsave">Salva staccate</button></div>';
+}
+function dictSave() {
+  const cond = $('dcC').value, turns = turnsOf(), key = kk(V.id, G.id); let n = 0;
+  document.querySelectorAll('#dcList input[data-n]').forEach(i => {
+    const t = turns[+i.dataset.n - 1], v = i.value.trim(); if (!t || !v) return;
+    const b = DB.brakes[key] = DB.brakes[key] || {}, cur = b[t.id] || {dry: '', wet: null, note: ''};
+    b[t.id] = {...cur, [cond]: v, u: now()}; n++;
+  });
+  save(); closeSheet(); renderRows(); toast(n + (n === 1 ? ' staccata salvata' : ' staccate salvate'));
 }
 
 /* --- Curve --- */
@@ -1619,6 +1670,7 @@ function fillCopies() {
    EVENTI
    =================================================================== */
 const ACT = {
+  dict: openDict, dictmic: dictMic, dictparse: dictParse, dictsave: dictSave,
   close: closeSheet,
   draw: editDrawing, turns: editTurns, perf: editPerf, strat: openStrat, notes: openNotes,
   later: () => { UI.placing = null; drawMap(); toast('Resta da posizionare: il promemoria è sopra la mappa'); },
