@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.9.1';   // versione dell'app
+const APP_V = '0.10';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1673,6 +1673,10 @@ function viewBackup() {
         <label class="f">Quante tenerne<select data-cp="keep">${[3, 5, 10, 20].map(n => `<option${c.keep === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
       </div>
       <div id="copies"><p class="meta">Carico...</p></div></div>
+    <div class="card"><h2>Cancella dati</h2>
+      <p class="meta">Vale solo per questo dispositivo: su ogni telefono o tablet va fatto a parte. Prima di cancellare salvo una copia interna, che trovi qui sopra e puoi ripristinare.</p>
+      <div class="btns"><button class="sec2" data-bk="wipedata">Cancella i dati, tieni piste e curve</button><button class="sec2" data-bk="wipeall">Cancella tutto</button></div>
+      <p class="meta" style="margin-top:8px">La prima toglie gruppi, auto, staccate, setup, dati rapidi, strategie e note, e lascia circuiti, disegni e curve. La seconda riporta l'app com'era appena installata.</p></div>
     <div class="card"><h2>Archivio</h2>
       <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
       <p class="meta">Dati: ${esc(summary(DB))}</p>
@@ -1792,6 +1796,15 @@ document.addEventListener('click', e => {
       .then(h => h.createWritable()).then(w => w.write(backupText()).then(() => w.close()))
       .then(() => { DB.settings.lastExport = now(); save(); render(); toast('Backup salvato'); })
       .catch(err => { if (err && err.name !== 'AbortError') toast('Salvataggio non riuscito: usa Scarica file.'); });
+    if (a === 'wipedata' || a === 'wipeall') {
+      if (!armed(bk, a === 'wipeall' ? 'Tocca ancora: cancello TUTTO' : 'Tocca ancora per cancellare')) return;
+      return addCopy('prima della cancellazione').then(() => {
+        const keep = DB.settings, games = DB.games;
+        if (a === 'wipeall') { DB = newDB(); DB.settings.copies = keep.copies; DB.settings.quick = keep.quick; DB.settings.lastExport = keep.lastExport; }
+        else { Object.assign(DB, {groups: [], cars: [], brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: []}); DB.settings.sel = {game: DB.settings.sel.game, c: DB.settings.sel.c, v: DB.settings.sel.v}; }
+        UI.vb = null; UI.selTurn = null; return flush();
+      }).then(() => { render(); toast(a === 'wipeall' ? 'Tutto cancellato' : 'Dati cancellati, piste e curve restano'); });
+    }
     if (a === 'apply') return applyRestore();
     if (a === 'cancel') { UI.pending = null; return render(); }
     if (a === 'update') {
