@@ -193,7 +193,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.19';   // versione dell'app
+const APP_V = '0.19.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1457,7 +1457,7 @@ function saveNote() {
    =================================================================== */
 const numP = s => { const v = parseFloat(String(s).replace(',', '.')); return isNaN(v) ? null : v; };
 function paceP(s) {
-  s = String(s).trim().replace(',', '.');
+  s = normTime(String(s)).trim().replace(',', '.');
   const m = s.match(/^(\d+):(\d+(?:\.\d+)?)$/);
   if (m) return Math.round((parseInt(m[1], 10) * 60 + parseFloat(m[2])) * 1000) / 1000;
   const v = parseFloat(s); return isNaN(v) ? null : Math.round(v * 1000) / 1000;
@@ -1513,7 +1513,7 @@ function openStrat() {
     : 'Per questa auto su questo circuito mancano passo e consumo. Inseriscili qui sotto o salvali in Dati rapidi.';
   const pstText = dirty => '<b>' + (dirty ? 'Non salvato' : pt.st.charAt(0).toUpperCase() + pt.st.slice(1)) + '</b> · ' + esc(G.name) + ' · ' + esc(varName()) + (!dirty && pt.st === 'copiato' && pt.from ? ' (da ' + esc(pt.from) + ')' : '');
   sheet('Strategia gara', `<p class="meta">${esc(info)}</p><div class="zg">
-      <label class="f">Durata (minuti)<input id="zdur" inputmode="decimal" value="60"></label>
+      <div class="f">Durata gara<div style="display:flex;gap:6px;align-items:center"><input id="zdurh" inputmode="numeric" value="1" aria-label="Ore" style="min-width:0"><span>h</span><input id="zdurm" inputmode="numeric" value="0" aria-label="Minuti" style="min-width:0"><span>min</span></div></div>
       <label class="f">Passo gara<input id="zpace" value="${esc(perf ? perf.paceD : '')}" placeholder="m:ss.mmm"></label>
       <label class="f">Consumo (${esc(G.unit)})<input id="zcons" inputmode="decimal" value="${esc(main ? main.v : '')}"></label>
       <label class="f">Soste obbligatorie<input id="zmand" inputmode="numeric" value="1"></label>
@@ -1527,7 +1527,7 @@ function openStrat() {
     </div><div id="zout"></div>`, carNameFull());
   const zr = () => {
     const g = id => $(id).value;
-    const D = numP(g('zdur')), pace = paceP(g('zpace')), cons = numP(g('zcons')), pit = numP(g('zpit')), mand = numP(g('zmand')), tk = numP(g('ztank')), mg = numP(g('zmg'));
+    const dh = numP(g('zdurh') || '0'), dm = numP(g('zdurm') || '0'), D = dh == null || dm == null ? null : dh * 60 + dm, pace = paceP(g('zpace')), cons = numP(g('zcons')), pit = numP(g('zpit')), mand = numP(g('zmand')), tk = numP(g('ztank')), mg = numP(g('zmg'));
     const msOn = $('zmsOn').checked, ms = msOn ? numP(g('zms')) : null, out = $('zout');
     if ([D, pace, cons, pit, mand, tk, mg].some(v => v == null || v < 0) || D <= 0 || pace <= 0 || cons <= 0 || (msOn && (ms == null || ms <= 0))) {
       out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
@@ -1543,7 +1543,8 @@ function openStrat() {
     });
     out.innerHTML = h + '</div>';
   };
-  ['zdur', 'zpace', 'zcons', 'zpit', 'zmand', 'zms', 'ztank', 'zmg'].forEach(id => $(id).addEventListener('input', zr));
+  ['zdurh', 'zdurm', 'zpace', 'zcons', 'zpit', 'zmand', 'zms', 'ztank', 'zmg'].forEach(id => $(id).addEventListener('input', zr));
+  $('zpace').addEventListener('change', () => { $('zpace').value = normTime($('zpace').value); zr(); });
   ['zform', 'zref', 'zmgu'].forEach(id => $(id).addEventListener('change', zr));
   $('zmsOn').addEventListener('change', function () { $('zms').disabled = !this.checked; $('zmsw').classList.toggle('dis', !this.checked); zr(); });
   const pst = () => { $('zpst').innerHTML = pstText(numP($('zpit').value) !== pt.s); };
