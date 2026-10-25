@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.17';   // versione dell'app
+const APP_V = '0.17.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1781,10 +1781,12 @@ function collectGroup() {
     subs: [...el.querySelectorAll(':scope > .sub')].map(b => ({id: b.dataset.sid, name: b.querySelector('.subn').value.trim(), params: pr(b)}))
   }));
 }
-function redrawGroup() {
+function redrawGroup(focusSel) {   // ridisegna l'editor restando dove sei; se serve mette il cursore sul campo nuovo
   const sc = document.querySelector('.sheet'), top = sc ? sc.scrollTop : 0;
   editGroup(UI.eg.id, UI.eg);
   const sc2 = document.querySelector('.sheet'); if (sc2) sc2.scrollTop = top;
+  const el = focusSel && document.querySelector(focusSel);
+  if (el) { el.focus({preventScroll: true}); el.scrollIntoView({block: 'nearest'}); }
 }
 function groupAction(act, btn) {
   const g = UI.eg;
@@ -1803,15 +1805,15 @@ function groupAction(act, btn) {
     else { const nc = conts[ci + d]; if (!nc) return; const [it] = arr.splice(pi, 1); if (d < 0) nc.push(it); else nc.unshift(it); }
     return redrawGroup();
   }
-  if (act === 'addsec') { g.sections.push({id: uid(), name: '', params: [], subs: []}); return editGroup(g.id, g); }
+  if (act === 'addsec') { const n = {id: uid(), name: '', params: [], subs: []}; g.sections.push(n); return redrawGroup(`.sec[data-sid="${n.id}"] .sn`); }
   if (act === 'addpar') {
-    tgt().params.push({id: uid(), label: ''});
+    const np = {id: uid(), label: ''}; tgt().params.push(np);
     const sec = g.sections[si]; if (bi >= 0 && sec.link !== false && sec.subs.length > 1) sec.subs.forEach((b, k) => { if (k !== bi) b.params.push({id: uid(), label: ''}); });
-    return redrawGroup();
+    return redrawGroup(`.pn[data-pid="${np.id}"]`);
   }
-  if (act === 'addsub') { (g.sections[si].subs = g.sections[si].subs || []).push({id: uid(), name: '', params: []}); return editGroup(g.id, g); }
-  if (act === 'delsub') { g.sections[si].subs.splice(bi, 1); return editGroup(g.id, g); }
-  if (act === 'delsec') { g.sections.splice(si, 1); return editGroup(g.id, g); }
+  if (act === 'addsub') { const n = {id: uid(), name: '', params: []}; (g.sections[si].subs = g.sections[si].subs || []).push(n); return redrawGroup(`.sub[data-sid="${n.id}"] .subn`); }
+  if (act === 'delsub') { g.sections[si].subs.splice(bi, 1); return redrawGroup(); }
+  if (act === 'delsec') { g.sections.splice(si, 1); return redrawGroup(); }
   if (act === 'delpar') {
     const lab = (tgt().params[pi] || {label: ''}).label.trim().toLowerCase(); tgt().params.splice(pi, 1);
     const sec = g.sections[si]; if (bi >= 0 && lab && sec.link !== false && sec.subs.length > 1) sec.subs.forEach((b, k) => { if (k === bi) return; const x = b.params.findIndex(p => p.label.trim().toLowerCase() === lab); if (x >= 0) b.params.splice(x, 1); });
@@ -1820,7 +1822,7 @@ function groupAction(act, btn) {
   if (act === 'tpl') {
     const tp = tplFor((DB.games.find(x => x.id === g.gameId) || GAME).name); if (!tp) return;
     if (g.sections.some(x => x.params.length || (x.subs || []).length) && !armed(btn, 'Sostituisco i parametri attuali: conferma')) return;
-    g.sections = parseOutline(tp.text); return editGroup(g.id, g);
+    g.sections = parseOutline(tp.text); return redrawGroup();
   }
   if (act === 'paste') { $('pasteBox').hidden = !$('pasteBox').hidden; return; }
   if (act === 'pasteadd') {
@@ -1831,7 +1833,7 @@ function groupAction(act, btn) {
       else if (l[0] === '#') { cur = {id: uid(), name: l.replace(/^#+\s*/, ''), params: [], subs: []}; g.sections.push(cur); }
       else { if (!cur) { cur = {id: uid(), name: 'Generale', params: [], subs: []}; g.sections.push(cur); } cur.params.push({id: uid(), label: l}); }
     });
-    return editGroup(g.id, g);
+    return redrawGroup();
   }
   if (act === 'save') {
     if (!g.name) return toast('Scrivi il nome del gruppo');
