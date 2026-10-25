@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.13.1';   // versione dell'app
+const APP_V = '0.14';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -267,7 +267,7 @@ function valid(d) {
 }
 
 let saveTimer = null;
-function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); }
+function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); syncSoon(); }
 function flush() {
   clearTimeout(saveTimer);
   if (memOnly || !idb || !DB) return Promise.resolve();
@@ -276,6 +276,137 @@ function flush() {
 }
 window.addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+
+/* ---------- Sincronizzazione tra dispositivi (Firebase) ---------- */
+const FB_CFG = {
+  apiKey: "AIzaSyBA7c4hFZWmwlqS88gJQNO0iAoFn1vpqSc",
+  authDomain: "simapex-3c012.firebaseapp.com",
+  projectId: "simapex-3c012",
+  storageBucket: "simapex-3c012.firebasestorage.app",
+  messagingSenderId: "180694856730",
+  appId: "1:180694856730:web:fbdc92d030d145684b4da3"
+};
+const FB_VER = '10.14.1';
+let FBP = null, syncTimer = null;
+const SY = {user: null, busy: false, err: '', note: '', conflict: null};
+// Un solo documento nel cloud: tutti i dati (senza le foto di sfondo, che restano sul dispositivo), compressi.
+function fbLoad() {
+  if (window.__FB_MOCK) return Promise.resolve(window.__FB_MOCK);
+  if (FBP) return FBP;
+  const u = n => `https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${n}.js`;
+  FBP = Promise.all([import(u('app')), import(u('auth')), import(u('firestore'))]).then(([a, au, fs]) => {
+    const app = a.initializeApp(FB_CFG), auth = au.getAuth(app), db = fs.getFirestore(app);
+    const ref = () => fs.doc(db, 'users', auth.currentUser.uid, 'data', 'db');
+    return {
+      onUser: cb => au.onAuthStateChanged(auth, cb),
+      signIn: () => au.signInWithPopup(auth, new au.GoogleAuthProvider()),
+      signOut: () => au.signOut(auth),
+      get: () => fs.getDoc(ref()).then(x => x.exists() ? x.data() : null),
+      set: d => fs.setDoc(ref(), d)
+    };
+  });
+  FBP.catch(() => { FBP = null; });
+  return FBP;
+}
+const syncOn = () => !!(DB && DB.settings.sync && DB.settings.sync.on);
+const count = d => (d.circuits || []).length + (d.groups || []).length + (d.cars || []).length;
+async function packDB() {
+  const out = JSON.parse(JSON.stringify(DB, (k, v) => k === 'photo' ? undefined : v));
+  out.settings = {quick: DB.settings.quick};
+  let txt = JSON.stringify(out), z = 0;
+  if (window.CompressionStream) {
+    const buf = new Uint8Array(await new Response(new Blob([txt]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+    let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    txt = btoa(bin); z = 1;
+  }
+  if (txt.length > 950000) throw new Error('troppo grande');
+  return {z, d: txt, u: DB.u, v: DATA_V, n: count(DB), t: now()};
+}
+async function unpackDB(doc) {
+  let txt = doc.d;
+  if (doc.z) txt = await new Response(new Blob([Uint8Array.from(atob(txt), c => c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(txt);
+}
+function addCopyData(why, data) { return idb ? tx('copies', 'readwrite', s => s.add({t: now(), why, data: JSON.stringify(data)})).then(pruneCopies) : Promise.resolve(); }
+async function syncUpload(fb) {
+  const doc = await packDB(); await fb.set(doc);
+  const st = DB.settings.sync; st.ru = doc.u; st.lu = doc.u; st.t = now();
+}
+async function syncDownload(remote) {
+  const raw = await unpackDB(remote), local = DB;
+  await addCopy('prima della sincronizzazione');
+  const d = migrate(raw);
+  d.settings = Object.assign({}, local.settings, {quick: (raw.settings && raw.settings.quick) || local.settings.quick});
+  d.variants.forEach(v => { const o = local.variants.find(x => x.id === v.id); if (o && o.shape && o.shape.photo && v.shape && !v.shape.photo) { v.shape.photo = o.shape.photo; v.shape.bg = o.shape.bg; v.shape.bgAr = o.shape.bgAr; } });
+  d.u = remote.u; DB = d;
+  const st = DB.settings.sync; st.ru = remote.u; st.lu = remote.u; st.t = now();
+  UI.vb = null; UI.selTurn = null; await flush(); render();
+}
+const busyUI = () => !!(document.querySelector('#layer .sheet') || UI.edit || UI.move || UI.placing || UI.dr);
+async function syncNow() {
+  if (SY.busy || !SY.user || !syncOn() || !DB || navigator.onLine === false) return;
+  SY.busy = true; SY.err = ''; SY.note = ''; paintSync();
+  try {
+    const fb = await fbLoad(), st = DB.settings.sync, remote = await fb.get();
+    const localChanged = DB.u !== st.lu;
+    if (!remote) { if (!isEmpty(DB)) await syncUpload(fb); }
+    else {
+      if (remote.v > DATA_V) { SY.err = 'Nel cloud ci sono dati di una versione più nuova. Aggiorna l\'app su questo dispositivo.'; return; }
+      const remoteChanged = remote.u !== st.ru;
+      if (!remoteChanged) { if (localChanged) { if (isEmpty(DB) && remote.n > 0) SY.conflict = remote; else await syncUpload(fb); } }
+      else if (isEmpty(DB) || (st.ru && !localChanged)) {
+        if (busyUI()) SY.note = 'Ci sono novità nel cloud: le scarico appena chiudi la finestra aperta.'; else await syncDownload(remote);
+      } else SY.conflict = remote;
+    }
+    if (!SY.conflict && !SY.note) st.t = now();
+    await flush();
+  } catch (e) {
+    SY.err = e && e.message === 'troppo grande' ? 'I dati sono troppo grandi per il cloud: fai un backup su file e dimmelo.' : 'Sincronizzazione non riuscita. Riprovo appena possibile.';
+  } finally { SY.busy = false; paintSync(); }
+}
+function syncSoon() { if (!SY.user || !syncOn()) return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 6000); }
+async function syncResolve(mine) {
+  const remote = SY.conflict; if (!remote) return; SY.conflict = null; SY.busy = true; paintSync();
+  try {
+    const fb = await fbLoad();
+    if (mine) { await addCopyData('cloud prima della sovrascrittura', Object.assign(await unpackDB(remote), {})); await syncUpload(fb); await flush(); }
+    else await syncDownload(remote);
+  } catch (e) { SY.err = 'Operazione non riuscita. Riprova.'; }
+  SY.busy = false; paintSync();
+}
+async function syncStart(interactive) {
+  try {
+    const fb = await fbLoad();
+    if (!interactive) { fb.onUser(u => { SY.user = u || null; if (u) syncNow(); paintSync(); }); return; }
+    await fb.signIn();
+  } catch (e) { SY.err = 'Accesso non riuscito (' + ((e && (e.code || e.message)) || 'errore') + ').'; paintSync(); }
+}
+function syncEnable() {
+  const st = DB.settings.sync = DB.settings.sync || {}; st.on = true; flush();
+  fbLoad().then(fb => { fb.onUser(u => { SY.user = u || null; if (u) syncNow(); paintSync(); }); return fb.signIn(); })
+    .catch(e => { SY.err = 'Accesso non riuscito (' + ((e && (e.code || e.message)) || 'errore') + ').'; paintSync(); });
+}
+function syncDisable() {
+  if (DB.settings.sync) DB.settings.sync.on = false; flush();
+  fbLoad().then(fb => fb.signOut()).catch(() => {}).then(() => { SY.user = null; SY.conflict = null; paintSync(); });
+}
+function paintSync() { if (UI.tab === 'backup' && !busyUI()) render(); else if (SY.conflict && UI.tab !== 'backup') toast('Sincronizzazione: serve una scelta nella scheda Backup'); }
+function syncCard() {
+  const st = (DB.settings && DB.settings.sync) || {}, on = !!st.on;
+  let body;
+  if (!on) body = `<p class="meta">Tieni gli stessi dati su telefono, tablet e PC. Accedi con il tuo account Google: i dati vanno nel tuo spazio privato nel cloud.</p><div class="btns"><button class="pri" data-bk="syncin">Accedi con Google e attiva</button></div>`;
+  else if (!SY.user) body = `<p class="meta">Sincronizzazione attiva, ma non risulti collegato${navigator.onLine === false ? ' (sei offline)' : ''}.</p><div class="btns"><button class="pri" data-bk="syncin">Accedi con Google</button><button class="sec2" data-bk="syncout">Disattiva</button></div>`;
+  else body = `<p class="meta">Collegato come <b>${esc(SY.user.email || '')}</b>.<br>Ultima sincronizzazione: ${esc(st.t ? fdt(st.t) : 'non ancora')}${SY.busy ? ' · sto sincronizzando...' : ''}</p>
+    <div class="btns"><button class="sec2" data-bk="syncnow">Sincronizza ora</button><button class="sec2" data-bk="syncout">Esci e disattiva</button></div>`;
+  if (SY.err) body += `<div class="warn" style="margin-top:10px">${esc(SY.err)}</div>`;
+  if (SY.note) body += `<p class="meta" style="margin-top:8px">${esc(SY.note)}</p>`;
+  if (SY.conflict) body += `<div class="warn" style="margin-top:10px"><b>I dati sono diversi qui e nel cloud.</b>
+    <p style="margin:6px 0">Cloud: ${SY.conflict.n} elementi, modificato ${esc(fdt(SY.conflict.t))}. Questo dispositivo: ${count(DB)} elementi. Quello che non scegli viene salvato come copia interna, e lo recuperi da Copie interne.</p>
+    <div class="btns"><button class="pri" data-bk="syncmine">Tieni questo dispositivo</button><button class="sec2" data-bk="synccloud">Tieni il cloud</button></div></div>`;
+  return `<div class="card"><h2>Sincronizzazione</h2>${body}</div>`;
+}
+window.addEventListener('online', () => syncNow());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
 
 /* ---------- Copie interne ---------- */
 const listCopies = () => idb ? tx('copies', 'readonly', s => s.getAll()).then(l => l.sort((a, b) => a.t < b.t ? 1 : -1)) : Promise.resolve([]);
@@ -1822,7 +1953,7 @@ function viewBackup() {
       <p style="margin:6px 0">Contiene ${esc(summary(UI.pending.data))}. Sostituisce i dati attuali (${esc(summary(DB))}). Prima salvo una copia interna di quelli attuali.</p>
       <div class="btns" style="margin-top:6px"><button class="pri" data-bk="apply">Sostituisci i dati</button><button class="sec2" data-bk="cancel">Annulla</button></div></div>`;
   }
-  return `<div class="card"><h2>Backup su file</h2>
+  return syncCard() + `<div class="card"><h2>Backup su file</h2>
       <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
       ${late ? '<div class="warn">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
       <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button>${window.showSaveFilePicker ? '<button class="sec2" data-bk="savefile">Salva in una cartella</button>' : ''}<button class="sec2" data-bk="pick">Ripristina da file</button></div>
@@ -1967,6 +2098,11 @@ document.addEventListener('click', e => {
   const bk = t.closest('[data-bk]');
   if (bk) {
     const a = bk.dataset.bk;
+    if (a === 'syncin') return syncEnable();
+    if (a === 'syncout') return syncDisable();
+    if (a === 'syncnow') return syncNow();
+    if (a === 'syncmine') return syncResolve(true);
+    if (a === 'synccloud') return syncResolve(false);
     if (a === 'share') return shareBackup();
     if (a === 'download') return downloadBackup();
     if (a === 'pick') return $('fileIn').click();
@@ -2044,6 +2180,7 @@ function start() {
       } else DB = newDB();
       DB.settings.copies = DB.settings.copies || {every:'day', keep:5};
       render();
+      if (syncOn()) syncStart(false);
       if (idb) maybeCopy();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(p => { UI.persisted = p; if (UI.tab === 'backup') render(); });
     });
