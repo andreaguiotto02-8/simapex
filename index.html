@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.14';   // versione dell'app
+const APP_V = '0.15';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1758,12 +1758,13 @@ function editGroup(id, working) {
   const g = working || (id ? clone(DB.groups.find(x => x.id === id)) : {id:null, name:'', gameId: GAME.id, unit:'L/giro', mapLabel:'Mappa motore', sections:[]});
   if (!id && !working) { const tp = tplFor(GAME.name); if (tp) g.sections = parseOutline(tp.text); }
   UI.eg = g;
-  const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro"><button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
+  const mv = (act, attrs) => `<button class="x" data-eg="${act}" data-d="-1" ${attrs} aria-label="Sposta su">▲</button><button class="x" data-eg="${act}" data-d="1" ${attrs} aria-label="Sposta giù">▼</button>`;
+  const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro">${mv('mvpar', attrs)}<button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
   const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
-      <div class="row2 hd"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione"><button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
+      <div class="row2 hd"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione">${mv('mvsec', `data-si="${si}"`)}<button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
       <div class="dp">${s.params.map((p, pi) => parRow(p, `data-si="${si}" data-pi="${pi}"`)).join('')}</div>
       ${(s.subs || []).map((b, bi) => `<div class="sub" data-sid="${b.id}">
-        <div class="row2"><input class="subn" value="${esc(b.name)}" placeholder="Nome sottosezione (es. Ant. sx)" aria-label="Nome sottosezione"><button class="x" data-eg="delsub" data-si="${si}" data-bi="${bi}" aria-label="Elimina sottosezione">✕</button></div>
+        <div class="row2"><input class="subn" value="${esc(b.name)}" placeholder="Nome sottosezione (es. Ant. sx)" aria-label="Nome sottosezione">${mv('mvsub', `data-si="${si}" data-bi="${bi}"`)}<button class="x" data-eg="delsub" data-si="${si}" data-bi="${bi}" aria-label="Elimina sottosezione">✕</button></div>
         ${b.params.map((p, pi) => parRow(p, `data-si="${si}" data-bi="${bi}" data-pi="${pi}"`)).join('')}
         <button class="sec2" data-eg="addpar" data-si="${si}" data-bi="${bi}">+ Parametro in ${esc(b.name || 'sottosezione')}</button></div>`).join('')}
       <div class="btns"><button class="sec2" data-eg="addpar" data-si="${si}">+ Parametro</button><button class="sec2" data-eg="addsub" data-si="${si}">+ Sottosezione</button></div></div>`).join('');
@@ -1799,6 +1800,13 @@ function groupAction(act, btn) {
   collectGroup();
   const si = +btn.dataset.si, pi = +btn.dataset.pi, bi = btn.dataset.bi == null ? -1 : +btn.dataset.bi;
   const tgt = () => bi >= 0 ? g.sections[si].subs[bi] : g.sections[si];
+  if (act === 'mvsec' || act === 'mvsub' || act === 'mvpar') {
+    const d = +btn.dataset.d, arr = act === 'mvsec' ? g.sections : act === 'mvsub' ? g.sections[si].subs : tgt().params, i = act === 'mvsec' ? si : act === 'mvsub' ? bi : pi, j = i + d;
+    if (j < 0 || j >= arr.length) return;
+    const sc = document.querySelector('.sheet'), top = sc ? sc.scrollTop : 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]]; editGroup(g.id, g);
+    const sc2 = document.querySelector('.sheet'); if (sc2) sc2.scrollTop = top; return;
+  }
   if (act === 'addsec') { g.sections.push({id: uid(), name: '', params: [], subs: []}); return editGroup(g.id, g); }
   if (act === 'addpar') { tgt().params.push({id: uid(), label: ''}); return editGroup(g.id, g); }
   if (act === 'addsub') { (g.sections[si].subs = g.sections[si].subs || []).push({id: uid(), name: '', params: []}); return editGroup(g.id, g); }
