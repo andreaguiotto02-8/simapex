@@ -142,6 +142,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .sbar button b{color:var(--accent);margin-left:4px}
 .dh{touch-action:none;cursor:grab;width:34px;padding:0;flex:none;font-size:18px}.row2.drag{opacity:.55;box-shadow:0 4px 14px rgba(0,0,0,.3);position:relative;z-index:9}.row2.dropt{outline:2px solid var(--accent);outline-offset:1px}.sub.dropt,.sec.dropt{outline:2px dashed var(--accent)}
 @media(min-width:900px){.sheet{max-width:960px}}
+.gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl[data-act]{cursor:pointer}.tl .ii{float:right;color:var(--accent);font-size:13px;line-height:1}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
@@ -193,7 +194,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.19.2';   // versione dell'app
+const APP_V = '0.20';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1349,6 +1350,71 @@ function drawCarParams() {
   document.querySelectorAll('.sheet details').forEach(d => { if ([...d.querySelectorAll('[data-hid]')].some(i => !i.checked)) d.open = true; });
 }
 function collectCarParams() { document.querySelectorAll('#xlist [data-xi]').forEach(r => { UI.cp.extra[+r.dataset.xi].label = r.querySelector('.xn').value.trim(); }); }
+/* --- Guida al setup: cosa fa ogni parametro e come correggere i problemi di guida --- */
+const GUIDE_PAR = [
+  ['tc1|controllo trazione', 'TC1 · controllo di trazione', 'Aiuto elettronico che toglie potenza quando le ruote motrici pattinano. TC1 decide quanto slittamento tollera prima di intervenire.', 'Più alto = più aiuto, auto facile in uscita ma meno veloce. Più basso = più libero, più rischio di sbandare.', 'Per iniziare tieni i valori di default e abbassali di un punto alla volta quando ti senti sicuro.'],
+  ['tc2', 'TC2 · taglio del controllo di trazione', 'Lavora insieme a TC1: regola quanto forte e rapido è il taglio di potenza quando il controllo interviene.', 'Di solito si tiene vicino a TC1. Se la macchina "singhiozza" in uscita di curva, prova a cambiarlo di un punto.'],
+  ['abs', 'ABS', 'Impedisce che le ruote si blocchino in frenata.', 'Più alto = più aiuto, frenata sicura ma spazio un po\' più lungo. Più basso = frenata più al limite ma rischi bloccaggi.', 'Da principiante lascia il valore standard: è il parametro che ti perdona di più.'],
+  ['mappa motore', 'Mappa motore', 'Sceglie come il motore eroga la potenza.', 'In genere la mappa 1 è la piena potenza; le altre sono più dolci e/o consumano meno. Serve soprattutto nelle gare lunghe, per risparmiare carburante.'],
+  ['carburante', 'Carburante', 'Litri nel serbatoio alla partenza.', 'Più carburante = più peso = giro più lento ma meno soste. Usa la Strategia gara per calcolare quanto metterne.'],
+  ['set gomme', 'Set gomme', 'Quale set di gomme monti.', 'I set usati hanno meno grip dei nuovi. Per il giro veloce usa un set nuovo.'],
+  ['pastiglie', 'Pastiglie dei freni', 'Il tipo di materiale delle pastiglie, scelto con un numero.', 'Mescole diverse: più "mordenti" frenano meglio ma si consumano e scaldano di più; quelle più dure durano di più. Per le gare lunghe scegli la più resistente.'],
+  ['pressione', 'Pressione gomme', 'Aria dentro la gomma, impostata a freddo. È una delle regolazioni che cambia di più il grip.', 'Cambia mentre guidi perché la gomma si scalda. Nei GT3 in asciutto l\'obiettivo di solito è circa 26,5–27,5 psi a caldo (in bagnato più alta). Troppo alta: poco grip e centro gomma consumato. Troppo bassa: gomma che si surriscalda sui bordi.', 'Guida qualche giro, guarda la pressione a caldo nel gioco e correggi a freddo di conseguenza.'],
+  ['campanatura', 'Campanatura', 'Inclinazione della ruota rispetto alla strada (negativa = parte alta verso l\'interno).', 'Più negativa = più grip in curva ma meno in frenata e rettilineo, e più usura sul bordo interno. Se il bordo interno è molto più caldo dell\'esterno, ne hai messa troppa.'],
+  ['convergenza', 'Convergenza (toe)', 'Se le ruote guardano leggermente verso l\'interno (toe-in) o verso l\'esterno (toe-out).', 'Davanti: toe-out = inserimento in curva più pronto ma meno stabile; toe-in = più stabile ma auto meno reattiva. Dietro: più toe-in = più stabilità in uscita. Valori grandi scaldano e consumano le gomme.'],
+  ['incidenza', 'Incidenza (caster)', 'Inclinazione dell\'asse dello sterzo, solo anteriore.', 'Più alta = sterzo più stabile e più pesante, e un po\' più grip anteriore in curva. Più bassa = sterzo più leggero.', 'Non è il primo valore da toccare.'],
+  ['barra antirollio ant', 'Barra antirollio anteriore', 'Collega le due ruote anteriori e controlla quanto l\'auto si inclina in curva.', 'Più rigida = più sottosterzo (l\'auto fatica a girare). Più morbida = più grip anteriore.'],
+  ['barra antirollio post', 'Barra antirollio posteriore', 'Come sopra, ma dietro.', 'Più rigida = più sovrasterzo (il posteriore scivola). Più morbida = posteriore più stabile.'],
+  ['rapporto di sterzo', 'Rapporto di sterzo', 'Quanto devi ruotare il volante per girare le ruote.', 'Basso = sterzo più diretto e rapido. Alto = più lento e stabile. È un fatto di gusto e di come usi il volante.'],
+  ['ripartizione', 'Ripartizione frenata', 'Quanta forza frenante va davanti e quanta dietro.', 'Più avanti = frenata stabile, ma rischio di bloccare le anteriori e sottosterzo in frenata. Più indietro = auto più pronta a girare, ma rischio di bloccare il posteriore e sovrasterzo.', 'Muovila di mezzo punto alla volta.'],
+  ['potenza frenata', 'Potenza frenata', 'Forza massima dei freni.', 'Di solito al massimo. Riducila solo se blocchi le ruote spesso.'],
+  ['precarico', 'Precarico del differenziale', 'Quanto le due ruote motrici sono "legate" tra loro.', 'Più alto = più stabilità in frenata e ingresso, ma più sottosterzo nelle curve lente. Più basso = auto più libera di ruotare, ma più nervosa.'],
+  ['rigidità molla', 'Rigidità delle molle', 'Quanto è dura la molla di ogni ruota.', 'Più rigida = risposta più pronta e meno rollio, ma meno grip su cordoli e buche. Più morbida = più grip meccanico. Davanti più dure = più sottosterzo; dietro più dure = più sovrasterzo.'],
+  ['rigidità finecorsa', 'Rigidità del finecorsa', 'Il finecorsa è un tampone che entra in azione quando la sospensione è molto compressa.', 'Più rigido = la sospensione "si indurisce" di colpo a fine corsa. Utile con auto molto basse e molto carico aerodinamico.', 'Lascia il valore di default finché non hai esperienza.'],
+  ['corsa finecorsa', 'Corsa del finecorsa', 'Dopo quanti millimetri di compressione entra in azione il finecorsa.', 'Più lungo = il tampone lavora prima. Lascia il valore di default finché non hai esperienza.'],
+  ['compressione lenta', 'Ammortizzatore: compressione lenta', 'Frena i movimenti lenti della carrozzeria quando la ruota sale: rollio in curva, beccheggio in frenata.', 'Più alta = carrozzeria più ferma ma più rigida. Più bassa = più morbida.'],
+  ['compressione rapida', 'Ammortizzatore: compressione rapida', 'Frena i colpi veloci: cordoli, buche, dossi.', 'Più bassa = assorbe meglio i cordoli. Più alta = auto più rigida sugli urti.'],
+  ['estensione lenta', 'Ammortizzatore: estensione lenta', 'Frena i movimenti lenti quando la ruota scende e la molla si distende.', 'Più alta = la carrozzeria torna più lentamente; cambia quanto trasferisce peso tra frenata, curva e accelerazione.'],
+  ['estensione rapida', 'Ammortizzatore: estensione rapida', 'Frena i movimenti veloci in distensione, dopo cordoli e dossi.', 'Più bassa = la ruota segue meglio la strada. Più alta = auto più rigida.'],
+  ['altezza da terra', 'Altezza da terra', 'Distanza tra il fondo dell\'auto e l\'asfalto.', 'Più bassa = baricentro più basso e più carico aerodinamico, ma rischio di toccare. Se dietro è più alta che davanti (inclinazione in avanti) hai più carico davanti e l\'auto gira meglio ma è meno stabile alle alte velocità.'],
+  ['ala', 'Ala posteriore', 'Carico aerodinamico dietro.', 'Più angolo = più stabilità nelle curve veloci e più grip dietro, ma meno velocità massima e più consumo. Meno angolo = più velocità in rettilineo ma posteriore più nervoso.'],
+  ['splitter', 'Splitter', 'Appendice davanti che genera carico anteriore.', 'Più carico davanti = più grip anteriore, ma più resistenza all\'avanzamento.'],
+  ['condotti', 'Condotti dei freni', 'Aperture che portano aria ai freni.', 'Più aperti = freni più freddi ma più resistenza. Più chiusi = aerodinamica migliore ma freni più caldi. Aprili nelle gare lunghe o con caldo.'],
+];
+const GUIDE_PROB = [
+  ['Sottosterzo in ingresso curva', 'L\'auto non gira quando stacchi e sterzi: va dritta.', ['Sposta la ripartizione frenata un po\' indietro.', 'Anteriore: convergenza un po\' più verso l\'esterno (toe-out).', 'Barra antirollio anteriore più morbida.', 'Diminuisci un po\' il precarico del differenziale.']],
+  ['Sottosterzo a centro curva', 'L\'auto non gira nel punto centrale della curva, anche senza frenare né accelerare.', ['Barra antirollio anteriore più morbida (o posteriore più rigida).', 'Molle anteriori più morbide.', 'Campanatura anteriore più negativa.', 'Più carico aerodinamico davanti (splitter, posteriore più alto).', 'Controlla che la pressione anteriore non sia troppo alta.']],
+  ['Sottosterzo in uscita', 'Quando acceleri esci largo.', ['Precarico del differenziale più basso.', 'Barra antirollio posteriore più rigida.', 'Accelera più dolcemente: è anche una questione di guida.']],
+  ['Sovrasterzo in ingresso', 'Il posteriore ti scappa quando stacchi e sterzi.', ['Ripartizione frenata un po\' più avanti.', 'Precarico del differenziale più alto.', 'Posteriore: più convergenza verso l\'interno (toe-in).', 'Stacca un po\' prima e rilascia il freno più gradualmente.']],
+  ['Sovrasterzo a centro curva', 'Il posteriore scivola a metà curva.', ['Barra antirollio posteriore più morbida (o anteriore più rigida).', 'Molle posteriori più morbide.', 'Più carico sull\'ala posteriore.', 'Pressione gomme posteriori un po\' più bassa se è oltre il valore giusto.']],
+  ['Sovrasterzo in uscita', 'Il posteriore scivola quando dai gas.', ['Controllo di trazione più alto (TC1/TC2).', 'Molle o barra posteriori più morbide.', 'Più convergenza posteriore verso l\'interno.', 'Più ala posteriore.', 'Dai gas in modo più progressivo.']],
+  ['Si bloccano le ruote in frenata', 'Senti la gomma che fischia o l\'auto che non rallenta.', ['ABS più alto.', 'Ripartizione frenata più indietro se blocchi le anteriori; più avanti se blocchi le posteriori.', 'Potenza frenata un po\' più bassa.', 'Frena con meno forza all\'inizio e poi rilascia gradualmente.']],
+  ['Auto instabile in rettilineo o curve veloci', 'L\'auto è nervosa alle alte velocità.', ['Più ala posteriore.', 'Altezza da terra posteriore più bassa, per ridurre l\'inclinazione in avanti.', 'Più convergenza posteriore verso l\'interno.']],
+  ['Auto che salta sui cordoli', 'Perdi aderenza o controllo toccando i cordoli.', ['Ammortizzatori: compressione rapida più bassa.', 'Molle un po\' più morbide.', 'Altezza da terra un po\' più alta.']],
+  ['Gomme che si surriscaldano o si consumano', 'Perdi grip dopo pochi giri.', ['Controlla la pressione a caldo.', 'Meno campanatura negativa se il bordo interno è molto più caldo dell\'esterno.', 'Meno convergenza.']],
+  ['Ruote che pattinano in uscita', 'Le ruote posteriori girano a vuoto quando dai gas.', ['Controllo di trazione più alto.', 'Molle posteriori più morbide.', 'Precarico del differenziale più basso.']],
+];
+const gNorm = t => String(t || '').toLowerCase();
+const guideFind = label => { const l = gNorm(label); return GUIDE_PAR.find(g => g[0].split('|').some(k => l.includes(k))); };
+const gParHtml = (g, hot) => `<div class="gi${hot ? ' hot' : ''}"><b>${esc(g[1])}</b><p>${esc(g[2])}</p><p>${esc(g[3])}</p>${g[4] ? `<p class="meta">${esc(g[4])}</p>` : ''}</div>`;
+function guideOpen(tab, label) {
+  const tabBtn = (k, t) => `<button class="sec2" data-act="guidetab" data-t="${k}" aria-pressed="${tab === k}">${t}</button>`;
+  let body;
+  if (tab === 'par') {
+    const f = label && guideFind(label);
+    body = (f ? gParHtml(f, true) + '<p class="meta" style="margin:6px 0">Tutti gli altri parametri:</p>' : '') + GUIDE_PAR.filter(g => g !== f).map(g => gParHtml(g)).join('');
+  } else {
+    body = '<div class="gi hot"><b>Come si imposta un setup da zero</b><p>1) Parti dal setup di base del gioco e fai qualche giro per capire come si comporta. 2) Cambia una cosa sola per volta, di un piccolo passo. 3) Rifai 3–4 giri e confronta con quelli di prima. 4) Se è peggio, rimetti com\'era. 5) Segna cosa hai cambiato e perché.</p><p class="meta">Sono indicazioni generali per le GT3: l\'effetto preciso cambia da auto ad auto, quindi provale tu stesso.</p></div>'
+      + GUIDE_PROB.map(([t, d, tips]) => `<div class="gi"><b>${esc(t)}</b><p>${esc(d)}</p><ul>${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')
+      + '<p class="meta">Le soluzioni sono in ordine: prova prima le prime. Se un problema compare solo in una fase (ingresso, centro o uscita), correggi quella fase.</p>';
+  }
+  const old = $('guide'); if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'guide'; el.className = 'back'; el.style.zIndex = 30;
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="Guida al setup"><div class="sh"><div><h3>Guida al setup</h3></div><button class="x" data-act="guideclose" aria-label="Chiudi">✕</button></div><div class="seg">${tabBtn('prob', 'Problemi di guida')}${tabBtn('par', 'Cosa fa ogni parametro')}</div><div id="gbody">${body}</div></div>`;
+  el.onclick = e => { if (e.target === el) el.remove(); };
+  document.body.appendChild(el);
+  const hot = el.querySelector('.hot'); if (hot && label) hot.scrollIntoView({block: 'start'});
+}
 function openSetup(cond, mode) {
   if (!needCtx('av')) return;
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
@@ -1364,7 +1430,7 @@ function openSetup(cond, mode) {
   if (sp) html += `<div class="seg"><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="spec" aria-pressed="${mode === 'spec'}">Specifico</button><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="gen" aria-pressed="${mode === 'gen'}">Generale</button></div>`;
   else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
   let total = 0, bar = '', body = '';
-  const tile = (p, ch, val, g) => `<div class="tl${ch ? ' ch' : ''}"><span class="k">${esc(p.label)}</span><span class="v">${esc(val == null ? '—' : val)}</span>${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</div>`;
+  const tile = (p, ch, val, g) => `<div class="tl${ch ? ' ch' : ''}" data-act="parinfo" data-l="${esc(p.label)}"><span class="k">${esc(p.label)}</span><span class="v">${esc(val == null ? '—' : val)}</span>${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</div>`;
   carSections().forEach((sec, i) => {
     let cnt = 0;
     const grid = list => '<div class="tg">' + list.map(p => {
@@ -1381,7 +1447,7 @@ function openSetup(cond, mode) {
   html += `<div class="sbar">${bar}</div>` + body;
   const d = mode === 'spec' && sp ? sp.u : gen && gen.u;
   html += `<p class="meta">Modificato ${fd(d)}${mode === 'spec' ? ' · ' + total + ' valori diversi dal generale' : ''}</p>
-    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="setupstruct" data-cond="${cond}">Modifica parametri</button><button class="sec2" data-act="carparams" data-cond="${cond}">Solo per questa auto</button></div>`;
+    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="setupstruct" data-cond="${cond}">Modifica parametri</button><button class="sec2" data-act="carparams" data-cond="${cond}">Solo per questa auto</button><button class="sec2" data-act="guide">📖 Guida al setup</button></div>`;
   sheet('Setup ' + cname, html, sub);
 }
 function editSetup(cond, scope) {
@@ -1397,12 +1463,12 @@ function editSetup(cond, scope) {
   if (scope === 'gen' && cond === 'wet' && dryGen && Object.keys(dryGen).length) html += '<div class="btns" style="margin:0 0 10px"><button class="sec2" data-act="setupcopy">Parti dall\'asciutto</button></div>';
   let bar = '', body = '';
   carSections().forEach((sec, i) => {
-    const inp = (p, pre) => `<label class="tl"><span class="k">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></label>`;
+    const inp = (p, pre) => `<label class="tl"><span class="k">${esc(p.label)}<span class="ii" data-act="parinfo" data-l="${esc(p.label)}" role="button" aria-label="Cosa fa">ⓘ</span></span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></label>`;
     bar += `<button data-act="secjump" data-i="${i}">${esc(sec.name)}</button>`;
     body += `<div class="sgh" id="sec${i}"><span>${esc(sec.name)}</span></div>` + (sec.params.length ? '<div class="tg">' + sec.params.map(p => inp(p)).join('') + '</div>' : '') + (sec.subs || []).map(b => `<div class="tsub">${esc(b.name)}</div><div class="tg">` + b.params.map(p => inp(p, b.name)).join('') + '</div>').join('');
   });
   html += `<div class="sbar">${bar}</div>` + body;
-  html += `<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button><button class="sec2" data-act="setupstruct" data-cond="${cond}" data-scope="${scope}">Modifica parametri</button></div>`;
+  html += `<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button><button class="sec2" data-act="setupstruct" data-cond="${cond}" data-scope="${scope}">Modifica parametri</button><button class="sec2" data-act="guide">📖 Guida</button></div>`;
   sheet((scope === 'gen' ? 'Setup generale ' : 'Setup specifico ') + cname, html, carNameFull());
 }
 function setupBack(r) { if (r.scope && (DB.setupGen[A.id] || DB.setupSpec[kk(A.id, V.id)])) return editSetup(r.cond, r.scope); openSetup(r.cond); }
@@ -2113,6 +2179,10 @@ const ACT = {
     save(); const c = UI.cp.cond; render(); openSetup(c); toast('Parametri di questa auto salvati');
   },
   setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
+  guide: () => guideOpen('prob'),
+  guidetab: b => guideOpen(b.dataset.t),
+  guideclose: () => { const e = $('guide'); if (e) e.remove(); },
+  parinfo: b => guideOpen('par', b.dataset.l),
   secjump: b => { const t = document.getElementById('sec' + b.dataset.i), sh = document.querySelector('.sheet'), bar = document.querySelector('.sbar'); if (t && sh && bar) sh.scrollTo({top: sh.scrollTop + t.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 4, behavior: 'smooth'}); },
   openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
