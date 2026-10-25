@@ -193,7 +193,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.19.1';   // versione dell'app
+const APP_V = '0.19.2';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1274,7 +1274,9 @@ function normTime(t) {      // 143210 · 1.43.210 · 1 43 210 · 1:43,210  ->  1
   t = (t || '').trim(); if (!t || TIME_RE.test(t)) return t;
   let m = t.match(/^(\d+)\D+(\d{1,2})\D+(\d{1,3})$/);
   if (m) return m[1] + ':' + m[2].padStart(2, '0') + '.' + m[3];
+  m = t.match(/^(\d)(\d{2})\D+(\d{1,3})$/); if (m) return m[1] + ':' + m[2] + '.' + m[3];   // 155,00 -> 1:55.00
   m = t.match(/^(\d+)\D+(\d{2})$/); if (m) return m[1] + ':' + m[2];
+  m = t.match(/^(\d)(\d{2})(\d{2})$/); if (m) return m[1] + ':' + m[2] + '.' + m[3];   // 15500 -> 1:55.00
   m = t.match(/^(\d{1,2})(\d{2})(\d{3})$/); if (m) return +m[1] + ':' + m[2] + '.' + m[3];
   return t;
 }
@@ -1544,6 +1546,7 @@ function openStrat() {
     out.innerHTML = h + '</div>';
   };
   ['zdurh', 'zdurm', 'zpace', 'zcons', 'zpit', 'zmand', 'zms', 'ztank', 'zmg'].forEach(id => $(id).addEventListener('input', zr));
+  $('ztank').addEventListener('change', () => { const v = numP($('ztank').value); if (v > 0 && String(A.tank) !== String(v)) { A.tank = String(v); A.u = now(); save(); toast('Serbatoio salvato per questa auto: ' + v + ' L'); } });
   $('zpace').addEventListener('change', () => { $('zpace').value = normTime($('zpace').value); zr(); });
   ['zform', 'zref', 'zmgu'].forEach(id => $(id).addEventListener('change', zr));
   $('zmsOn').addEventListener('change', function () { $('zms').disabled = !this.checked; $('zmsw').classList.toggle('dis', !this.checked); zr(); });
