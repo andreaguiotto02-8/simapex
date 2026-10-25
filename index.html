@@ -96,6 +96,8 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .map svg{display:block;width:100%;height:auto}
 .map.full{position:fixed;inset:0;z-index:40;border-radius:0;border:0;padding:8px;display:flex;flex-direction:column;overflow:hidden}
 .map.full svg{flex:1;min-height:0;height:100%}
+.map .ctl{display:contents}
+@media (max-height:520px){.map.full{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,38%);grid-template-rows:minmax(0,1fr);gap:8px}.map.full .ctl{display:block;grid-column:2;grid-row:1;overflow-y:auto;min-height:0;padding-right:2px}.map.full svg{grid-column:1;grid-row:1;height:100%}}
 .mk{cursor:pointer}
 .mt{display:flex;gap:6px;flex-wrap:wrap;margin:2px 2px 6px}
 .mt button{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;min-width:44px;padding:4px 12px;font-weight:700}
@@ -194,7 +196,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.20';   // versione dell'app
+const APP_V = '0.20.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -684,7 +686,7 @@ function drawMap() {
   const scopeBar = V.games.length > 1 ? `<div class="ban"><span>Pista condivisa con ${esc(V.games.filter(x => x !== GAME.id).map(gameName).join(', '))}</span><label style="display:flex;align-items:center;gap:6px;font-size:14px">Modifiche per <select data-scope style="width:auto;min-height:40px"><option value="all"${UI.scope !== 'this' ? ' selected' : ''}>tutti i giochi</option><option value="this"${UI.scope === 'this' ? ' selected' : ''}>solo ${esc(GAME.name)}</option></select></label></div>` : '';
   const tb = `<div class="mt"><button data-zoom="out" aria-label="Riduci">−</button><button data-zoom="in" aria-label="Ingrandisci">+</button><button data-zoom="fit">Adatta</button><button data-act="move" aria-pressed="${!!UI.move}">Sposta numeri</button><button data-act="edit" aria-pressed="${!!UI.edit}">Modifica punti</button><button data-act="draw">Ridisegna</button></div>`;
   box.classList.toggle('full', !!(UI.edit || UI.move || UI.placing));
-  box.innerHTML = scopeBar + tb + ban + (UI.edit || UI.move ? bgBar(sh) : '') + s;
+  box.innerHTML = '<div class="ctl">' + scopeBar + tb + ban + (UI.edit || UI.move ? bgBar(sh) : '') + '</div>' + s;
 }
 function zoomBy(f, cx, cy) {
   const vb = getVB(), H = shapeH();
