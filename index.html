@@ -128,6 +128,19 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .par.ch .val{color:var(--accent)}
 .par .was{display:block;font-size:13px;font-weight:400;color:var(--muted)}
 .par input{width:42%;min-height:40px;text-align:right}
+.tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:6px 0 2px}
+.tl{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 8px;display:flex;flex-direction:column;gap:2px;min-width:0;font-variant-numeric:tabular-nums}
+.tl .k{font-size:11.5px;color:var(--muted);line-height:1.2;overflow-wrap:anywhere}
+.tl .v{font-size:17px;font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.tl.ch{background:var(--hl);border-color:var(--accent)}.tl.ch .v{color:var(--accent)}
+.tl .was{font-size:11px;color:var(--muted)}
+.tl input{width:100%;min-height:38px;text-align:left;font-weight:700;font-size:16px;padding:4px 6px}
+.sgh{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 0;font-weight:700;scroll-margin-top:52px}
+.sgh .scn{font-size:12px;color:var(--accent);font-weight:600}
+.sbar{position:sticky;top:0;box-shadow:0 -20px 0 var(--bg);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 8px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+.sbar button{min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:600;font-size:14px}
+.sbar button b{color:var(--accent);margin-left:4px}
+.tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
 summary::-webkit-details-marker{display:none}
@@ -178,7 +191,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.17.1';   // versione dell'app
+const APP_V = '0.18';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1346,21 +1359,22 @@ function openSetup(cond, mode) {
   let html = '';
   if (sp) html += `<div class="seg"><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="spec" aria-pressed="${mode === 'spec'}">Specifico</button><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="gen" aria-pressed="${mode === 'gen'}">Generale</button></div>`;
   else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
-  html += '<div class="seg"><button class="sec2" id="openAll" data-act="openall" aria-pressed="false">Apri tutto</button></div>';
-  let total = 0;
-  carSections().forEach(sec => {
-    let cnt = 0, rows = '';
-    const addRows = list => list.forEach(p => {
+  let total = 0, bar = '', body = '';
+  const tile = (p, ch, val, g) => `<div class="tl${ch ? ' ch' : ''}"><span class="k">${esc(p.label)}</span><span class="v">${esc(val == null ? '—' : val)}</span>${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</div>`;
+  carSections().forEach((sec, i) => {
+    let cnt = 0;
+    const grid = list => '<div class="tg">' + list.map(p => {
       const g = baseGen[p.id], ch = mode === 'spec' && sp && sp.vals[p.id] != null && sp.vals[p.id] !== g;
       if (ch) cnt++;
-      const val = ch ? sp.vals[p.id] : g;
-      rows += `<div class="par${ch ? ' ch' : ''}"><span class="l">${esc(p.label)}</span><span class="val">${esc(val == null ? '—' : val)}${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</span></div>`;
-    });
-    addRows(sec.params);
-    (sec.subs || []).forEach(b => { rows += `<div class="subh">${esc(b.name)}</div>`; addRows(b.params); });
+      return tile(p, ch, ch ? sp.vals[p.id] : g, g);
+    }).join('') + '</div>';
+    let inner = sec.params.length ? grid(sec.params) : '';
+    (sec.subs || []).forEach(b => { inner += `<div class="tsub">${esc(b.name)}</div>` + grid(b.params); });
     total += cnt;
-    html += `<details${cnt ? ' open' : ''}><summary><span>${esc(sec.name)}</span>${cnt ? `<span class="cnt">${cnt}${cnt === 1 ? ' modifica' : ' modifiche'}</span>` : ''}</summary>${rows}</details>`;
+    bar += `<button data-act="secjump" data-i="${i}">${esc(sec.name)}${cnt ? `<b>${cnt}</b>` : ''}</button>`;
+    body += `<div class="sgh" id="sec${i}"><span>${esc(sec.name)}</span>${cnt ? `<span class="scn">${cnt}${cnt === 1 ? ' modifica' : ' modifiche'}</span>` : ''}</div>${inner}`;
   });
+  html += `<div class="sbar">${bar}</div>` + body;
   const d = mode === 'spec' && sp ? sp.u : gen && gen.u;
   html += `<p class="meta">Modificato ${fd(d)}${mode === 'spec' ? ' · ' + total + ' valori diversi dal generale' : ''}</p>
     <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="setupstruct" data-cond="${cond}">Modifica parametri</button><button class="sec2" data-act="carparams" data-cond="${cond}">Solo per questa auto</button></div>`;
@@ -1377,10 +1391,13 @@ function editSetup(cond, scope) {
     ? '<p class="meta">Compila tutti i valori del setup generale di questa auto.</p>'
     : '<p class="meta">Scrivi solo i valori diversi dal generale. I campi vuoti usano il valore generale, mostrato in grigio.</p>';
   if (scope === 'gen' && cond === 'wet' && dryGen && Object.keys(dryGen).length) html += '<div class="btns" style="margin:0 0 10px"><button class="sec2" data-act="setupcopy">Parti dall\'asciutto</button></div>';
-  carSections().forEach(sec => {
-    const inp = (p, pre) => `<div class="par"><span class="l">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></div>`;
-    html += `<details open><summary><span>${esc(sec.name)}</span></summary>` + sec.params.map(p => inp(p)).join('') + (sec.subs || []).map(b => `<div class="subh">${esc(b.name)}</div>` + b.params.map(p => inp(p, b.name)).join('')).join('') + '</details>';
+  let bar = '', body = '';
+  carSections().forEach((sec, i) => {
+    const inp = (p, pre) => `<label class="tl"><span class="k">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></label>`;
+    bar += `<button data-act="secjump" data-i="${i}">${esc(sec.name)}</button>`;
+    body += `<div class="sgh" id="sec${i}"><span>${esc(sec.name)}</span></div>` + (sec.params.length ? '<div class="tg">' + sec.params.map(p => inp(p)).join('') + '</div>' : '') + (sec.subs || []).map(b => `<div class="tsub">${esc(b.name)}</div><div class="tg">` + b.params.map(p => inp(p, b.name)).join('') + '</div>').join('');
   });
+  html += `<div class="sbar">${bar}</div>` + body;
   html += `<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button><button class="sec2" data-act="setupstruct" data-cond="${cond}" data-scope="${scope}">Modifica parametri</button></div>`;
   sheet((scope === 'gen' ? 'Setup generale ' : 'Setup specifico ') + cname, html, carNameFull());
 }
@@ -2052,6 +2069,7 @@ const ACT = {
     save(); const c = UI.cp.cond; render(); openSetup(c); toast('Parametri di questa auto salvati');
   },
   setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
+  secjump: b => { const t = document.getElementById('sec' + b.dataset.i), sh = document.querySelector('.sheet'), bar = document.querySelector('.sbar'); if (t && sh && bar) sh.scrollTo({top: sh.scrollTop + t.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 4, behavior: 'smooth'}); },
   openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
   quick: b => { $(b.dataset.to).value = b.dataset.v; },
