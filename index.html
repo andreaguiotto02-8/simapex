@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.16';   // versione dell'app
+const APP_V = '0.16.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -878,7 +878,7 @@ function sheet(title, inner, sub) {
   $('cl').onclick = closeSheet;
   $('bk').onclick = e => { if (e.target.id === 'bk') closeSheet(); };
 }
-function closeSheet() { if (UI.dc && UI.dc.rec) { const r = UI.dc.rec; UI.dc.rec = null; try { r.stop(); } catch (_) {} } UI.dc = null; $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; UI.sh = null; }
+function closeSheet() { UI.egRet = null; if (UI.dc && UI.dc.rec) { const r = UI.dc.rec; UI.dc.rec = null; try { r.stop(); } catch (_) {} } UI.dc = null; $('layer').innerHTML = ''; UI.eg = null; UI.ec = null; UI.sh = null; }
 function armed(btn, text) {
   if (btn.dataset.armed) return true;
   btn.dataset.armed = '1'; btn.dataset.orig = btn.textContent; btn.textContent = text; btn.classList.add('danger');
@@ -1363,7 +1363,7 @@ function openSetup(cond, mode) {
   });
   const d = mode === 'spec' && sp ? sp.u : gen && gen.u;
   html += `<p class="meta">Modificato ${fd(d)}${mode === 'spec' ? ' · ' + total + ' valori diversi dal generale' : ''}</p>
-    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="carparams" data-cond="${cond}">Parametri di questa auto</button></div>`;
+    <div class="btns"><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="gen">Modifica generale</button><button class="sec2" data-act="setupedit" data-cond="${cond}" data-scope="spec">${sp ? 'Modifica specifico' : 'Crea specifico'}</button><button class="sec2" data-act="setupstruct" data-cond="${cond}">Modifica parametri</button><button class="sec2" data-act="carparams" data-cond="${cond}">Solo per questa auto</button></div>`;
   sheet('Setup ' + cname, html, sub);
 }
 function editSetup(cond, scope) {
@@ -1381,25 +1381,29 @@ function editSetup(cond, scope) {
     const inp = (p, pre) => `<div class="par"><span class="l">${esc(p.label)}</span><input data-pid="${p.id}" value="${esc(vals[p.id] == null ? '' : vals[p.id])}" placeholder="${scope === 'spec' ? esc(base[p.id] == null ? '' : base[p.id]) : ''}" aria-label="${esc((pre ? pre + ' ' : '') + p.label)}"></div>`;
     html += `<details open><summary><span>${esc(sec.name)}</span></summary>` + sec.params.map(p => inp(p)).join('') + (sec.subs || []).map(b => `<div class="subh">${esc(b.name)}</div>` + b.params.map(p => inp(p, b.name)).join('')).join('') + '</details>';
   });
-  html += '<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button></div>';
+  html += `<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button><button class="sec2" data-act="setupstruct" data-cond="${cond}" data-scope="${scope}">Modifica parametri</button></div>`;
   sheet((scope === 'gen' ? 'Setup generale ' : 'Setup specifico ') + cname, html, carNameFull());
 }
-function saveSetup() {
-  const {cond, scope, base} = UI.sh, out = {};
+function setupBack(r) { if (r.scope && (DB.setupGen[A.id] || DB.setupSpec[kk(A.id, V.id)])) return editSetup(r.cond, r.scope); openSetup(r.cond); }
+function applySetupInputs() {   // scrive i campi della finestra nel setup, senza toccare i valori dei parametri nascosti a questa auto
+  const {cond, scope, base} = UI.sh, key = kk(A.id, V.id);
+  const cur = scope === 'gen' ? (DB.setupGen[A.id] || {})[cond] : (DB.setupSpec[key] || {})[cond];
+  const out = Object.assign({}, cur ? cur.vals : {});
   document.querySelectorAll('.sheet input[data-pid]').forEach(i => {
-    const v = i.value.trim(); if (!v) return;
-    if (scope === 'spec' && base[i.dataset.pid] === v) return;
-    out[i.dataset.pid] = v;
+    const v = i.value.trim(), pid = i.dataset.pid;
+    if (!v || (scope === 'spec' && base[pid] === v)) delete out[pid]; else out[pid] = v;
   });
   if (scope === 'gen') {
-    if (!Object.keys(out).length) return toast('Compila almeno un valore');
+    if (!Object.keys(out).length) return false;
     (DB.setupGen[A.id] = DB.setupGen[A.id] || {})[cond] = {vals: out, u: now()};
-  } else {
-    const key = kk(A.id, V.id);
-    if (Object.keys(out).length) (DB.setupSpec[key] = DB.setupSpec[key] || {})[cond] = {vals: out, u: now()};
-    else if (DB.setupSpec[key]) { delete DB.setupSpec[key][cond]; if (!Object.keys(DB.setupSpec[key]).length) delete DB.setupSpec[key]; }
-  }
-  const c = cond; save(); render(); toast('Setup salvato'); openSetup(c);
+  } else if (Object.keys(out).length) (DB.setupSpec[key] = DB.setupSpec[key] || {})[cond] = {vals: out, u: now()};
+  else if (DB.setupSpec[key]) { delete DB.setupSpec[key][cond]; if (!Object.keys(DB.setupSpec[key]).length) delete DB.setupSpec[key]; }
+  save(); return true;
+}
+function saveSetup() {
+  const cond = UI.sh.cond;
+  if (!applySetupInputs()) return toast('Compila almeno un valore');
+  render(); toast('Setup salvato'); openSetup(cond);
 }
 
 /* --- Note --- */
@@ -1776,7 +1780,7 @@ function collectGroup() {
 }
 function groupAction(act, btn) {
   const g = UI.eg;
-  if (act === 'cancel') return closeSheet();
+  if (act === 'cancel') { const r = UI.egRet; closeSheet(); return r ? setupBack(r) : null; }
   collectGroup();
   const si = +btn.dataset.si, pi = +btn.dataset.pi, bi = btn.dataset.bi == null ? -1 : +btn.dataset.bi;
   const tgt = () => bi >= 0 ? g.sections[si].subs[bi] : g.sections[si];
@@ -1816,7 +1820,7 @@ function groupAction(act, btn) {
     g.u = now();
     const i = DB.groups.findIndex(x => x.id === g.id);
     if (i >= 0) DB.groups[i] = g; else { g.id = uid(); DB.groups.push(g); DB.settings.sel.g = g.id; DB.settings.sel.a = null; }
-    save(); closeSheet(); render(); return toast('Gruppo salvato');
+    const r = UI.egRet; save(); closeSheet(); render(); toast('Gruppo salvato'); return r ? setupBack(r) : null;
   }
   if (act === 'del') {
     const n = DB.cars.filter(a => a.gid === g.id).length;
@@ -2010,6 +2014,11 @@ const ACT = {
   setupedit: b => editSetup(b.dataset.cond, b.dataset.scope),
   setupsave: saveSetup,
   setupback: () => openSetup(UI.sh.cond),
+  setupstruct: b => {
+    const cond = b.dataset.cond, scope = b.dataset.scope || null;
+    if (scope && UI.sh) applySetupInputs();
+    UI.egRet = {cond, scope}; editGroup(G.id);
+  },
   carparams: b => openCarParams(b.dataset.cond),
   cpadd: () => { collectCarParams(); const hid = {...(A.hide || {})}; document.querySelectorAll('[data-hid]').forEach(i => { if (!i.checked) hid[i.dataset.hid] = true; else delete hid[i.dataset.hid]; }); A.hide = hid; UI.cp.extra.push({id: uid(), label: ''}); drawCarParams(); },
   cpdel: b => { collectCarParams(); UI.cp.extra.splice(+b.dataset.i, 1); drawCarParams(); },
