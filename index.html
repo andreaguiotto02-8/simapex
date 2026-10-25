@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.13';   // versione dell'app
+const APP_V = '0.13.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -458,22 +458,28 @@ function pathFrom(p, closed) {
 }
 const getVB = () => UI.vb || (UI.vb = {x:0, y:0, w:400});
 const shapeH = () => (V && V.shape && V.shape.h) || 240;
-function fitVB() { const vb = getVB(), H = shapeH(); vb.w = clampN(vb.w, 80, 400); vb.x = clampN(vb.x, 0, 400 - vb.w); vb.y = clampN(vb.y, 0, Math.max(0, H - vb.w * H / 400)); }
+function fitVB() { const vb = getVB(), H = shapeH(); vb.w = clampN(vb.w, 80, 400); const m = vb.w < 400 ? 60 : 0; vb.x = clampN(vb.x, -m, 400 - vb.w + m); vb.y = clampN(vb.y, -m, Math.max(0, H - vb.w * H / 400) + m); }
 function turnsOf() { return (V && V.shape && V.shape.turns) || []; }
 
-const bgOf = sh => Object.assign({s: 1, x: 0, y: 0, o: .5}, sh.bg || {});
+const bgOf = sh => Object.assign({o: .6}, sh.bg || {});   // o = opacità del tracciato dell'app (la foto resta ferma e piena)
 function bgBar(sh) {
   const bg = bgOf(sh), chipSt = 'background:var(--surface);min-height:40px;padding:4px 14px;font-size:14px;color:var(--fg);display:inline-flex;align-items:center;cursor:pointer';
+  const on = UI.trkMove ? 'background:var(--accent);color:var(--on-accent);border-color:var(--accent)' : '';
   return `<div class="ban" style="flex-direction:column;align-items:stretch"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><b>Foto di sfondo</b>
     <label class="chip" style="${chipSt}">${sh.photo ? 'Cambia foto' : 'Scegli foto'}<input type="file" accept="image/*" id="bgIn" hidden></label>
-    ${sh.photo ? `<button class="chip" data-act="bgmove" aria-pressed="${!!UI.bgMove}" style="${UI.bgMove ? 'background:var(--accent);color:var(--on-accent);border-color:var(--accent)' : ''}">Muovi foto</button><button class="chip" data-act="bgdel">Togli foto</button>` : ''}</div>
-    ${sh.photo ? `<label style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:80px">Opacità</span><input type="range" id="bgO" min="0" max="100" value="${Math.round(bg.o * 100)}" style="flex:1"></label>
-    <label style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:80px">Zoom foto</span><input type="range" id="bgS" min="30" max="300" value="${Math.round(bg.s * 100)}" style="flex:1"></label>` : '<span class="meta">Scegli la foto del circuito: compare sotto il tracciato e la regoli finché coincide.</span>'}</div>`;
+    ${sh.photo ? `<button class="chip" data-act="trkmove" aria-pressed="${!!UI.trkMove}" style="${on}">Sposta tracciato</button><button class="chip" data-act="bgdel">Togli foto</button>` : ''}</div>
+    ${sh.photo ? `<label style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:96px">Opacità tracciato</span><input type="range" id="bgO" min="10" max="100" value="${Math.round(bg.o * 100)}" style="flex:1"></label>
+    <label style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:96px">Zoom tracciato</span><input type="range" id="trkS" min="70" max="130" value="100" style="flex:1"></label>
+    <span class="meta">La foto resta ferma. Con Sposta tracciato trascini tutto il disegno (con le curve) finché coincide con la foto; Zoom tracciato lo ingrandisce o lo riduce.</span>` : '<span class="meta">Scegli la foto del circuito: resta ferma sotto il tracciato, e sposti e ingrandisci il tracciato finché coincide.</span>'}</div>`;
 }
-function applyBg() {
-  const sh = V && V.shape, im = $('bgImg'); if (!sh || !im) return;
-  const bg = bgOf(sh), H = sh.h || 240;
-  im.setAttribute('x', bg.x); im.setAttribute('y', bg.y); im.setAttribute('width', 400 * bg.s); im.setAttribute('height', 400 * bg.s * (sh.bgAr || H / 400)); im.setAttribute('opacity', bg.o);
+const trkTf = () => { const t = UI.trk || {dx: 0, dy: 0, s: 1}, H = shapeH(); return `translate(${t.dx} ${t.dy}) translate(200 ${H / 2}) scale(${t.s}) translate(-200 ${-H / 2})`; };
+function applyTrk() { const g = $('trk'); if (g) g.setAttribute('transform', trkTf()); }
+function bakeTrk() {   // porta lo spostamento/zoom nei punti e nelle curve del disegno
+  const t = UI.trk; UI.trk = null; if (!t || (t.dx === 0 && t.dy === 0 && t.s === 1) || !V || !V.shape) return;
+  const H = V.shape.h || 240, f = (x, y) => [Math.round((t.dx + 200 + (x - 200) * t.s) * 10) / 10, Math.round((t.dy + H / 2 + (y - H / 2) * t.s) * 10) / 10];
+  V.shape.pts = V.shape.pts.map(q => f(q[0], q[1]));
+  (V.shape.turns || []).forEach(c => { if (c.x != null) { const [x, y] = f(c.x, c.y); c.x = Math.round(x); c.y = Math.round(y); c.u = now(); } });
+  V.u = now(); save();
 }
 function loadBg(file) {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -481,8 +487,9 @@ function loadBg(file) {
     const w = Math.min(900, img.naturalWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth);
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     cv.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
-    V.shape.photo = cv.toDataURL('image/jpeg', 0.75); V.shape.bgAr = h / w; V.shape.bg = {s: 1, x: 0, y: 0, o: .5};
-    save(); drawMap(); toast('Foto caricata: regola opacità e zoom, poi muovila finché coincide');
+    V.shape.photo = cv.toDataURL('image/jpeg', 0.75); V.shape.bgAr = h / w; V.shape.bg = {o: .6};
+    V.shape.h = Math.max(V.shape.h || 0, Math.round(400 * h / w));
+    save(); drawMap(); toast('Foto caricata: sposta e ingrandisci il tracciato finché coincide');
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast('Non riesco a leggere questa immagine.'); };
   img.src = url;
@@ -498,9 +505,10 @@ function drawMap() {
   const d = pathFrom(sh.pts, sh.closed !== false);
   let s = `<svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vh}" style="touch-action:${(vb.w < 400 || UI.move || UI.edit) ? 'none' : 'pan-y'}${UI.placing ? ';cursor:crosshair' : UI.move ? ';cursor:move' : ''}" role="img" aria-label="Mappa del circuito con le curve numerate">`;
   const bgOn = sh.photo && (UI.edit || UI.move || UI.placing), bg = bgOf(sh);
-  if (bgOn) s += `<image id="bgImg" href="${sh.photo}" x="${bg.x}" y="${bg.y}" width="${400 * bg.s}" height="${400 * bg.s * (sh.bgAr || H / 400)}" opacity="${bg.o}" preserveAspectRatio="none" pointer-events="none"/>`;
+  if (bgOn) s += `<image id="bgImg" href="${sh.photo}" x="0" y="0" width="400" height="${400 * (sh.bgAr || H / 400)}" preserveAspectRatio="none" pointer-events="none"/>`;
+  s += `<g id="trk"${bgOn && UI.trk ? ` transform="${trkTf()}"` : ''}><g id="trkLine" opacity="${bgOn ? bg.o : 1}">`;
   s += `<path d="${d}" fill="none" stroke="var(--track-edge)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>`;
-  s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--track-fill)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/></g>`;
   if (UI.edit) sh.pts.forEach((q, i) => {
     const on = UI.selPt === i;
     s += `<g data-pt="${i}"><circle cx="${q[0]}" cy="${q[1]}" r="${(7 * k).toFixed(1)}" fill="transparent"/><circle cx="${q[0]}" cy="${q[1]}" r="${((on ? 7 : 4.5) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : '#fff'}" stroke="${on ? '#fff' : 'var(--accent)'}" stroke-width="${(1.8 * k).toFixed(1)}" pointer-events="none"/></g>`;
@@ -514,7 +522,7 @@ function drawMap() {
     s += `<circle cx="${t.x}" cy="${t.y}" r="${((on ? 9 : 6.5) * k).toFixed(1)}" fill="${on ? 'var(--accent)' : 'var(--fg)'}"/>`;
     s += `<text x="${t.x}" y="${(t.y + 3.4 * k).toFixed(1)}" font-size="${((on ? 10.5 : 8.5) * k).toFixed(1)}" font-weight="700" text-anchor="middle" fill="${on ? 'var(--on-accent)' : 'var(--bg)'}" font-family="var(--font)">${i + 1}</text></g>`;
   });
-  s += '</svg>';
+  s += '</g></svg>';
   let ban = '';
   if (UI.edit) {
     ban = `<div class="ban"><span><b>Modifica punti.</b> Trascina un punto, tocca la linea per aggiungerne uno, tocca un punto e Elimina per toglierlo.</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" data-act="ptdel"${UI.selPt == null ? ' disabled' : ''}>Elimina punto</button><button class="chip" data-act="ptsimp">Meno punti</button><button class="chip" data-act="ptundo"${(UI.undo || []).length ? '' : ' disabled'}>Annulla</button><button class="chip" data-act="edit">Fine</button></span></div>`;
@@ -554,8 +562,8 @@ document.addEventListener('pointerdown', e => {
   if (ids.length === 2) {
     const a = ptrs[ids[0]], b = ptrs[ids[1]];
     pinch = {d: Math.hypot(a.x - b.x, a.y - b.y) || 1, w: vb.w}; drag = null;
-  } else if (UI.bgMove && (UI.edit || UI.move) && V.shape.photo) {
-    drag = {bg: true};
+  } else if (UI.trkMove && (UI.edit || UI.move) && V.shape.photo) {
+    drag = {trk: true};
   } else if (UI.edit && e.target.closest('[data-pt]')) {
     UI.selPt = +e.target.closest('[data-pt]').dataset.pt; drag = {pt: UI.selPt};
   } else if (UI.move && e.target.closest('[data-turn]')) {
@@ -586,19 +594,19 @@ document.addEventListener('pointermove', e => {
     const u = mapScale().sc, H = shapeH();
     vb.x -= dx * u; vb.y -= dy * u; fitVB();
     mapSvg().setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.w * H / 400}`);
-  } else if (drag.bg) {
-    const u = mapScale().sc, bg = V.shape.bg = bgOf(V.shape);
-    bg.x += dx * u; bg.y += dy * u; drag.dirty2 = true; applyBg();
+  } else if (drag.trk) {
+    const u = mapScale().sc, t = UI.trk = UI.trk || {dx: 0, dy: 0, s: 1};
+    t.dx += dx * u; t.dy += dy * u; applyTrk();
   } else if (drag.pt != null) {
     if (!drag.snap) { if (ownVariant()) { render(); } pushUndo(); drag.snap = true; }
     const q = toSvg(e.clientX, e.clientY), pt = V.shape.pts[drag.pt]; if (!pt) return;
-    pt[0] = clampN(Math.round(q.x * 10) / 10, 0, 400); pt[1] = clampN(Math.round(q.y * 10) / 10, 0, shapeH()); drag.ptDirty = true;
-    const dd = pathFrom(V.shape.pts, V.shape.closed !== false); document.querySelectorAll('#mapBox svg > path').forEach(pe => pe.setAttribute('d', dd));
+    pt[0] = clampN(Math.round(q.x * 10) / 10, -150, 550); pt[1] = clampN(Math.round(q.y * 10) / 10, -150, shapeH() + 150); drag.ptDirty = true;
+    const dd = pathFrom(V.shape.pts, V.shape.closed !== false); document.querySelectorAll('#mapBox svg path').forEach(pe => pe.setAttribute('d', dd));
     document.querySelectorAll(`#mapBox [data-pt="${drag.pt}"] circle`).forEach(c => { c.setAttribute('cx', pt[0]); c.setAttribute('cy', pt[1]); });
   } else if (drag.id) {
     const q = toSvg(e.clientX, e.clientY), t = turnsOf().find(x => x.id === drag.id), H = shapeH();
     if (!t) return;
-    t.x = clampN(Math.round(q.x), 0, 400); t.y = clampN(Math.round(q.y), 0, H); drag.dirty = true;
+    t.x = clampN(Math.round(q.x), -150, 550); t.y = clampN(Math.round(q.y), -150, H + 150); drag.dirty = true;
     const g = document.querySelector(`#mapBox [data-turn="${drag.id}"]`);
     if (g) { const kk2 = vb.w / 400; g.querySelectorAll('circle').forEach(c => { c.setAttribute('cx', t.x); c.setAttribute('cy', t.y); }); g.querySelector('text').setAttribute('x', t.x); g.querySelector('text').setAttribute('y', t.y + 3.4 * kk2); }
   }
@@ -608,7 +616,7 @@ function endPtr(e) {
   delete ptrs[e.pointerId];
   if (Object.keys(ptrs).length < 2) pinch = null;
   if (moved) { noClick = true; setTimeout(() => { noClick = false; }, 80); }
-  if (drag && drag.dirty2) save();
+  if (drag && drag.trk) { bakeTrk(); drawMap(); }
   if (drag && drag.ptDirty && V) { V.u = now(); save(); }
   if (drag && drag.dirty) { const t = turnsOf().find(x => x.id === drag.id); if (t) t.u = now(); save(); }
   if (!Object.keys(ptrs).length) drag = null;
@@ -1858,10 +1866,10 @@ const ACT = {
   close: closeSheet,
   draw: editDrawing, turns: editTurns, perf: b => editPerf(b && b.dataset ? b.dataset.part : 'all'), strat: openStrat, notes: openNotes,
   later: () => { UI.placing = null; drawMap(); toast('Resta da posizionare: il promemoria è sopra la mappa'); },
-  move: () => { UI.move = !UI.move; UI.edit = false; UI.bgMove = false; UI.placing = null; drawMap(); },
-  bgmove: () => { UI.bgMove = !UI.bgMove; drawMap(); },
-  bgdel: () => { if (!V.shape.photo) return; delete V.shape.photo; delete V.shape.bg; delete V.shape.bgAr; UI.bgMove = false; save(); drawMap(); toast('Foto tolta'); },
-  edit: () => { UI.edit = !UI.edit; UI.move = false; UI.bgMove = false; UI.placing = null; UI.selPt = null; UI.undo = []; drawMap(); },
+  move: () => { UI.move = !UI.move; UI.edit = false; UI.trkMove = false; UI.placing = null; drawMap(); },
+  trkmove: () => { UI.trkMove = !UI.trkMove; drawMap(); },
+  bgdel: () => { if (!V.shape.photo) return; delete V.shape.photo; delete V.shape.bg; delete V.shape.bgAr; UI.trkMove = false; save(); drawMap(); toast('Foto tolta'); },
+  edit: () => { UI.edit = !UI.edit; UI.move = false; UI.trkMove = false; UI.placing = null; UI.selPt = null; UI.undo = []; drawMap(); },
   ptdel: () => {
     if (UI.selPt == null) return toast('Tocca prima un punto');
     if (V.shape.pts.length <= 4) return toast('Servono almeno 4 punti');
@@ -1919,7 +1927,7 @@ const ACT = {
   quickedit: editQuick, quickadd: () => { collectQuick(); UI.sh.q.push({id: uid(), label: ''}); drawQuick(); },
   quickdel: b => { collectQuick(); UI.sh.q.splice(+b.dataset.i, 1); drawQuick(); }, quicksave: saveQuick
 };
-const resetMapState = () => { UI.scope = 'all'; UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; UI.edit = false; UI.bgMove = false; UI.selPt = null; UI.undo = []; };
+const resetMapState = () => { UI.scope = 'all'; UI.vb = null; UI.selTurn = null; UI.placing = null; UI.move = false; UI.edit = false; UI.trkMove = false; UI.selPt = null; UI.undo = []; };
 
 document.addEventListener('click', e => {
   const t = e.target;
@@ -1933,7 +1941,7 @@ document.addEventListener('click', e => {
   if (msvg && UI.placing) {
     const forked = ownVariant();
     const q = toSvg(e.clientX, e.clientY), tt = turnsOf().find(x => x.id === UI.placing), H = shapeH();
-    if (tt) { tt.x = clampN(Math.round(q.x), 0, 400); tt.y = clampN(Math.round(q.y), 0, H); tt.u = now(); }
+    if (tt) { tt.x = clampN(Math.round(q.x), -150, 550); tt.y = clampN(Math.round(q.y), -150, H + 150); tt.u = now(); }
     const num = turnsOf().indexOf(tt) + 1;
     UI.placing = null; save(); if (forked) render(); else { drawMap(); renderRows(); } toast('Curva ' + num + ' posizionata'); return;
   }
@@ -1943,7 +1951,7 @@ document.addEventListener('click', e => {
     if (UI.dr.auto) { UI.dr.seed = [x, y]; UI.dr.warn = 'Cerco la pista...'; drawDrSvg(); runAuto(); return; }
     UI.dr.pts.push([x, y]); drawDrSvg(); return;
   }
-  if (msvg && UI.edit && !UI.bgMove) {
+  if (msvg && UI.edit && !UI.trkMove) {
     const h = t.closest('[data-pt]');
     if (h) { UI.selPt = +h.dataset.pt; drawMap(); return; }
     if (!addPointAt(toSvg(e.clientX, e.clientY))) { UI.selPt = null; drawMap(); }
@@ -1989,17 +1997,15 @@ document.addEventListener('click', e => {
   });
 });
 document.addEventListener('input', e => {
-  const t = e.target; if (!V || !V.shape || (t.id !== 'bgO' && t.id !== 'bgS')) return;
-  const bg = V.shape.bg = bgOf(V.shape); if (t.id === 'bgO') bg.o = t.value / 100; else {
-    const old = bg.s, ns = t.value / 100, H = V.shape.h || 240, cx = 200, cy = H / 2;   // lo zoom parte dal centro della mappa
-    bg.x = cx - (cx - bg.x) * ns / old; bg.y = cy - (cy - bg.y) * ns / old; bg.s = ns;
-  }
-  applyBg();
+  const t = e.target; if (!V || !V.shape) return;
+  if (t.id === 'bgO') { const bg = V.shape.bg = bgOf(V.shape); bg.o = t.value / 100; const g = $('trkLine'); if (g) g.setAttribute('opacity', bg.o); }
+  if (t.id === 'trkS') { const tt = UI.trk = UI.trk || {dx: 0, dy: 0, s: 1}; tt.s = t.value / 100; applyTrk(); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'bgIn' && t.files[0]) { loadBg(t.files[0]); t.value = ''; return; }
-  if (t.id === 'bgO' || t.id === 'bgS') { save(); return; }
+  if (t.id === 'bgO') { save(); return; }
+  if (t.id === 'trkS') { bakeTrk(); drawMap(); return; }
   if (t.id === 'fileIn' && t.files[0]) { readBackupFile(t.files[0]); t.value = ''; return; }
   if (t.id === 'photoIn' && t.files[0]) { loadPhoto(t.files[0]); t.value = ''; return; }
   if (t.dataset.sel) {
