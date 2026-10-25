@@ -79,6 +79,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
   padding:16px max(16px, env(safe-area-inset-left, 0px)) calc(24px + env(safe-area-inset-bottom, 0px))}
 .sh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
 .sh h3{font-size:20px;margin:0}
+.selrow{display:flex;gap:6px}.selrow select{flex:1;min-width:0}.selrow .ed{flex:none;min-width:44px;padding:0 10px}
 .sub{border-left:3px solid var(--line);padding-left:8px;display:flex;flex-direction:column;gap:8px}.dp{display:flex;flex-direction:column;gap:8px}.subh{padding:10px 12px 4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-top:1px solid var(--line)}
 .sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
 .row2{display:flex;gap:8px}
@@ -159,13 +160,12 @@ details[open] summary::after{content:"\2212"}
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>Simapex</h1><span class="ver" id="ver"></span></div>
+  <div class="top"><h1>Simapex</h1><span style="display:flex;align-items:center;gap:10px"><span class="ver" id="ver"></span><button class="ed" data-act="menu" aria-label="Menu" style="min-height:40px;min-width:44px;padding:0 12px;font-size:20px;line-height:1">⋯</button></span></div>
   <div id="notice"></div>
   <main id="main"></main>
 </div>
 <nav aria-label="Sezioni">
   <button class="tab" data-tab="home">Consulta</button>
-  <button class="tab" data-tab="data">Dati</button>
   <button class="tab" data-tab="backup">Backup</button>
 </nav>
 <div id="layer"></div>
@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.15';   // versione dell'app
+const APP_V = '0.16';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -784,6 +784,8 @@ function pickTurn(id) {
 /* ===================================================================
    SCHERMATA CONSULTA
    =================================================================== */
+const optsNew = (list, cur, label) => opts(list, cur) + `<option value="__new__">＋ ${label}</option>`;
+const selRow = (k, list, cur, label, editKind, editId) => `<span class="selrow"><select data-sel="${k}">${optsNew(list, cur, label)}</select>${editId ? `<button class="ed" data-edit="${editKind}" data-id="${editId}" aria-label="Modifica">✎</button>` : ''}</span>`;
 const opts = (list, cur) => list.map(x => `<option value="${x.id}"${x.id === cur ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
 function showNotice(t) { $('notice').innerHTML = t ? '<div class="warn" style="margin-bottom:12px">' + esc(t) + '</div>' : ''; }
 
@@ -791,7 +793,7 @@ function render() {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
   fixSel();
   $('main').className = UI.tab === 'home' ? '' : 'narrow';
-  $('main').innerHTML = UI.tab === 'home' ? viewHome() : UI.tab === 'data' ? viewData() : viewBackup();
+  $('main').innerHTML = UI.tab === 'home' ? viewHome() : viewBackup();
   if (UI.tab === 'home') drawMap();
   if (UI.tab === 'backup') fillCopies();
 }
@@ -799,26 +801,25 @@ function render() {
 function viewHome() {
   const ok = [gGroups().length, gCarsAll().length, gCircuits().length];
   if (!ok[0] || !ok[1] || !ok[2]) {
-    const step = (done, t) => `<li>${done ? '<span class="done">Fatto.</span> ' : ''}${t}</li>`;
+    const step = (done, t, kind, btn) => `<li>${done ? '<span class="done">Fatto.</span> ' : ''}${t}${done ? '' : ` <button class="sec2" data-edit="${kind}">${btn}</button>`}</li>`;
     return `<div class="card"><h2>Per cominciare</h2>
-      <p class="meta">Gioco selezionato: <b>${esc(GAME.name)}</b>. Servono pochi dati di base, nella scheda Dati.</p>
-      <ol class="steps">${step(ok[0], 'Crea un gruppo auto, per esempio ACC GT3.')}${step(ok[1], 'Crea un\'auto dentro il gruppo.')}${step(ok[2], 'Crea un circuito con almeno una variante.')}</ol>
-      <button class="pri" data-go="data">Vai a Dati</button></div>`;
+      <p class="meta">Gioco selezionato: <b>${esc(GAME.name)}</b>. Servono pochi dati di base. Dopo, per modificare qualsiasi cosa usi i pulsanti ✎ vicino ai selettori in alto.</p>
+      <ol class="steps">${step(ok[0], 'Crea un gruppo auto, per esempio ACC GT3.', 'group', 'Crea gruppo')}${step(ok[1], 'Crea un\'auto dentro il gruppo.', 'car', 'Crea auto')}${step(ok[2], 'Crea un circuito con almeno una variante.', 'circuit', 'Crea circuito')}</ol></div>`;
   }
   const s = DB.settings.sel, vs = gVariants(C.id), as = DB.cars.filter(a => a.gid === G.id);
   return `<div class="home"><div class="col">
       <div class="sel">
-        <label class="f" style="grid-column:1/-1">Gioco<select data-sel="game">${opts(DB.games, s.game)}</select></label>
-        <label class="f">Circuito<select data-sel="c">${opts(gCircuits(), s.c)}</select></label>
-        <label class="f">Variante<select data-sel="v">${opts(vs, s.v)}</select></label>
-        <label class="f">Gruppo auto<select data-sel="g">${opts(gGroups(), s.g)}</select></label>
-        <label class="f">Auto<select data-sel="a">${as.length ? opts(as, s.a) : '<option>Nessuna auto nel gruppo</option>'}</select></label>
+        <div class="f" style="grid-column:1/-1">Gioco${selRow('game', DB.games, s.game, 'Nuovo gioco', 'game', GAME.id)}</div>
+        <div class="f">Circuito${selRow('c', gCircuits(), s.c, 'Nuovo circuito', 'circuit', C && C.id)}</div>
+        <div class="f">Variante${selRow('v', vs, s.v, 'Nuova variante', 'circuit', C && C.id)}</div>
+        <div class="f">Gruppo auto${selRow('g', gGroups(), s.g, 'Nuovo gruppo', 'group', G && G.id)}</div>
+        <div class="f">Auto${selRow('a', as, s.a, 'Nuova auto', 'car', A && A.id)}</div>
       </div>
       <div class="map" id="mapBox"></div>
       <div><div class="head"><h2>Dati rapidi</h2><span class="meta">tocca un riquadro per modificarlo</span></div><div class="tiles">${tilesHtml()}</div></div>
       <div class="btns3">${btnsHtml()}</div>
     </div>
-    <div class="col"><div class="head"><h2>Staccate</h2><span style="display:flex;gap:8px"><button class="sec2" data-act="dict">Detta</button><button class="sec2" data-act="turns">Curve</button></span></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
+    <div class="col"><div class="head"><h2>Staccate</h2><span style="display:flex;gap:8px"><button class="sec2" data-act="dict">Detta</button><button class="sec2" data-act="turnq">+ Curva</button><button class="sec2" data-act="turns">Elenco</button></span></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
 }
 
 function tilesHtml() {
@@ -895,20 +896,22 @@ function editBrake(tid) {
   const chips = which => DB.settings.quick.map(q => `<button class="chip" data-act="quick" data-to="${which}" data-v="${esc(q.label)}">${esc(q.label)}</button>`).join('');
   UI.sh = {tid};
   sheet('Curva ' + (idx + 1) + (t.n ? ' · ' + t.n : ''), `
+    <div class="f2"><span>Nome della curva (facoltativo)</span><input type="text" id="bTn" value="${esc(t.n || '')}" placeholder="Parabolica"></div>
     <div class="f2"><span>Staccata asciutto</span><input type="text" id="bD" value="${esc(cur.dry)}" placeholder="Scrivi o tocca un pulsante"></div>
     <div class="chips" style="margin:-4px 0 12px">${chips('bD')}</div>
     <div class="f2"><span>Staccata bagnato (facoltativa)</span><input type="text" id="bW" value="${esc(cur.wet || '')}" placeholder="Vuoto = uguale all'asciutto"></div>
     <div class="chips" style="margin:-4px 0 12px">${chips('bW')}</div>
     <div class="f2"><span>Nota breve</span><input type="text" id="bN" value="${esc(cur.note || '')}"></div>
-    <div class="btns"><button class="pri" data-act="brakesave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`,
+    <div class="btns"><button class="pri" data-act="brakesave">Salva</button><button class="sec2" data-act="close">Annulla</button><button class="sec2" data-act="braketdel">Elimina curva</button></div>`,
     G.name + ' · ' + varName());
 }
 function saveBrake() {
-  const dry = $('bD').value.trim(), wet = $('bW').value.trim(), note = $('bN').value.trim();
-  if (!dry) return toast('Scrivi almeno la staccata asciutto');
-  const key = kk(V.id, G.id);
-  (DB.brakes[key] = DB.brakes[key] || {})[UI.sh.tid] = {dry, wet: wet || null, note, u: now()};
-  save(); closeSheet(); renderRows(); toast('Staccata salvata');
+  const dry = $('bD').value.trim(), wet = $('bW').value.trim(), note = $('bN').value.trim(), nm = $('bTn').value.trim(), tid = UI.sh.tid;
+  const t0 = turnsOf().find(x => x.id === tid), nameChanged = !!t0 && (t0.n || '') !== nm, had = ((DB.brakes[kk(V.id, G.id)] || {})[tid]);
+  if (!dry && (had || (!nameChanged && !wet && !note))) return toast('Scrivi almeno la staccata asciutto');
+  if (nameChanged) { if (ownVariant()) { render(); } const t = turnsOf().find(x => x.id === tid); if (t) { t.n = nm; t.u = now(); } }
+  if (dry || wet || note) { const key = kk(V.id, G.id); (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry, wet: wet || null, note, u: now()}; }
+  save(); closeSheet(); render(); toast(dry ? 'Staccata salvata' : 'Curva salvata');
 }
 
 /* --- Dettatura delle staccate --- */
@@ -1332,7 +1335,7 @@ function collectCarParams() { document.querySelectorAll('#xlist [data-xi]').forE
 function openSetup(cond, mode) {
   if (!needCtx('av')) return;
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
-  if (!carSections().length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili in Dati, modificando il gruppo.</div>', sub);
+  if (!carSections().length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili con ✎ vicino a Gruppo auto.</div>', sub);
   const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
   if (!gen && !sp) {
     return sheet('Setup ' + cname, `<div class="empty">Nessun setup ${cname} inserito per questa auto.</div>
@@ -1533,29 +1536,6 @@ function openStrat() {
 /* ===================================================================
    SCHEDA DATI (gruppi, auto, circuiti, pulsanti rapidi)
    =================================================================== */
-function viewData() {
-  const groups = gGroups().map(g => {
-    const n = DB.cars.filter(a => a.gid === g.id).length, p = g.sections.reduce((t, x) => t + secCount(x), 0);
-    return `<div class="item"><div><b>${esc(g.name)}</b><span class="meta">${n} auto \u00b7 ${p} parametri</span></div><button class="ed" data-edit="group" data-id="${g.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun gruppo in questo gioco. Un gruppo raccoglie auto simili, per esempio GT3.</div>';
-  const cars = gCarsAll().map(a => {
-    const g = DB.groups.find(x => x.id === a.gid);
-    return `<div class="item"><div><b>${esc(a.name)}</b><span class="meta">${esc(g ? g.name : '')}${a.tank ? ' \u00b7 serbatoio ' + esc(a.tank) + ' L' : ''}</span></div><button class="ed" data-edit="car" data-id="${a.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessuna auto.</div>';
-  const circuits = gCircuits().map(c => {
-    const vs = gVariants(c.id);
-    return `<div class="item"><div><b>${esc(c.name)}</b><div class="chips">${vs.map(v => `<span class="chip">${esc(v.name)}${v.games.length > 1 ? ' \u00b7 condivisa' : ''}</span>`).join('')}</div></div><button class="ed" data-edit="circuit" data-id="${c.id}">Modifica</button></div>`;
-  }).join('') || '<div class="empty">Nessun circuito in questo gioco. Ogni circuito ha una o pi\u00f9 varianti, per esempio GT e F1 22.</div>';
-  return `<div class="card"><div class="head"><h2>Gioco</h2><button class="sec2" data-edit="game">+ Nuovo</button></div>
-      <div class="row2"><select data-sel="game" aria-label="Gioco">${opts(DB.games, GAME.id)}</select><button class="ed" data-edit="game" data-id="${GAME.id}" style="flex:none">Rinomina</button></div>
-      <p class="meta" style="margin-top:6px">Tutto quello che vedi qui sotto appartiene al gioco selezionato.</p></div>
-    <div class="card"><div class="head"><h2>Gruppi auto</h2><button class="sec2" data-edit="group">+ Nuovo</button></div>${groups}</div>
-    <div class="card"><div class="head"><h2>Auto</h2><button class="sec2" data-edit="car">+ Nuova</button></div>${cars}</div>
-    <div class="card"><div class="head"><h2>Circuiti</h2><span style="display:flex;gap:6px"><button class="sec2" data-act="catalog">Catalogo</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Da altro gioco</button>' : ''}<button class="sec2" data-edit="circuit">+ Nuovo</button></span></div>${circuits}</div>
-    <div class="card"><div class="head"><h2>Pulsanti rapidi</h2><button class="sec2" data-act="quickedit">Modifica</button></div>
-      <p class="meta">Le scorciatoie che compaiono quando inserisci una staccata.</p>
-      <div class="chips">${DB.settings.quick.map(q => `<span class="chip">${esc(q.label)}</span>`).join('') || '<span class="meta">Nessun pulsante.</span>'}</div></div>`;
-}
 /* --- Gioco --- */
 function editGame(id) {
   const g = id ? DB.games.find(x => x.id === id) : {id: null, name: ''};
@@ -1835,7 +1815,7 @@ function groupAction(act, btn) {
     g.sections.forEach(s => { if (!s.name) s.name = 'Generale'; });
     g.u = now();
     const i = DB.groups.findIndex(x => x.id === g.id);
-    if (i >= 0) DB.groups[i] = g; else { g.id = uid(); DB.groups.push(g); }
+    if (i >= 0) DB.groups[i] = g; else { g.id = uid(); DB.groups.push(g); DB.settings.sel.g = g.id; DB.settings.sel.a = null; }
     save(); closeSheet(); render(); return toast('Gruppo salvato');
   }
   if (act === 'del') {
@@ -1870,7 +1850,7 @@ function carAction(act, btn) {
     if (tank && !(parseFloat(tank) > 0)) return toast('Il serbatoio deve essere un numero');
     const rec = id ? DB.cars.find(x => x.id === id) : {id: uid()};
     Object.assign(rec, {name, gid: $('cG').value, tank, u: now()});
-    if (!id) DB.cars.push(rec);
+    if (!id) { DB.cars.push(rec); DB.settings.sel.g = rec.gid; DB.settings.sel.a = rec.id; }
     save(); closeSheet(); render(); return toast('Auto salvata');
   }
   if (act === 'del') {
@@ -1929,7 +1909,7 @@ function circuitAction(act, btn) {
     vs.forEach(v => { const old = DB.variants.find(x => x.id === v.id); if (old) old.games.filter(g => !v.games.includes(g)).forEach(g => { if (variantHasData(old.id, g)) lost.push(g); }); });
     if (lost.length && !armed(btn, 'Conferma: cancella i dati in ' + [...new Set(lost)].map(gameName).join(', '))) return;
     let c = e.id ? DB.circuits.find(x => x.id === e.id) : null;
-    if (!c) { c = {id: uid()}; DB.circuits.push(c); }
+    const isNewC = !c; if (!c) { c = {id: uid()}; DB.circuits.push(c); }
     c.name = e.name; c.u = now();
     const keep = new Set(vs.map(v => v.id));
     DB.variants.filter(v => v.cid === c.id && !keep.has(v.id)).forEach(v => removeVariant(v.id));
@@ -1938,6 +1918,7 @@ function circuitAction(act, btn) {
       if (old) { old.games.filter(g => !v.games.includes(g)).forEach(g => detachVariantFromGame(old, g)); old.games = v.games.slice(); old.name = v.name; old.u = now(); }
       else { DB.variants.push({id: v.id, cid: c.id, name: v.name, games: v.games.slice(), u: now()}); if (v.from) copyVariantData(v.from, v.id); }
     });
+    if (isNewC) { DB.settings.sel.c = c.id; DB.settings.sel.v = vs[0].id; resetMapState(); }
     save(); closeSheet(); render(); return toast('Circuito salvato');
   }
   if (act === 'del') {
@@ -2043,6 +2024,16 @@ const ACT = {
   openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
   quick: b => { $(b.dataset.to).value = b.dataset.v; },
+  menu: () => sheet('Menu', `<div class="btns" style="flex-direction:column;align-items:stretch"><button class="sec2" data-act="catalog">Catalogo piste (disegni già pronti)</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Aggiungi una pista da un altro gioco</button>' : ''}<button class="sec2" data-act="quickedit">Pulsanti rapidi delle staccate</button></div>`, 'Gioco: ' + GAME.name),
+  turnq: () => {
+    if (!needCtx('gv')) return;
+    ownVariant(); if (!V.shape) V.shape = {pts: [], closed: true, h: 240, turns: []};
+    const t = {id: uid(), n: '', u: now()}; V.shape.turns = V.shape.turns || []; V.shape.turns.push(t); save(); render(); editBrake(t.id);
+  },
+  braketdel: b => {
+    if (!armed(b, 'Conferma: cancella la curva e le sue staccate')) return;
+    const tid = UI.sh.tid; ownVariant(); removeTurnData(V.id, tid); V.shape.turns = V.shape.turns.filter(x => x.id !== tid); save(); closeSheet(); render(); toast('Curva eliminata');
+  },
   turnadd: () => { collectTurns(); UI.tu.push({id: uid(), n: '', u: now()}); drawTurns(); },
   turndel: b => { collectTurns(); UI.tu.splice(+b.dataset.i, 1); drawTurns(); },
   turnpaste: () => { $('tpaste').hidden = !$('tpaste').hidden; },
@@ -2152,6 +2143,14 @@ document.addEventListener('change', e => {
   if (t.id === 'trkS') { bakeTrk(); drawMap(); return; }
   if (t.id === 'fileIn' && t.files[0]) { readBackupFile(t.files[0]); t.value = ''; return; }
   if (t.id === 'photoIn' && t.files[0]) { loadPhoto(t.files[0]); t.value = ''; return; }
+  if (t.dataset.sel && t.value === '__new__') {
+    const k = t.dataset.sel; render();
+    if (k === 'game') return editGame();
+    if (k === 'c') return editCircuit();
+    if (k === 'g') return editGroup();
+    if (k === 'a') return editCar();
+    if (k === 'v') { if (!C) return editCircuit(); editCircuit(C.id); UI.ec.vs.push({id: uid(), name: '', isNew: true, from: '', games: [GAME.id]}); return drawCircuit(C.name); }
+  }
   if (t.dataset.sel) {
     const s = DB.settings.sel; s[t.dataset.sel] = t.value;
     if (t.dataset.sel === 'c') s.v = null;
