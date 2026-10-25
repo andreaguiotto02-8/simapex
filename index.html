@@ -178,7 +178,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.16.1';   // versione dell'app
+const APP_V = '0.17';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1743,9 +1743,11 @@ function editGroup(id, working) {
   if (!id && !working) { const tp = tplFor(GAME.name); if (tp) g.sections = parseOutline(tp.text); }
   UI.eg = g;
   const mv = (act, attrs) => `<button class="x" data-eg="${act}" data-d="-1" ${attrs} aria-label="Sposta su">▲</button><button class="x" data-eg="${act}" data-d="1" ${attrs} aria-label="Sposta giù">▼</button>`;
-  const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro">${mv('mvpar', attrs)}<button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
+  const dests = g.sections.flatMap((s, si) => [`<option value="${si}:-1">${esc(s.name || 'Sezione')} (libero)</option>`].concat((s.subs || []).map((b, bi) => `<option value="${si}:${bi}">${esc(s.name || 'Sezione')} › ${esc(b.name || 'Sottosezione')}</option>`))).join('');
+  const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro">${mv('mvpar', attrs)}<select class="x" data-mvto="1" ${attrs} aria-label="Sposta in un'altra sezione" style="width:44px;padding:0;text-align:center;appearance:none;-webkit-appearance:none"><option value="">⇄</option>${dests}</select><button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
   const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
       <div class="row2 hd"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione">${mv('mvsec', `data-si="${si}"`)}<button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
+      ${(s.subs || []).length > 1 ? `<label class="lk meta" style="display:flex;gap:8px;align-items:center;margin:2px 0"><input type="checkbox"${s.link === false ? '' : ' checked'} style="width:20px;height:20px;flex:none"> Sottosezioni collegate: rinominare, aggiungere o togliere un parametro vale per tutte</label>` : ''}
       <div class="dp">${s.params.map((p, pi) => parRow(p, `data-si="${si}" data-pi="${pi}"`)).join('')}</div>
       ${(s.subs || []).map((b, bi) => `<div class="sub" data-sid="${b.id}">
         <div class="row2"><input class="subn" value="${esc(b.name)}" placeholder="Nome sottosezione (es. Ant. sx)" aria-label="Nome sottosezione">${mv('mvsub', `data-si="${si}" data-bi="${bi}"`)}<button class="x" data-eg="delsub" data-si="${si}" data-bi="${bi}" aria-label="Elimina sottosezione">✕</button></div>
@@ -1774,9 +1776,15 @@ function collectGroup() {
   const pr = root => [...root.querySelectorAll('.pn')].map(i => ({id: i.dataset.pid, label: i.value.trim()}));
   g.sections = [...document.querySelectorAll('#secs > .sec')].map(el => ({
     id: el.dataset.sid, name: el.querySelector(':scope > .hd .sn').value.trim(),
+    link: el.querySelector(':scope > .lk input') ? el.querySelector(':scope > .lk input').checked : true,
     params: pr(el.querySelector(':scope > .dp')),
     subs: [...el.querySelectorAll(':scope > .sub')].map(b => ({id: b.dataset.sid, name: b.querySelector('.subn').value.trim(), params: pr(b)}))
   }));
+}
+function redrawGroup() {
+  const sc = document.querySelector('.sheet'), top = sc ? sc.scrollTop : 0;
+  editGroup(UI.eg.id, UI.eg);
+  const sc2 = document.querySelector('.sheet'); if (sc2) sc2.scrollTop = top;
 }
 function groupAction(act, btn) {
   const g = UI.eg;
@@ -1784,19 +1792,31 @@ function groupAction(act, btn) {
   collectGroup();
   const si = +btn.dataset.si, pi = +btn.dataset.pi, bi = btn.dataset.bi == null ? -1 : +btn.dataset.bi;
   const tgt = () => bi >= 0 ? g.sections[si].subs[bi] : g.sections[si];
-  if (act === 'mvsec' || act === 'mvsub' || act === 'mvpar') {
-    const d = +btn.dataset.d, arr = act === 'mvsec' ? g.sections : act === 'mvsub' ? g.sections[si].subs : tgt().params, i = act === 'mvsec' ? si : act === 'mvsub' ? bi : pi, j = i + d;
+  if (act === 'mvsec' || act === 'mvsub') {
+    const d = +btn.dataset.d, arr = act === 'mvsec' ? g.sections : g.sections[si].subs, i = act === 'mvsec' ? si : bi, j = i + d;
     if (j < 0 || j >= arr.length) return;
-    const sc = document.querySelector('.sheet'), top = sc ? sc.scrollTop : 0;
-    [arr[i], arr[j]] = [arr[j], arr[i]]; editGroup(g.id, g);
-    const sc2 = document.querySelector('.sheet'); if (sc2) sc2.scrollTop = top; return;
+    [arr[i], arr[j]] = [arr[j], arr[i]]; return redrawGroup();
+  }
+  if (act === 'mvpar') {   // su/giù; oltre il bordo di un blocco il parametro passa al blocco vicino (libero ↔ sottosezioni)
+    const sec = g.sections[si], conts = [sec.params].concat((sec.subs || []).map(b => b.params)), ci = bi + 1, arr = conts[ci], d = +btn.dataset.d, j = pi + d;
+    if (j >= 0 && j < arr.length) [arr[pi], arr[j]] = [arr[j], arr[pi]];
+    else { const nc = conts[ci + d]; if (!nc) return; const [it] = arr.splice(pi, 1); if (d < 0) nc.push(it); else nc.unshift(it); }
+    return redrawGroup();
   }
   if (act === 'addsec') { g.sections.push({id: uid(), name: '', params: [], subs: []}); return editGroup(g.id, g); }
-  if (act === 'addpar') { tgt().params.push({id: uid(), label: ''}); return editGroup(g.id, g); }
+  if (act === 'addpar') {
+    tgt().params.push({id: uid(), label: ''});
+    const sec = g.sections[si]; if (bi >= 0 && sec.link !== false && sec.subs.length > 1) sec.subs.forEach((b, k) => { if (k !== bi) b.params.push({id: uid(), label: ''}); });
+    return redrawGroup();
+  }
   if (act === 'addsub') { (g.sections[si].subs = g.sections[si].subs || []).push({id: uid(), name: '', params: []}); return editGroup(g.id, g); }
   if (act === 'delsub') { g.sections[si].subs.splice(bi, 1); return editGroup(g.id, g); }
   if (act === 'delsec') { g.sections.splice(si, 1); return editGroup(g.id, g); }
-  if (act === 'delpar') { tgt().params.splice(pi, 1); return editGroup(g.id, g); }
+  if (act === 'delpar') {
+    const lab = (tgt().params[pi] || {label: ''}).label.trim().toLowerCase(); tgt().params.splice(pi, 1);
+    const sec = g.sections[si]; if (bi >= 0 && lab && sec.link !== false && sec.subs.length > 1) sec.subs.forEach((b, k) => { if (k === bi) return; const x = b.params.findIndex(p => p.label.trim().toLowerCase() === lab); if (x >= 0) b.params.splice(x, 1); });
+    return redrawGroup();
+  }
   if (act === 'tpl') {
     const tp = tplFor((DB.games.find(x => x.id === g.gameId) || GAME).name); if (!tp) return;
     if (g.sections.some(x => x.params.length || (x.subs || []).length) && !armed(btn, 'Sostituisco i parametri attuali: conferma')) return;
@@ -2147,6 +2167,24 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (UI.eg && t.dataset && t.dataset.mvto) {   // sposta un parametro in un'altra sezione o sottosezione
+    if (!t.value) return;
+    collectGroup(); const g = UI.eg, si = +t.dataset.si, bi = t.dataset.bi == null ? -1 : +t.dataset.bi, pi = +t.dataset.pi, [ds, db] = t.value.split(':').map(Number);
+    const src = bi < 0 ? g.sections[si].params : g.sections[si].subs[bi].params, dst = db < 0 ? g.sections[ds].params : g.sections[ds].subs[db].params;
+    const [it] = src.splice(pi, 1); dst.push(it); return redrawGroup();
+  }
+  if (UI.eg && t.classList && t.classList.contains('pn') && t.closest('.sub')) {   // rinomina collegata nelle sottosezioni
+    const g = UI.eg; let old = null, secI = -1, subI = -1;
+    g.sections.forEach((s, si) => (s.subs || []).forEach((b, bi) => b.params.forEach(p => { if (p.id === t.dataset.pid) { old = p.label; secI = si; subI = bi; } })));
+    collectGroup();
+    const sec = g.sections[secI];
+    if (old !== null && sec && sec.link !== false && (sec.subs || []).length > 1) {
+      const nv = t.value.trim(); let n = 0;
+      sec.subs.forEach((b, bi) => { if (bi === subI) return; const q = b.params.find(p => p.label.trim().toLowerCase() === old.trim().toLowerCase()); if (q && q.label !== nv) { q.label = nv; n++; } });
+      if (n) { redrawGroup(); toast('Rinominato in ' + (n + 1) + ' sottosezioni'); }
+    }
+    return;
+  }
   if (t.id === 'bgIn' && t.files[0]) { loadBg(t.files[0]); t.value = ''; return; }
   if (t.id === 'bgO') { save(); return; }
   if (t.id === 'trkS') { bakeTrk(); drawMap(); return; }
