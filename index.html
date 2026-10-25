@@ -140,6 +140,8 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .sbar{position:sticky;top:0;box-shadow:0 -20px 0 var(--bg);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 8px;margin-bottom:2px;border-bottom:1px solid var(--line)}
 .sbar button{min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:600;font-size:14px}
 .sbar button b{color:var(--accent);margin-left:4px}
+.dh{touch-action:none;cursor:grab;width:34px;padding:0;flex:none;font-size:18px}.row2.drag{opacity:.55;box-shadow:0 4px 14px rgba(0,0,0,.3);position:relative;z-index:9}.row2.dropt{outline:2px solid var(--accent);outline-offset:1px}.sub.dropt,.sec.dropt{outline:2px dashed var(--accent)}
+@media(min-width:900px){.sheet{max-width:960px}}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
@@ -191,7 +193,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.18';   // versione dell'app
+const APP_V = '0.19';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1761,7 +1763,7 @@ function editGroup(id, working) {
   UI.eg = g;
   const mv = (act, attrs) => `<button class="x" data-eg="${act}" data-d="-1" ${attrs} aria-label="Sposta su">▲</button><button class="x" data-eg="${act}" data-d="1" ${attrs} aria-label="Sposta giù">▼</button>`;
   const dests = g.sections.flatMap((s, si) => [`<option value="${si}:-1">${esc(s.name || 'Sezione')} (libero)</option>`].concat((s.subs || []).map((b, bi) => `<option value="${si}:${bi}">${esc(s.name || 'Sezione')} › ${esc(b.name || 'Sottosezione')}</option>`))).join('');
-  const parRow = (p, attrs) => `<div class="row2"><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro">${mv('mvpar', attrs)}<select class="x" data-mvto="1" ${attrs} aria-label="Sposta in un'altra sezione" style="width:44px;padding:0;text-align:center;appearance:none;-webkit-appearance:none"><option value="">⇄</option>${dests}</select><button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
+  const parRow = (p, attrs) => `<div class="row2" ${attrs}><button class="x dh" aria-label="Trascina per spostare" title="Trascina per spostare">⠿</button><input class="pn" data-pid="${p.id}" value="${esc(p.label)}" placeholder="Parametro" aria-label="Parametro">${mv('mvpar', attrs)}<select class="x" data-mvto="1" ${attrs} aria-label="Sposta in un'altra sezione" style="width:44px;padding:0;text-align:center;appearance:none;-webkit-appearance:none"><option value="">⇄</option>${dests}</select><button class="x" data-eg="delpar" ${attrs} aria-label="Elimina parametro">✕</button></div>`;
   const secs = g.sections.map((s, si) => `<div class="sec" data-sid="${s.id}">
       <div class="row2 hd"><input class="sn" value="${esc(s.name)}" placeholder="Nome sezione (come nel gioco)" aria-label="Nome sezione">${mv('mvsec', `data-si="${si}"`)}<button class="x" data-eg="delsec" data-si="${si}" aria-label="Elimina sezione">✕</button></div>
       ${(s.subs || []).length > 1 ? `<label class="lk meta" style="display:flex;gap:8px;align-items:center;margin:2px 0"><input type="checkbox"${s.link === false ? '' : ' checked'} style="width:20px;height:20px;flex:none"> Sottosezioni collegate: rinominare, aggiungere o togliere un parametro vale per tutte</label>` : ''}
@@ -1805,6 +1807,44 @@ function redrawGroup(focusSel) {   // ridisegna l'editor restando dove sei; se s
   const el = focusSel && document.querySelector(focusSel);
   if (el) { el.focus({preventScroll: true}); el.scrollIntoView({block: 'nearest'}); }
 }
+
+/* trascinamento parametri nell'editor del gruppo (maniglia ⠿) */
+(() => {
+  let d = null;
+  const clr = () => document.querySelectorAll('.dropt').forEach(e => e.classList.remove('dropt'));
+  const target = (x, y) => {
+    const el = document.elementFromPoint(x, y); if (!el) return null;
+    const row = el.closest('.row2[data-pi]'); if (row && row !== d.row) return {row, el: row};
+    const sub = el.closest('.sub'); if (sub) return {sub, el: sub};
+    const sec = el.closest('.sec'); if (sec) return {sec, el: sec};
+    return null;
+  };
+  document.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.dh'); if (!h || !UI.eg) return;
+    e.preventDefault(); const row = h.closest('.row2');
+    d = {row, id: h.setPointerCapture ? e.pointerId : null, y0: e.clientY}; h.setPointerCapture(e.pointerId); row.classList.add('drag');
+  });
+  document.addEventListener('pointermove', e => {
+    if (!d) return; d.row.style.transform = `translateY(${e.clientY - d.y0}px)`;
+    clr(); d.row.style.pointerEvents = 'none'; const t = target(e.clientX, e.clientY); d.row.style.pointerEvents = ''; d.t = t; if (t) t.el.classList.add('dropt');
+    const sh = document.querySelector('.sheet'), r = sh.getBoundingClientRect();
+    if (e.clientY < r.top + 50) sh.scrollTop -= 12; else if (e.clientY > r.bottom - 50) sh.scrollTop += 12;
+  });
+  const end = e => {
+    if (!d) return; const {row, t} = d; d = null; clr(); row.classList.remove('drag'); row.style.transform = '';
+    if (!t || e.type === 'pointercancel') return;
+    const g = UI.eg; collectGroup();
+    const si = +row.dataset.si, pi = +row.dataset.pi, bi = row.dataset.bi == null ? -1 : +row.dataset.bi;
+    const cont = (a, b) => b >= 0 ? g.sections[a].subs[b].params : g.sections[a].params;
+    const [it] = cont(si, bi).splice(pi, 1);
+    let ds, db, di;
+    if (t.row) { ds = +t.row.dataset.si; db = t.row.dataset.bi == null ? -1 : +t.row.dataset.bi; di = +t.row.dataset.pi; const r = t.row.getBoundingClientRect(); if (e.clientY > r.top + r.height / 2) di++; if (ds === si && db === bi && pi < di) di--; }
+    else if (t.sub) { const sc = t.sub.closest('.sec'); ds = [...document.querySelectorAll('.sec')].indexOf(sc); db = [...sc.querySelectorAll('.sub')].indexOf(t.sub); di = 0; }
+    else { ds = [...document.querySelectorAll('.sec')].indexOf(t.sec); db = -1; di = cont(ds, -1).length; }
+    cont(ds, db).splice(di, 0, it); redrawGroup();
+  };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+})();
 function groupAction(act, btn) {
   const g = UI.eg;
   if (act === 'cancel') { const r = UI.egRet; closeSheet(); return r ? setupBack(r) : null; }
