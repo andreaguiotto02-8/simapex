@@ -202,7 +202,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.21.2';   // versione dell'app
+const APP_V = '0.21.3';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1344,6 +1344,12 @@ function parLabels() {
   const m = {}; carSections().forEach(sec => { sec.params.forEach(p => m[p.id] = p.label); (sec.subs || []).forEach(b => b.params.forEach(p => m[p.id] = b.name + ' ' + p.label)); });
   return m;
 }
+const hDec = v => { const m = String(v).replace(',', '.').match(/\.(\d+)/); return m ? m[1].length : 0; };
+function hChg(a, b) {   // "−0,5" se sono numeri, altrimenti "a → b"
+  const x = parseFloat(String(a ?? '').replace(',', '.')), y = parseFloat(String(b ?? '').replace(',', '.'));
+  if (a == null || a === '' || b == null || b === '' || isNaN(x) || isNaN(y)) return (a ?? '—') + ' → ' + (b ?? '—');
+  const d = y - x; return (d > 0 ? '+' : '−') + Math.abs(d).toFixed(Math.max(hDec(a), hDec(b))).replace('.', ',');
+}
 function openHist(grp) {
   if (!needCtx('av')) return;
   grp = UI.hg = grp || UI.hg || 'lap';
@@ -1356,7 +1362,7 @@ function openHist(grp) {
     if (prev) {
       const d = hNum(e) - hNum(prev); diff = hDiff(d, e.k === 'cons' ? 'L' : 's');
       const a = prev.snap || {}, b = e.snap || {}, ids = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(i => (a[i] ?? '') !== (b[i] ?? ''));
-      ch = ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(a[i] ?? '—')} → ${esc(b[i] ?? '—')}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima';
+      ch = ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(hChg(a[i], b[i]))}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima';
     } else ch = 'prima prova';
     const better = prev && (hNum(e) < hNum(prev));
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
