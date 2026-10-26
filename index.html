@@ -202,7 +202,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.21.3';   // versione dell'app
+const APP_V = '0.22';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -853,7 +853,7 @@ function tilesHtml() {
   if (!p) return tile('Giro veloce', '—', 'nessun dato') + tile('Passo gara', '—', 'nessun dato') + tile('Consumo', '—', 'nessun dato');
   const main = p.cons.find(c => c.main) || p.cons[0];
   const others = p.cons.filter(c => c !== main).map(c => esc(G.mapLabel || 'mappa') + ' ' + esc(c.map) + ': ' + esc(c.v)).join(' · ');
-  return tile('Giro veloce', esc(p.lapD || '—'), 'bagnato ' + esc(p.lapW || '—')) +
+  return tile('Giro veloce', esc(p.lapD || '—'), (p.avgD ? 'media 3: ' + esc(p.avgD) + ' · ' : '') + 'bagnato ' + esc(p.lapW || '—')) +
     tile('Passo gara', esc(p.paceD || '—'), 'bagnato ' + esc(p.paceW || '—')) +
     (main ? tile('Consumo', esc(main.v) + ' ' + esc(G.unit), esc(G.mapLabel || 'mappa') + ' ' + esc(main.map) + (others ? ' · ' + others : '')) : tile('Consumo', '—', 'nessun dato'));
 }
@@ -1289,7 +1289,12 @@ function normTime(t) {      // 143210 · 1.43.210 · 1 43 210 · 1:43,210  ->  1
   m = t.match(/^(\d{1,2})(\d{2})(\d{3})$/); if (m) return +m[1] + ':' + m[2] + '.' + m[3];
   return t;
 }
-document.addEventListener('change', e => { if (e.target.matches && e.target.matches('#pLD,#pLW,#pPD,#pPW')) e.target.value = normTime(e.target.value); });
+document.addEventListener('input', e => {
+  if (!e.target.matches || !e.target.matches('#pT1,#pT2,#pT3') || !$('pAD')) return;
+  const v = ['pT1', 'pT2', 'pT3'].map(i => paceP(normTime($(i).value))).filter(x => x > 0);
+  if (v.length === 3) $('pAD').value = fPace(v.reduce((a, b) => a + b, 0) / 3);
+});
+document.addEventListener('change', e => { if (e.target.matches && e.target.matches('#pLD,#pLW,#pPD,#pPW,#pAD,#pAW,#pT1,#pT2,#pT3')) e.target.value = normTime(e.target.value); });
 function editPerf(part) {
   if (!needCtx('av')) return;
   UI.pfPart = typeof part === 'string' ? part : 'all'; UI.pfNote = '';
@@ -1304,7 +1309,13 @@ function drawPerf() {
   sheet(ttl, `
     <div class="zg">
       ${showLap ? `<label class="f">Giro veloce asciutto<input id="pLD" value="${esc(p.lapD)}" placeholder="1:43.210"></label>
-      <label class="f">Giro veloce bagnato<input id="pLW" value="${esc(p.lapW)}" placeholder="1:52.800"></label>` : ''}
+      <label class="f">Giro veloce bagnato<input id="pLW" value="${esc(p.lapW)}" placeholder="1:52.800"></label>
+      <div class="full"><h3 style="margin:8px 0 2px">Media dei 3 giri migliori</h3><p class="meta">Più affidabile del singolo giro: scrivi i tuoi 3 giri migliori e calcolo io la media.</p></div>
+      <label class="f">Giro 1<input id="pT1" placeholder="1:52.100"></label>
+      <label class="f">Giro 2<input id="pT2" placeholder="1:52.300"></label>
+      <label class="f">Giro 3<input id="pT3" placeholder="1:52.500"></label>
+      <label class="f">Media asciutto<input id="pAD" value="${esc(p.avgD || '')}" placeholder="calcolata"></label>
+      <label class="f">Media bagnato<input id="pAW" value="${esc(p.avgW || '')}" placeholder="1:53.000"></label>` : ''}
       ${showPace ? `<label class="f">Passo gara asciutto<input id="pPD" value="${esc(p.paceD)}" placeholder="1:45.900"></label>
       <label class="f">Passo gara bagnato<input id="pPW" value="${esc(p.paceW)}" placeholder="1:55.100"></label>` : ''}
     </div>
@@ -1320,13 +1331,13 @@ function collectPerf() {
   const p = UI.pf;
   const gv = (id, k) => { if ($(id)) p[k] = normTime($(id).value); };
   if ($('pNote')) UI.pfNote = $('pNote').value.trim();
-  gv('pLD', 'lapD'); gv('pLW', 'lapW'); gv('pPD', 'paceD'); gv('pPW', 'paceW');
+  gv('pLD', 'lapD'); gv('pLW', 'lapW'); gv('pAD', 'avgD'); gv('pAW', 'avgW'); gv('pPD', 'paceD'); gv('pPW', 'paceW');
   document.querySelectorAll('#clist [data-ci]').forEach(r => { const c = p.cons[+r.dataset.ci]; c.map = r.querySelector('.cm').value.trim(); c.v = r.querySelector('.cv').value.trim(); });
 }
 
 /* --- Storico delle prove: ogni volta che salvi un tempo o un consumo, l'app ricorda anche il setup di quel momento --- */
-const HK = {lapD: 'Giro veloce asciutto', lapW: 'Giro veloce bagnato', paceD: 'Passo gara asciutto', paceW: 'Passo gara bagnato', cons: 'Consumo'};
-const HGROUP = {lap: ['lapD', 'lapW'], pace: ['paceD', 'paceW'], cons: ['cons']};
+const HK = {lapD: 'Giro veloce asciutto', lapW: 'Giro veloce bagnato', avgD: 'Media 3 giri asciutto', avgW: 'Media 3 giri bagnato', paceD: 'Passo gara asciutto', paceW: 'Passo gara bagnato', cons: 'Consumo'};
+const HGROUP = {lap: ['lapD', 'lapW'], avg: ['avgD', 'avgW'], pace: ['paceD', 'paceW'], cons: ['cons']};
 function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specifico di questa variante
   const g = DB.setupGen[A.id] || {}, gen = (g[cond] || g.dry || {}).vals || {};
   const sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
@@ -1335,7 +1346,7 @@ function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specific
 }
 function logHist(old, p, note) {
   const list = DB.hist = DB.hist || [], add = (k, val, map) => list.push({id: uid(), t: now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', cond: /W$/.test(k) ? 'wet' : 'dry', snap: setupSnap(/W$/.test(k) ? 'wet' : 'dry')});
-  ['lapD', 'lapW', 'paceD', 'paceW'].forEach(k => { if (p[k] && p[k] !== (old[k] || '')) add(k, p[k]); });
+  ['lapD', 'lapW', 'avgD', 'avgW', 'paceD', 'paceW'].forEach(k => { if (p[k] && p[k] !== (old[k] || '')) add(k, p[k]); });
   (p.cons || []).forEach(c => { const o = (old.cons || []).find(x => x.map === c.map); if (c.v && (!o || o.v !== c.v)) add('cons', c.v, c.map); });
 }
 const hNum = e => e.k === 'cons' ? parseFloat(String(e.val).replace(',', '.')) : paceP(e.val);
@@ -1368,12 +1379,12 @@ function openHist(grp) {
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
-  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
 }
 function savePerf() {
   collectPerf();
   const p = UI.pf;
-  for (const [k, l] of [['lapD', 'giro veloce asciutto'], ['lapW', 'giro veloce bagnato'], ['paceD', 'passo gara asciutto'], ['paceW', 'passo gara bagnato']]) {
+  for (const [k, l] of [['lapD', 'giro veloce asciutto'], ['lapW', 'giro veloce bagnato'], ['avgD', 'media asciutto'], ['avgW', 'media bagnato'], ['paceD', 'passo gara asciutto'], ['paceW', 'passo gara bagnato']]) {
     if (p[k] && !TIME_RE.test(p[k])) return toast('Il tempo ' + l + ' va scritto come 1:43.210 (anche 143210 o 1.43.210)');
   }
   p.cons = p.cons.filter(c => c.v || c.map);
