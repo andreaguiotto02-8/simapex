@@ -202,7 +202,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.21';   // versione dell'app
+const APP_V = '0.21.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1344,6 +1344,36 @@ function parLabels() {
   const m = {}; carSections().forEach(sec => { sec.params.forEach(p => m[p.id] = p.label); (sec.subs || []).forEach(b => b.params.forEach(p => m[p.id] = b.name + ' ' + p.label)); });
   return m;
 }
+
+function openHistAdd() {
+  const mapL = G.mapLabel || 'Mappa', grp = UI.hg || 'lap';
+  const opts = Object.keys(HK).map(k => `<option value="${k}"${(HGROUP[grp] || [])[0] === k ? ' selected' : ''}>${HK[k]}</option>`).join('');
+  sheet('Aggiungi prova a mano', `<p class="meta">Serve per aggiungere un tempo che non è nello storico, per esempio il punto di partenza.</p>
+    <div class="zg">
+      <label class="f">Cosa<select id="hK">${opts}</select></label>
+      <label class="f">Valore<input id="hV" placeholder="1:52.749 oppure 2,89"></label>
+      <label class="f">${esc(mapL)} (solo consumo)<input id="hM" placeholder="es. 2"></label>
+      <label class="f">Setup di quella prova<select id="hS"><option value="gen">Solo generale (setup di base)</option><option value="cur">Setup attuale</option><option value="none">Non salvare il setup</option></select></label>
+      <label class="f">Posizione<select id="hO"><option value="old">Prima di tutte le altre</option><option value="new">Adesso (ultima)</option></select></label>
+    </div>
+    <label class="f" style="margin-top:8px">Nota (facoltativa)<input id="hN" placeholder="es. setup di base"></label>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="histaddsave">Aggiungi</button><button class="sec2" data-act="hist">Annulla</button></div>`, carNameFull());
+}
+function saveHistAdd() {
+  const k = $('hK').value, cond = /W$/.test(k) ? 'wet' : 'dry';
+  let val = $('hV').value.trim(), map = k === 'cons' ? $('hM').value.trim() : '';
+  if (k === 'cons') { if (!(parseFloat(val.replace(',', '.')) > 0)) return toast('Il consumo deve essere un numero'); }
+  else { val = normTime(val); if (!TIME_RE.test(val)) return toast('Scrivi il tempo come 1:52.749 (anche 152749)'); }
+  const mode = $('hS').value;
+  let snap = {};
+  if (mode === 'cur') snap = setupSnap(cond);
+  else if (mode === 'gen') { const g = DB.setupGen[A.id] || {}; snap = Object.assign({}, (g[cond] || g.dry || {}).vals || {}); }
+  const mine = (DB.hist = DB.hist || []).filter(e => e.c === A.id && e.v === V.id);
+  const first = mine.map(e => e.t).sort()[0];
+  const t = $('hO').value === 'old' && first ? new Date(Date.parse(first) - 60000).toISOString() : now();
+  DB.hist.push({id: uid(), t, c: A.id, v: V.id, k, val, map, note: $('hN').value.trim(), cond, snap});
+  save(); toast('Prova aggiunta'); UI.hg = k === 'cons' ? 'cons' : /^lap/.test(k) ? 'lap' : 'pace'; openHist();
+}
 function openHist(grp) {
   if (!needCtx('av')) return;
   grp = UI.hg = grp || UI.hg || 'lap';
@@ -1362,7 +1392,7 @@ function openHist(grp) {
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
-  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns"><button class="sec2" data-act="histadd">+ Aggiungi prova a mano</button></div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
 }
 function savePerf() {
   collectPerf();
@@ -2265,6 +2295,8 @@ const ACT = {
   pfmain: b => { collectPerf(); UI.pf.cons.forEach((c, i) => { c.main = i === +b.dataset.i; }); drawPerf(); },
   pfsave: savePerf,
   hist: () => openHist(),
+  histadd: openHistAdd,
+  histaddsave: saveHistAdd,
   histtab: b => openHist(b.dataset.g),
   histdel: b => { DB.hist = (DB.hist || []).filter(e => e.id !== b.dataset.id); save(); openHist(); },
   noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
