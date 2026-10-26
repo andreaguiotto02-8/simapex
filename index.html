@@ -150,6 +150,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .dh{touch-action:none;cursor:grab;width:34px;padding:0;flex:none;font-size:18px}.row2.drag{opacity:.55;box-shadow:0 4px 14px rgba(0,0,0,.3);position:relative;z-index:9}.row2.dropt{outline:2px solid var(--accent);outline-offset:1px}.sub.dropt,.sec.dropt{outline:2px dashed var(--accent)}
 @media(min-width:900px){.sheet{max-width:960px}}
 .gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl[data-act]{cursor:pointer}.tl .ii{float:right;color:var(--accent);font-size:13px;line-height:1}
+.hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
@@ -201,7 +202,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.20.2';   // versione dell'app
+const APP_V = '0.21';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -273,7 +274,7 @@ function tx(store, mode, fn) {
 
 const newDB = () => ({
   v: DATA_V, games: [{id: uid(), name: 'ACC'}], groups: [], cars: [], circuits: [], variants: [],
-  brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [],
+  brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: [],
   settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null, quick: DEFAULT_QUICK.map(l => ({id: uid(), label: l}))},
   u: now()
 });
@@ -839,7 +840,7 @@ function viewHome() {
         <div class="f">Auto${selRow('a', as, s.a, 'Nuova auto', 'car', A && A.id)}</div>
       </div>
       <div class="map" id="mapBox"></div>
-      <div><div class="head"><h2>Dati rapidi</h2><span class="meta">tocca un riquadro per modificarlo</span></div><div class="tiles">${tilesHtml()}</div></div>
+      <div><div class="head"><h2>Dati rapidi</h2><span style="display:flex;gap:8px;align-items:center"><span class="meta">tocca un riquadro</span><button class="sec2" data-act="hist">Storico</button></span></div><div class="tiles">${tilesHtml()}</div></div>
       <div class="btns3">${btnsHtml()}</div>
     </div>
     <div class="col"><div class="head"><h2>Staccate</h2><span style="display:flex;gap:8px"><button class="sec2" data-act="dict">Detta</button><button class="sec2" data-act="turnq">+ Curva</button><button class="sec2" data-act="turns">Elenco</button></span></div><div class="rows" id="rows">${rowsHtml()}</div></div></div>`;
@@ -1291,7 +1292,7 @@ function normTime(t) {      // 143210 · 1.43.210 · 1 43 210 · 1:43,210  ->  1
 document.addEventListener('change', e => { if (e.target.matches && e.target.matches('#pLD,#pLW,#pPD,#pPW')) e.target.value = normTime(e.target.value); });
 function editPerf(part) {
   if (!needCtx('av')) return;
-  UI.pfPart = typeof part === 'string' ? part : 'all';
+  UI.pfPart = typeof part === 'string' ? part : 'all'; UI.pfNote = '';
   UI.pf = clone(DB.perf[kk(A.id, V.id)] || {lapD:'', lapW:'', paceD:'', paceW:'', cons:[]});
   drawPerf();
 }
@@ -1311,14 +1312,57 @@ function drawPerf() {
     <p class="meta">Una riga per ogni prova, con la sua ${esc(mapL.toLowerCase())}. Quella segnata Principale appare nella schermata.</p>
     <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
     <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>` : ''}
-    <div class="btns" style="margin-top:16px"><button class="pri" data-act="pfsave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
+    <label class="f" style="margin-top:12px">Nota per lo storico (facoltativa)<input id="pNote" value="${esc(UI.pfNote || '')}" placeholder="es. ala −1"></label>
+    <div class="btns" style="margin-top:16px"><button class="pri" data-act="pfsave">Salva</button><button class="sec2" data-act="close">Annulla</button><button class="sec2" data-act="hist">Storico</button></div>`, carNameFull());
 }
 const carNameFull = () => (A ? A.name : '') + ' · ' + varName();
 function collectPerf() {
   const p = UI.pf;
   const gv = (id, k) => { if ($(id)) p[k] = normTime($(id).value); };
+  if ($('pNote')) UI.pfNote = $('pNote').value.trim();
   gv('pLD', 'lapD'); gv('pLW', 'lapW'); gv('pPD', 'paceD'); gv('pPW', 'paceW');
   document.querySelectorAll('#clist [data-ci]').forEach(r => { const c = p.cons[+r.dataset.ci]; c.map = r.querySelector('.cm').value.trim(); c.v = r.querySelector('.cv').value.trim(); });
+}
+
+/* --- Storico delle prove: ogni volta che salvi un tempo o un consumo, l'app ricorda anche il setup di quel momento --- */
+const HK = {lapD: 'Giro veloce asciutto', lapW: 'Giro veloce bagnato', paceD: 'Passo gara asciutto', paceW: 'Passo gara bagnato', cons: 'Consumo'};
+const HGROUP = {lap: ['lapD', 'lapW'], pace: ['paceD', 'paceW'], cons: ['cons']};
+function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specifico di questa variante
+  const g = DB.setupGen[A.id] || {}, gen = (g[cond] || g.dry || {}).vals || {};
+  const sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
+  const o = Object.assign({}, gen); Object.keys(sp).forEach(k => { if (sp[k] != null && sp[k] !== '') o[k] = sp[k]; });
+  return o;
+}
+function logHist(old, p, note) {
+  const list = DB.hist = DB.hist || [], add = (k, val, map) => list.push({id: uid(), t: now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', cond: /W$/.test(k) ? 'wet' : 'dry', snap: setupSnap(/W$/.test(k) ? 'wet' : 'dry')});
+  ['lapD', 'lapW', 'paceD', 'paceW'].forEach(k => { if (p[k] && p[k] !== (old[k] || '')) add(k, p[k]); });
+  (p.cons || []).forEach(c => { const o = (old.cons || []).find(x => x.map === c.map); if (c.v && (!o || o.v !== c.v)) add('cons', c.v, c.map); });
+}
+const hNum = e => e.k === 'cons' ? parseFloat(String(e.val).replace(',', '.')) : paceP(e.val);
+const hDiff = (d, unit) => d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(unit === 's' ? 3 : 2).replace('.', ',') + (unit === 's' ? ' s' : ' L');
+function parLabels() {
+  const m = {}; carSections().forEach(sec => { sec.params.forEach(p => m[p.id] = p.label); (sec.subs || []).forEach(b => b.params.forEach(p => m[p.id] = b.name + ' ' + p.label)); });
+  return m;
+}
+function openHist(grp) {
+  if (!needCtx('av')) return;
+  grp = UI.hg = grp || UI.hg || 'lap';
+  const ks = HGROUP[grp], lab = parLabels();
+  const all = (DB.hist || []).filter(e => e.c === A.id && e.v === V.id).sort((a, b) => a.t < b.t ? -1 : 1);
+  const rows = all.filter(e => ks.includes(e.k)).map(e => {
+    const prev = all.filter(x => x.k === e.k && x.map === e.map && x.t < e.t).pop();
+    const group = all.filter(x => x.k === e.k && x.map === e.map), best = group.reduce((m, x) => hNum(x) < hNum(m) ? x : m, group[0]) === e;
+    let diff = '', ch = '';
+    if (prev) {
+      const d = hNum(e) - hNum(prev); diff = hDiff(d, e.k === 'cons' ? 'L' : 's');
+      const a = prev.snap || {}, b = e.snap || {}, ids = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(i => (a[i] ?? '') !== (b[i] ?? ''));
+      ch = ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(a[i] ?? '—')} → ${esc(b[i] ?? '—')}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima';
+    } else ch = 'prima prova';
+    const better = prev && (hNum(e) < hNum(prev));
+    return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
+  }).reverse().join('');
+  const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
 }
 function savePerf() {
   collectPerf();
@@ -1330,6 +1374,7 @@ function savePerf() {
   for (const c of p.cons) if (!(parseFloat(c.v.replace(',', '.')) > 0)) return toast('Il consumo deve essere un numero');
   if (p.cons.length && !p.cons.some(c => c.main)) p.cons[0].main = true;
   p.u = now();
+  logHist(DB.perf[kk(A.id, V.id)] || {}, p, UI.pfNote);
   DB.perf[kk(A.id, V.id)] = p;
   save(); closeSheet(); render(); toast('Dati rapidi salvati');
 }
@@ -2219,6 +2264,9 @@ const ACT = {
   pfdel: b => { collectPerf(); const [x] = UI.pf.cons.splice(+b.dataset.i, 1); if (x.main && UI.pf.cons.length) UI.pf.cons[0].main = true; drawPerf(); },
   pfmain: b => { collectPerf(); UI.pf.cons.forEach((c, i) => { c.main = i === +b.dataset.i; }); drawPerf(); },
   pfsave: savePerf,
+  hist: () => openHist(),
+  histtab: b => openHist(b.dataset.g),
+  histdel: b => { DB.hist = (DB.hist || []).filter(e => e.id !== b.dataset.id); save(); openHist(); },
   noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
   noteback: openNotes, notesave: saveNote,
   notedel: b => { if (!armed(b, 'Conferma eliminazione')) return; DB.notes = DB.notes.filter(n => n.id !== UI.sh.note.id); save(); render(); toast('Nota eliminata'); openNotes(); },
@@ -2285,7 +2333,7 @@ document.addEventListener('click', e => {
       return addCopy('prima della cancellazione').then(() => {
         const keep = DB.settings, games = DB.games;
         if (a === 'wipeall') { DB = newDB(); DB.settings.copies = keep.copies; DB.settings.quick = keep.quick; DB.settings.lastExport = keep.lastExport; }
-        else { Object.assign(DB, {groups: [], cars: [], brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: []}); DB.settings.sel = {game: DB.settings.sel.game, c: DB.settings.sel.c, v: DB.settings.sel.v}; }
+        else { Object.assign(DB, {groups: [], cars: [], brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: []}); DB.settings.sel = {game: DB.settings.sel.game, c: DB.settings.sel.c, v: DB.settings.sel.v}; }
         UI.vb = null; UI.selTurn = null; return flush();
       }).then(() => { render(); toast(a === 'wipeall' ? 'Tutto cancellato' : 'Dati cancellati, piste e curve restano'); });
     }
