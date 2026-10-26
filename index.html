@@ -149,7 +149,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .sbar button b{color:var(--accent);margin-left:4px}
 .dh{touch-action:none;cursor:grab;width:34px;padding:0;flex:none;font-size:18px}.row2.drag{opacity:.55;box-shadow:0 4px 14px rgba(0,0,0,.3);position:relative;z-index:9}.row2.dropt{outline:2px solid var(--accent);outline-offset:1px}.sub.dropt,.sec.dropt{outline:2px dashed var(--accent)}
 @media(min-width:900px){.sheet{max-width:960px}}
-.gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl[data-act]{cursor:pointer}.tl .ii{float:right;color:var(--accent);font-size:13px;line-height:1}
+.gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl{position:relative}.tl[data-act]{cursor:pointer}.tl .ii{position:absolute;top:0;right:0;padding:6px 8px;color:var(--accent);font-size:15px;line-height:1}.tl[data-act] .k{padding-right:16px}
 .hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -202,7 +202,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.22';   // versione dell'app
+const APP_V = '0.23';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1484,6 +1484,33 @@ function guideOpen(tab, label) {
   document.body.appendChild(el);
   const hot = el.querySelector('.hot'); if (hot && label) hot.scrollIntoView({block: 'start'});
 }
+
+/* tocco su una tessera del setup: cambia subito il valore generale e quello specifico */
+function openParEdit(pid, cond, name) {
+  const g = ((DB.setupGen[A.id] || {})[cond] || {}).vals || {}, sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
+  const old = $('guide'); if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'guide'; el.className = 'back'; el.style.zIndex = 30;
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="Modifica parametro"><div class="sh"><div><h3>${esc(name)}</h3><div class="meta">${esc(carNameFull())}</div></div><button class="x" data-act="guideclose" aria-label="Chiudi">✕</button></div>
+    <div class="zg"><label class="f">Generale<input id="peG" value="${esc(g[pid] ?? '')}" inputmode="decimal" autocomplete="off"></label>
+    <label class="f">Specifico (${esc(varName())})<input id="peS" value="${esc(sp[pid] ?? '')}" placeholder="${esc(g[pid] ?? '')}" inputmode="decimal" autocomplete="off"></label></div>
+    <p class="meta">Lascia vuoto lo specifico per usare il valore generale.</p>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="pesave" data-pid="${pid}" data-cond="${cond}">Salva</button><button class="sec2" data-act="guideclose">Annulla</button><button class="sec2" data-act="parinfo" data-l="${esc(name)}">ⓘ Cosa fa</button></div></div>`;
+  el.onclick = e => { if (e.target === el) el.remove(); };
+  document.body.appendChild(el);
+  const f = $('peS'); if (f) { f.focus(); f.select(); }
+}
+function saveParEdit(pid, cond) {
+  const gv = $('peG').value.trim(), sv = $('peS').value.trim(), key = kk(A.id, V.id);
+  const gg = DB.setupGen[A.id] = DB.setupGen[A.id] || {};
+  if (gv !== '' || gg[cond]) { gg[cond] = gg[cond] || {vals: {}, u: now()}; if (gv === '') delete gg[cond].vals[pid]; else gg[cond].vals[pid] = gv; gg[cond].u = now(); }
+  const base = (gg[cond] || gg.dry || {vals: {}}).vals[pid];
+  const ss = DB.setupSpec[key] = DB.setupSpec[key] || {};
+  if (sv !== '' && sv !== String(base ?? '')) { ss[cond] = ss[cond] || {vals: {}, u: now()}; ss[cond].vals[pid] = sv; ss[cond].u = now(); }
+  else if (ss[cond]) { delete ss[cond].vals[pid]; ss[cond].u = now(); if (!Object.keys(ss[cond].vals).length) delete ss[cond]; }
+  if (!Object.keys(ss).length) delete DB.setupSpec[key];
+  save(); const e = $('guide'); if (e) e.remove();
+  const m = UI.sv || {}; openSetup(cond, m.mode); toast('Salvato');
+}
 function openSetup(cond, mode) {
   if (!needCtx('av')) return;
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
@@ -1499,16 +1526,17 @@ function openSetup(cond, mode) {
   if (sp) html += `<div class="seg"><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="spec" aria-pressed="${mode === 'spec'}">Specifico</button><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="gen" aria-pressed="${mode === 'gen'}">Generale</button></div>`;
   else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
   let total = 0, bar = '', body = '';
-  const tile = (p, ch, val, g) => `<div class="tl${ch ? ' ch' : ''}" data-act="parinfo" data-l="${esc(p.label)}"><span class="k">${esc(p.label)}</span><span class="v">${esc(val == null ? '—' : val)}</span>${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</div>`;
+  UI.sv = {cond, mode};
+  const tile = (p, ch, val, g, sn) => `<div class="tl${ch ? ' ch' : ''}" data-act="paredit" data-pid="${p.id}" data-cond="${cond}" data-n="${esc((sn ? sn + ' ' : '') + p.label)}"><span class="ii" data-act="parinfo" data-l="${esc(p.label)}" role="button" aria-label="Cosa fa">ⓘ</span><span class="k">${esc(p.label)}</span><span class="v">${esc(val == null ? '—' : val)}</span>${ch ? `<span class="was">generale ${esc(g == null ? '—' : g)}</span>` : ''}</div>`;
   carSections().forEach((sec, i) => {
     let cnt = 0;
-    const grid = list => '<div class="tg">' + list.map(p => {
+    const grid = (list, sn) => '<div class="tg">' + list.map(p => {
       const g = baseGen[p.id], ch = mode === 'spec' && sp && sp.vals[p.id] != null && sp.vals[p.id] !== g;
       if (ch) cnt++;
-      return tile(p, ch, ch ? sp.vals[p.id] : g, g);
+      return tile(p, ch, ch ? sp.vals[p.id] : g, g, sn);
     }).join('') + '</div>';
     let inner = sec.params.length ? grid(sec.params) : '';
-    (sec.subs || []).forEach(b => { inner += `<div class="tsub">${esc(b.name)}</div>` + grid(b.params); });
+    (sec.subs || []).forEach(b => { inner += `<div class="tsub">${esc(b.name)}</div>` + grid(b.params, b.name); });
     total += cnt;
     bar += `<button data-act="secjump" data-i="${i}">${esc(sec.name)}${cnt ? `<b>${cnt}</b>` : ''}</button>`;
     body += `<div class="sgh" id="sec${i}"><span>${esc(sec.name)}</span>${cnt ? `<span class="scn">${cnt}${cnt === 1 ? ' modifica' : ' modifiche'}</span>` : ''}</div>${inner}`;
@@ -2249,6 +2277,8 @@ const ACT = {
   },
   setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
   ctltoggle: () => { UI.ctlHide = !UI.ctlHide; drawMap(); },
+  paredit: b => openParEdit(b.dataset.pid, b.dataset.cond, b.dataset.n),
+  pesave: b => saveParEdit(b.dataset.pid, b.dataset.cond),
   guide: () => guideOpen('prob'),
   guidetab: b => guideOpen(b.dataset.t),
   guideclose: () => { const e = $('guide'); if (e) e.remove(); },
