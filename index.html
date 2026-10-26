@@ -96,13 +96,13 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .map svg{display:block;width:100%;height:auto}
 .map.full{position:fixed;inset:0;z-index:40;border-radius:0;border:0;padding:8px;display:flex;flex-direction:column;overflow:hidden}
 .map.full svg{flex:1;min-height:0;height:100%}
-.map .ctl{display:contents}
+.map .ctl{display:contents}.map .ctlt{display:none}
 @media (max-height:520px){.map.full{padding:0}.map.full svg{position:absolute;inset:0;width:100%;height:100%}
 .map.full .ctl{display:block;position:absolute;z-index:3;top:4px;right:4px;bottom:4px;width:172px;overflow-y:auto;background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--line);border-radius:12px;padding:6px;font-size:13px}
 .map.full .ctl .mt{margin:0 0 6px;gap:4px}.map.full .ctl .mt button{min-height:36px;min-width:36px;padding:2px 8px;font-size:13px}
 .map.full .ctl .ban{padding:6px 8px;font-size:12.5px;margin:0 0 6px}.map.full .ctl .ban button,.map.full .ctl .chip{min-height:34px;padding:2px 10px;font-size:13px}
 .map.full.chide .ctl{display:none}
-.map .ctlt{display:none}.map.full .ctlt{display:block;position:absolute;z-index:4;top:6px;right:182px;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:18px;padding:0}.map.full.chide .ctlt{right:6px}}
+.map.full .ctlt{display:block;position:absolute;z-index:4;top:6px;right:182px;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:18px;padding:0}.map.full.chide .ctlt{right:6px}}
 .mk{cursor:pointer}
 .mt{display:flex;gap:6px;flex-wrap:wrap;margin:2px 2px 6px}
 .mt button{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;min-width:44px;padding:4px 12px;font-weight:700}
@@ -151,6 +151,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 @media(min-width:900px){.sheet{max-width:960px}}
 .gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl{position:relative}.tl[data-act]{cursor:pointer}.tl .ii{position:absolute;top:0;right:0;padding:6px 8px;color:var(--accent);font-size:15px;line-height:1}.tl[data-act] .k{padding-right:16px}
 .hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
+.engph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.engph .bigb{min-height:56px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 summary{cursor:pointer;padding:12px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
@@ -202,7 +203,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.23';   // versione dell'app
+const APP_V = '0.24';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -274,7 +275,7 @@ function tx(store, mode, fn) {
 
 const newDB = () => ({
   v: DATA_V, games: [{id: uid(), name: 'ACC'}], groups: [], cars: [], circuits: [], variants: [],
-  brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: [],
+  brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: [], eng: {},
   settings: {sel:{}, copies:{every:'day', keep:5}, lastExport:null, quick: DEFAULT_QUICK.map(l => ({id: uid(), label: l}))},
   u: now()
 });
@@ -875,7 +876,8 @@ function btnsHtml() {
   return `<button class="bigb" data-act="setup" data-cond="dry">Setup asciutto<small class="${a.cls}">${a.t}</small></button>
     <button class="bigb" data-act="setup" data-cond="wet">Setup bagnato<small class="${b.cls}">${b.t}</small></button>
     <button class="bigb" data-act="notes">Note<small>${nc} ${nc === 1 ? 'nota' : 'note'}</small></button>
-    <button class="bigb wide" data-act="strat">Strategia gara<small>dati dell'auto già inseriti</small></button>`;
+    <button class="bigb wide" data-act="strat">Strategia gara<small>dati dell'auto già inseriti</small></button>
+    <button class="bigb wide" data-act="eng">Ingegnere di pista<small>${A && V && DB.eng && DB.eng[kk(A.id, V.id)] && DB.eng[kk(A.id, V.id)].pend ? 'prova in corso' : 'cosa provare e come confrontare'}</small></button>`;
 }
 function rowsHtml() {
   const turns = turnsOf();
@@ -1344,8 +1346,11 @@ function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specific
   const o = Object.assign({}, gen); Object.keys(sp).forEach(k => { if (sp[k] != null && sp[k] !== '') o[k] = sp[k]; });
   return o;
 }
+function histAdd(k, val, map, note, cond) {
+  (DB.hist = DB.hist || []).push({id: uid(), t: now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', cond: cond || (/W$/.test(k) ? 'wet' : 'dry'), snap: setupSnap(cond || (/W$/.test(k) ? 'wet' : 'dry'))});
+}
 function logHist(old, p, note) {
-  const list = DB.hist = DB.hist || [], add = (k, val, map) => list.push({id: uid(), t: now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', cond: /W$/.test(k) ? 'wet' : 'dry', snap: setupSnap(/W$/.test(k) ? 'wet' : 'dry')});
+  const add = (k, val, map) => histAdd(k, val, map, note);
   ['lapD', 'lapW', 'avgD', 'avgW', 'paceD', 'paceW'].forEach(k => { if (p[k] && p[k] !== (old[k] || '')) add(k, p[k]); });
   (p.cons || []).forEach(c => { const o = (old.cons || []).find(x => x.map === c.map); if (c.v && (!o || o.v !== c.v)) add('cons', c.v, c.map); });
 }
@@ -1510,6 +1515,334 @@ function saveParEdit(pid, cond) {
   if (!Object.keys(ss).length) delete DB.setupSpec[key];
   save(); const e = $('guide'); if (e) e.remove();
   const m = UI.sv || {}; openSetup(cond, m.mode); toast('Salvato');
+}
+/* ===================================================================
+   INGEGNERE DI PISTA
+   Dice cosa provare in base a cio' che senti, con i valori del TUO setup,
+   e guida la prova: una modifica, 5 giri, confronto con la media dei 3 migliori.
+   =================================================================== */
+// i parametri che l'ingegnere sa muovere: come riconoscerli (per nome e asse) e di quanto muoverli di solito
+const ENG_KEYS = {
+  toeF: {n: 'Convergenza anteriore', lab: /converg/, sec: /gomm/, ax: 'F', st: 0.1},
+  toeR: {n: 'Convergenza posteriore', lab: /converg/, sec: /gomm/, ax: 'R', st: 0.1},
+  camF: {n: 'Campanatura anteriore', lab: /campanat/, ax: 'F', st: 0.1},
+  arbF: {n: 'Barra antirollio anteriore', lab: /barra/, ax: 'F', st: 1},
+  arbR: {n: 'Barra antirollio posteriore', lab: /barra/, ax: 'R', st: 1},
+  bias: {n: 'Bilanciamento freni', lab: /bilanc|ripartiz/, st: 0.5},
+  diff: {n: 'Precarico differenziale', lab: /precarico/, st: 10},
+  tc1: {n: 'TC1', lab: /^tc1|^controllo.*trazione/, st: 1},
+  abs: {n: 'ABS', lab: /^abs/, st: 1},
+  wing: {n: 'Ala posteriore', lab: /^ala/, st: 1},
+  ducts: {n: 'Condotti freni', lab: /condott/, st: 1},
+  rhF: {n: 'Altezza da terra anteriore', lab: /altezza/, ax: 'F', st: 1},
+  rhR: {n: 'Altezza da terra posteriore', lab: /altezza/, ax: 'R', st: 1},
+  dampFC: {n: 'Compressione veloce ammortizzatori', lab: /compress.*(veloc|rapid)/, st: 1},
+  springF: {n: 'Molle anteriori', lab: /molla/, ax: 'F', st: null},
+  springR: {n: 'Molle posteriori', lab: /molla/, ax: 'R', st: null},
+};
+// k = parametro, d = verso (+1 aumenta il numero, -1 lo diminuisce), w = perche', r = cosa tenere d'occhio
+const ENG_PH = [
+  {id: 'fre', t: 'Frenata', list: [
+    {id: 'fre_a', t: 'Bloccano le ruote anteriori', fixes: [
+      {k: 'bias', d: -1, w: 'Sposta un po\' di frenata sul posteriore.', r: 'Se il posteriore diventa leggero in frenata, fermati.'},
+      {k: 'abs', d: +1, w: 'Più aiuto dell\'ABS: blocca meno.', r: 'Lo spazio di frenata può allungarsi un po\'.'}]},
+    {id: 'fre_p', t: 'Bloccano le ruote posteriori', fixes: [
+      {k: 'bias', d: +1, w: 'Porta più frenata sull\'anteriore.', r: 'Troppo avanti e le anteriori bloccano.'},
+      {k: 'abs', d: +1, w: 'Più aiuto dell\'ABS.'}]},
+    {id: 'fre_i', t: 'Auto instabile in frenata', fixes: [
+      {k: 'bias', d: +1, w: 'Più frenata davanti rende l\'auto più stabile.', r: 'Può aumentare il sottosterzo in entrata.'},
+      {k: 'diff', d: +1, w: 'Più precarico: più stabilità quando stacchi.', r: 'In curve lente può aumentare il sottosterzo.'}]}]},
+  {id: 'ent', t: 'Entrata in curva', list: [
+    {id: 'ent_s', t: 'Sottosterzo (non gira quando sterzo)', fixes: [
+      {k: 'toeF', d: -1, w: 'Più toe-out (più negativo): l\'anteriore si inserisce meglio.', r: 'Troppo toe-out rende lo sterzo nervoso e consuma le gomme.'},
+      {k: 'bias', d: -1, w: 'Meno frenata davanti: l\'anteriore è più libero di girare.', r: 'Non scendere troppo: dietro diventa instabile.'},
+      {k: 'diff', d: -1, w: 'Meno precarico: l\'auto ruota più liberamente.', r: 'Può diventare più nervosa.'},
+      {k: 'camF', d: -1, w: 'Più campanatura negativa: più grip anteriore in curva.', r: 'Guarda che il bordo interno delle gomme anteriori non scaldi troppo.'},
+      {k: 'arbF', d: -1, w: 'Barra anteriore più morbida: più grip davanti.', r: 'Troppo morbida: l\'auto diventa sovrasterzante in uscita.'}]},
+    {id: 'ent_o', t: 'Sovrasterzo (il posteriore scivola)', fixes: [
+      {k: 'bias', d: +1, w: 'Più frenata davanti: il posteriore è più stabile.', r: 'Troppo avanti: sottosterzo in entrata.'},
+      {k: 'diff', d: +1, w: 'Più precarico: più stabilità in entrata.', r: 'Sottosterzo nelle curve lente.'},
+      {k: 'toeR', d: +1, w: 'Più toe-in dietro: più stabilità.', r: 'Consuma un po\' di più le gomme posteriori.'}]}]},
+  {id: 'cen', t: 'Centro curva', list: [
+    {id: 'cen_s', t: 'Sottosterzo in curva lenta o media', fixes: [
+      {k: 'arbF', d: -1, w: 'Barra anteriore più morbida: più grip davanti.', r: 'Se in uscita scivola dietro, torna indietro.'},
+      {k: 'arbR', d: +1, w: 'Barra posteriore più rigida: sposta l\'equilibrio verso il posteriore.', r: 'Più rischio di sovrasterzo in uscita.'},
+      {k: 'camF', d: -1, w: 'Più campanatura negativa: più grip anteriore.', r: 'Controlla le temperature interne delle gomme anteriori.'},
+      {k: 'springF', d: -1, w: 'Molle anteriori un passo più morbide.', r: 'Più rollio e risposta più lenta.'}]},
+    {id: 'cen_v', t: 'Sottosterzo in curva veloce', fixes: [
+      {k: 'wing', d: -1, w: 'Meno ala dietro: l\'anteriore pesa di più sull\'equilibrio.', r: 'L\'auto diventa più nervosa dietro.'},
+      {k: 'rhF', d: -1, w: 'Anteriore più basso: più carico davanti.', r: 'Non toccare l\'asfalto in curva.'},
+      {k: 'camF', d: -1, w: 'Più campanatura negativa.', r: 'Controlla le temperature delle gomme.'}]},
+    {id: 'cen_o', t: 'Sovrasterzo in curva lenta o media', fixes: [
+      {k: 'arbR', d: -1, w: 'Barra posteriore più morbida: più grip dietro.', r: 'Più sottosterzo.'},
+      {k: 'arbF', d: +1, w: 'Barra anteriore più rigida.', r: 'Meno grip davanti.'},
+      {k: 'springR', d: -1, w: 'Molle posteriori più morbide.', r: 'Più rollio.'}]},
+    {id: 'cen_vo', t: 'Sovrasterzo in curva veloce', fixes: [
+      {k: 'wing', d: +1, w: 'Più ala dietro: più stabilità.', r: 'Perdi velocità sul rettilineo.'},
+      {k: 'rhR', d: -1, w: 'Posteriore più basso: più stabilità.', r: 'Non toccare l\'asfalto.'}]}]},
+  {id: 'usc', t: 'Uscita di curva', list: [
+    {id: 'usc_s', t: 'Sottosterzo (esco largo)', fixes: [
+      {k: 'diff', d: -1, w: 'Meno precarico: l\'auto gira meglio con il gas.', r: 'Più nervosa in entrata.'},
+      {k: 'arbR', d: +1, w: 'Barra posteriore più rigida.', r: 'Rischio di sovrasterzo.'}]},
+    {id: 'usc_o', t: 'Sovrasterzo (il posteriore scivola col gas)', fixes: [
+      {k: 'tc1', d: +1, w: 'Più controllo di trazione: taglia la potenza quando scivola.', r: 'Perdi un po\' di spinta in uscita.'},
+      {k: 'toeR', d: +1, w: 'Più toe-in dietro: più stabilità e trazione.', r: 'Consuma di più le gomme posteriori.'},
+      {k: 'arbR', d: -1, w: 'Barra posteriore più morbida: più grip dietro.', r: 'Può aumentare il sottosterzo.'},
+      {k: 'wing', d: +1, w: 'Più ala dietro.', r: 'Perdi velocità sul rettilineo.'}]},
+    {id: 'usc_t', t: 'Poca spinta: pattinano le ruote', fixes: [
+      {k: 'tc1', d: +1, w: 'Più TC1: meno pattinamento, esci più forte.', r: 'Se è troppo alto l\'auto "singhiozza".'},
+      {k: 'toeR', d: +1, w: 'Più toe-in dietro: più trazione.', r: 'Gomme posteriori più calde.'},
+      {k: 'springR', d: -1, w: 'Molle posteriori più morbide: più grip meccanico dietro.', r: 'Più rollio.'}]}]},
+  {id: 'ret', t: 'Rettilineo e velocità', list: [
+    {id: 'ret_v', t: 'Poca velocità massima', fixes: [
+      {k: 'wing', d: -1, w: 'Meno ala: meno resistenza all\'aria.', r: 'Più nervosa nelle curve veloci.'},
+      {k: 'ducts', d: -1, w: 'Condotti più chiusi: meno resistenza.', r: 'Controlla la temperatura dei freni.'}]},
+    {id: 'ret_i', t: 'Instabile ad alta velocità', fixes: [
+      {k: 'wing', d: +1, w: 'Più ala: più stabilità.', r: 'Perdi velocità massima.'},
+      {k: 'rhR', d: -1, w: 'Posteriore più basso: più stabile.', r: 'Non toccare l\'asfalto.'}]}]},
+  {id: 'cor', t: 'Cordoli e dossi', list: [
+    {id: 'cor_s', t: 'L\'auto salta o perde controllo sui cordoli', fixes: [
+      {k: 'dampFC', d: -1, w: 'Compressione veloce più bassa: assorbe meglio i colpi.', r: 'Controlla che l\'auto non tocchi a fondo.'},
+      {k: 'rhF', d: +1, w: 'Anteriore un po\' più alto.', r: 'Meno carico aerodinamico davanti.'},
+      {k: 'springF', d: -1, w: 'Molle un passo più morbide.', r: 'Più rollio.'}]}]},
+  {id: 'gom', t: 'Gomme', list: [
+    {id: 'gom_c', t: 'Le gomme anteriori si scaldano o si consumano', fixes: [
+      {k: 'camF', d: +1, w: 'Meno campanatura negativa: consumo più uniforme.', r: 'Meno grip in curva.'},
+      {k: 'toeF', d: +1, w: 'Meno toe-out: meno strisciamento.', r: 'Anteriore meno pronto in entrata.'}]}]},
+];
+
+function engCond() { return UI.engCond || 'dry'; }
+function engAxle(sub, label) {
+  const s = (sub || '').toLowerCase(), l = (label || '').toLowerCase();
+  if (/^ant/.test(s)) return 'F'; if (/^post/.test(s)) return 'R';
+  if (/\bant(\.|eriore|\b)/.test(l)) return 'F'; if (/\bpost/.test(l)) return 'R';
+  return null;
+}
+function engAll() {   // tutti i parametri dell'auto, con asse e sezione
+  const out = [];
+  carSections().forEach(sec => {
+    const add = (p, sub) => out.push({id: p.id, label: p.label, sec: sec.name || '', sub: sub || '', ax: engAxle(sub, p.label)});
+    sec.params.forEach(p => add(p, '')); (sec.subs || []).forEach(b => b.params.forEach(p => add(p, b.name)));
+  });
+  return out;
+}
+function engIds(key, all) {
+  const K = ENG_KEYS[key];
+  return (all || engAll()).filter(p => K.lab.test(p.label.toLowerCase()) && (!K.sec || K.sec.test(p.sec.toLowerCase())) && (!K.ax || p.ax === K.ax)).map(p => p.id);
+}
+function engParse(v) { const m = String(v ?? '').trim().match(/^(-?\d+(?:[.,]\d+)?)(.*)$/); if (!m) return null; return {n: parseFloat(m[1].replace(',', '.')), dec: (m[1].split(/[.,]/)[1] || '').length, comma: /,/.test(m[1]), suf: m[2]}; }
+function engFmt(o, n, dec) { if (Math.abs(n) < 1e-9) n = 0; let s = n.toFixed(dec); if (o.comma) s = s.replace('.', ','); return s + o.suf; }
+const engDec = st => { const m = String(st).match(/\.(\d+)/); return m ? m[1].length : 0; };
+function engMove(val, st, d) {   // valore spostato di un passo, con lo stesso formato dell'originale
+  const o = engParse(val); if (!o || st == null) return null;
+  return engFmt(o, o.n + d * st, Math.max(o.dec, engDec(st)));
+}
+function engFix(fix, all, snap) {   // cosa cambiare per questa proposta: per ogni parametro valore attuale e proposto
+  const K = ENG_KEYS[fix.k], ids = engIds(fix.k, all);
+  if (!ids.length) return null;
+  const rows = ids.map(id => { const cur = snap[id]; return {id, cur: cur == null ? '' : String(cur), to: engMove(cur, K.st, fix.d)}; });
+  return {k: fix.k, n: K.n, st: K.st, d: fix.d, w: fix.w, r: fix.r, rows};
+}
+function engSummary(f) {   // "−0,1 → −0,3" oppure "un passo più morbide"
+  const same = f.rows.every(r => r.cur === f.rows[0].cur && r.to === f.rows[0].to);
+  if (f.rows.every(r => r.to != null)) return same ? f.rows[0].cur + ' → ' + f.rows[0].to : (f.rows.length + ' valori: ' + (f.d > 0 ? '+' : '−') + String(f.st).replace('.', ',') + ' ciascuno');
+  return 'un passo ' + (f.d > 0 ? 'più alto' : 'più basso');
+}
+const engKey = () => kk(A.id, V.id);
+const engState = () => ((DB.eng = DB.eng || {})[engKey()] = DB.eng[engKey()] || {});
+function engBase() {   // il riferimento: l'ultima media dei 3 migliori dell'asciutto/bagnato attuale
+  const k = engCond() === 'wet' ? 'avgW' : 'avgD';
+  const e = (DB.hist || []).filter(x => x.c === A.id && x.v === V.id && x.k === k).sort((a, b) => a.t < b.t ? -1 : 1).pop();
+  return e ? {avg: e.val, t: e.t} : null;
+}
+const engSec = s => { const m = String(s).replace(',', '.'); return paceP(normTime(m)); };
+
+function engOpen() {
+  if (!needCtx('av')) return;
+  const cond = engCond(), st = engState(), base = engBase();
+  const pend = st.pend;
+  const chip = (c, t) => `<button class="sec2" data-act="engcond" data-c="${c}" aria-pressed="${cond === c}">${t}</button>`;
+  let html = `<div class="seg">${chip('dry', 'Asciutto')}${chip('wet', 'Bagnato')}</div>`;
+  if (pend) {
+    html += `<div class="gi hot"><b>Prova in corso</b><p>${pend.ch.map(c => esc(c.n) + ': ' + esc(c.from) + ' → ' + esc(c.to)).join('<br>')}</p><p class="meta">Riferimento: ${base ? 'media dei 3 migliori ' + esc(base.avg) : 'nessuno ancora'}. Fai 5 giri puliti, poi inserisci i 3 migliori.</p>
+      <div class="btns"><button class="pri" data-act="engres">Inserisci i giri</button><button class="sec2" data-act="engundo">Annulla la prova</button></div></div>`;
+  } else {
+    html += `<p class="meta">Riferimento attuale: <b>${base ? 'media dei 3 migliori ' + esc(base.avg) : 'nessuno'}</b>. ${base ? '' : 'Prima di cambiare qualcosa fai 5 giri puliti e inserisci i 3 migliori: serve per capire se una modifica migliora.'}</p>`;
+    if (!base) html += `<div class="btns"><button class="pri" data-act="engres">Inserisci i giri di riferimento</button></div>`;
+  }
+  html += '<h3>Cosa senti?</h3><div class="engph">' + ENG_PH.map(p => `<button class="bigb" data-act="engph" data-p="${p.id}">${esc(p.t)}</button>`).join('') + '</div>';
+  html += `<div class="btns" style="margin-top:12px"><button class="sec2" data-act="engpress">Pressioni gomme a caldo</button></div>
+    <p class="meta">Regola: una sola modifica per volta. Fai 5 giri puliti e confronta con la media dei 3 migliori. Tieni la modifica solo se migliora di almeno 1 decimo.</p>`;
+  sheet('Ingegnere di pista', html, carNameFull());
+}
+function engPhase(pid) {
+  const ph = ENG_PH.find(p => p.id === pid); if (!ph) return;
+  sheet(ph.t, `<p class="meta">Quale di questi senti?</p>` + ph.list.map(s => `<button class="bigb" style="width:100%;margin-bottom:8px;text-align:left" data-act="engsym" data-s="${s.id}">${esc(s.t)}</button>`).join('') + '<div class="btns"><button class="sec2" data-act="eng">◀ Indietro</button></div>', carNameFull());
+}
+function engSymptom(sid) {
+  let sym = null, ph = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === sid) { sym = s; ph = p; } }));
+  if (!sym) return;
+  const all = engAll(), snap = setupSnap(engCond()), log = engState().log || [];
+  const cards = [];
+  sym.fixes.forEach((fx, i) => {
+    const f = engFix(fx, all, snap); if (!f) return;
+    const tried = log.filter(l => l.s === sid && l.k === fx.k && l.d === fx.d).pop();
+    cards.push({i, f, tried});
+  });
+  const first = cards.findIndex(c => !c.tried);
+  const html = `<p class="meta">${esc(ph.t)} · ${esc(sym.t)}. Prova in ordine, una alla volta.</p>` + (cards.length ? cards.map((c, n) => `<div class="gi${n === first ? ' hot' : ''}"><b>${n === first ? 'Prova prima questa: ' : ''}${esc(c.f.n)}</b>
+      <p><b>${esc(engSummary(c.f))}</b></p><p>${esc(c.f.w)}</p>${c.f.r ? `<p class="meta">Attenzione: ${esc(c.f.r)}</p>` : ''}
+      ${c.tried ? `<p class="meta">Già provata: ${c.tried.res === 'tieni' ? 'tenuta' : 'tolta'} (${esc(c.tried.diff)})</p>` : ''}
+      <div class="btns"><button class="${n === first ? 'pri' : 'sec2'}" data-act="engtry" data-s="${sid}" data-i="${c.i}">Provo questa</button></div></div>`).join('') : '<div class="empty">Il tuo setup non ha i parametri per queste modifiche.</div>')
+    + `<div class="btns"><button class="sec2" data-act="engph" data-p="${ph.id}">◀ Indietro</button></div>`;
+  sheet(sym.t, html, carNameFull());
+}
+function engTry(sid, idx) {
+  let sym = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === sid) sym = s; }));
+  const fx = sym.fixes[idx], f = engFix(fx, engAll(), setupSnap(engCond()));
+  UI.engTry = {sid, idx};
+  const allByIds = engAll();
+  const rows = f.rows.map(r => { const p = allByIds.find(x => x.id === r.id); const nm = (p.sub ? p.sub + ' ' : '') + p.label; return `<div class="row2" data-eid="${r.id}"><div style="flex:1;min-width:0"><div class="meta">${esc(nm)}</div><div style="font-weight:700">ora ${esc(r.cur || '—')}</div></div>
+    <button class="x" data-act="engstep" data-dd="-1" data-st="${f.st ?? ''}" aria-label="Un passo in meno">−</button>
+    <input class="ev" value="${esc(r.to ?? r.cur)}" inputmode="decimal" autocomplete="off" style="width:96px;text-align:center;font-weight:700">
+    <button class="x" data-act="engstep" data-dd="1" data-st="${f.st ?? ''}" aria-label="Un passo in più">+</button></div>`; }).join('');
+  sheet('Provo: ' + f.n, `<p>${esc(f.w)}</p>${f.r ? `<p class="meta">Attenzione: ${esc(f.r)}</p>` : ''}
+    ${engBase() ? '' : '<div class="warn">Non hai ancora un riferimento. Prima di cambiare fai 5 giri puliti e inserisci i 3 migliori (Ingegnere di pista → Inserisci i giri di riferimento), altrimenti non potrò dirti se la modifica migliora.</div>'}
+    <p class="meta">Controlla i valori (puoi correggerli con − e +, un passo alla volta). Cambiali anche nel gioco. Poi fai 5 giri puliti.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows}</div>
+    <div class="btns"><button class="pri" data-act="engapply">Applica nel setup specifico</button><button class="sec2" data-act="engsym" data-s="${sid}">Annulla</button></div>`, carNameFull());
+}
+function engApply() {
+  const t = UI.engTry; if (!t) return;
+  if (engState().pend) return toast('Chiudi prima la prova in corso');
+  let sym = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === t.sid) sym = s; }));
+  const fx = sym.fixes[t.idx], cond = engCond(), key = engKey();
+  const ss = DB.setupSpec[key] = DB.setupSpec[key] || {};
+  const spec = (ss[cond] = ss[cond] || {vals: {}, u: now()}), gen = (DB.setupGen[A.id] || {});
+  const baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
+  const ch = [], rows = [...document.querySelectorAll('.sheet [data-eid]')];
+  const all = engAll();
+  for (const r of rows) {
+    const id = r.dataset.eid, to = r.querySelector('.ev').value.trim(), cur = setupSnap(cond)[id];
+    if (to === '') return toast('Scrivi un valore');
+    if (String(cur ?? '') === to) continue;
+    const p = all.find(x => x.id === id);
+    ch.push({id, n: (p.sub ? p.sub + ' ' : '') + p.label, from: String(cur ?? '—'), to, was: spec.vals[id] == null ? null : spec.vals[id]});
+  }
+  if (!ch.length) return toast('Nessun valore è cambiato');
+  ch.forEach(c => { if (String(baseVals[c.id] ?? '') === c.to) delete spec.vals[c.id]; else spec.vals[c.id] = c.to; });
+  spec.u = now(); if (!Object.keys(spec.vals).length) delete ss[cond];
+  const st = engState();
+  st.pend = {s: t.sid, k: fx.k, d: fx.d, cond, ch, base: engBase(), t: now()};
+  save(); toast('Applicato. Ora 5 giri puliti.'); engOpen();
+}
+function engRes() {
+  const st = engState(), pend = st.pend, base = engBase();
+  sheet(pend ? 'Risultato della prova' : 'Giri di riferimento', `<p class="meta">Inserisci i 3 migliori giri dei tuoi 5 puliti. Calcolo io la media.</p>
+    <div class="zg"><label class="f">Giro 1<input id="rT1" placeholder="1:52.100" autocomplete="off"></label><label class="f">Giro 2<input id="rT2" placeholder="1:52.300" autocomplete="off"></label><label class="f">Giro 3<input id="rT3" placeholder="1:52.500" autocomplete="off"></label></div>
+    <p class="meta">${pend ? 'Prova: ' + esc(pend.ch.map(c => c.n + ' ' + c.from + ' → ' + c.to).join(' · ')) : 'Questa media diventa il riferimento.'}${base && pend ? ' · riferimento ' + esc(base.avg) : ''}</p>
+    <div id="rOut"></div>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="engcalc">Calcola</button><button class="sec2" data-act="eng">Annulla</button></div>`, carNameFull());
+}
+function engCalc() {
+  const v = ['rT1', 'rT2', 'rT3'].map(i => engSec($(i).value));
+  if (v.some(x => !(x > 0))) return toast('Scrivi i 3 tempi, per esempio 1:52.100');
+  const avg = v.reduce((a, b) => a + b, 0) / 3, best = Math.min(...v), st = engState(), pend = st.pend, base = engBase();
+  UI.engR = {avg, best};
+  let verdict = '', btns = '';
+  if (!pend) {
+    verdict = `<div class="gi hot"><b>Media ${fPace(avg)}</b><p>Giro migliore ${fPace(best)}. Salvo come riferimento.</p></div>`;
+    btns = '<button class="pri" data-act="engsaveb">Salva come riferimento</button>';
+  } else if (!base) {
+    verdict = `<div class="gi hot"><b>Media ${fPace(avg)}</b><p>Non ho un riferimento precedente, quindi non posso dire se è meglio. La salvo come riferimento.</p></div>`;
+    btns = '<button class="pri" data-act="engkeep">Tieni la modifica</button><button class="sec2" data-act="engrevert">Torna indietro</button>';
+  } else {
+    const d = avg - engSec(base.avg), ad = Math.abs(d);
+    const txt = ad < 0.1 ? 'Differenza piccola (sotto 1 decimo): non è una prova chiara. Tieni la modifica solo se l\'auto ti sembra più facile.' : d < 0 ? 'Migliora: tieni la modifica.' : 'Peggiora: torna al valore di prima.';
+    verdict = `<div class="gi hot"><b>${hDiff(d, 's')} rispetto a ${esc(base.avg)}</b><p>Media ${fPace(avg)} · giro migliore ${fPace(best)}</p><p>${txt}</p></div>`;
+    btns = '<button class="' + (d < -0.1 + 1e-9 || ad < 0.1 ? 'pri' : 'sec2') + '" data-act="engkeep">Tieni la modifica</button><button class="' + (d > 0.1 ? 'pri' : 'sec2') + '" data-act="engrevert">Torna indietro</button>';
+  }
+  $('rOut').innerHTML = verdict + `<div class="btns">${btns}</div>`;
+  $('rOut').scrollIntoView({block: 'nearest'});
+}
+function engRecord(note) {   // salva la media (e il giro migliore se batte il tuo) nello storico, con il setup di adesso
+  const R = UI.engR; if (!R) return;
+  const cond = engCond(), ak = cond === 'wet' ? 'avgW' : 'avgD', lk = cond === 'wet' ? 'lapW' : 'lapD';
+  const old = DB.perf[engKey()] || {lapD: '', lapW: '', paceD: '', paceW: '', cons: []};
+  const p = clone(old);
+  p[ak] = fPace(R.avg);
+  if (!p[lk] || R.best < paceP(p[lk])) p[lk] = fPace(R.best);
+  p.u = now();
+  const list = DB.hist = DB.hist || [];
+  histAdd(ak, p[ak], '', note, cond);
+  if (p[lk] !== (old[lk] || '')) histAdd(lk, p[lk], '', note, cond);
+  DB.perf[engKey()] = p;
+}
+function engFinish(res) {
+  const st = engState(), pend = st.pend, R = UI.engR; if (!pend || !R) return;
+  const base = pend.base, d = base ? R.avg - engSec(base.avg) : null;
+  const note = 'Prova: ' + pend.ch.map(c => c.n + ' ' + c.from + ' → ' + c.to).join(', ');
+  engRecord(note);
+  if (res === 'indietro') {
+    const ss = DB.setupSpec[engKey()] = DB.setupSpec[engKey()] || {}, sp = (ss[pend.cond] = ss[pend.cond] || {vals: {}, u: now()});
+    pend.ch.forEach(c => { if (c.was == null) delete sp.vals[c.id]; else sp.vals[c.id] = c.was; });
+    sp.u = now(); if (!Object.keys(sp.vals).length) delete ss[pend.cond];
+  }
+  st.log = (st.log || []).concat([{s: pend.s, k: pend.k, d: pend.d, res, diff: d == null ? 'senza riferimento' : hDiff(d, 's'), t: now()}]).slice(-60);
+  st.pend = null; UI.engR = null; save(); render();
+  toast(res === 'tieni' ? 'Modifica tenuta' : 'Valori ripristinati: ricordati di rimetterli anche nel gioco');
+  engSymptom(pend.s);
+}
+function engUndo() {   // annulla la prova senza giri: rimette i valori di prima
+  const st = engState(), pend = st.pend; if (!pend) return;
+  const ss = DB.setupSpec[engKey()] = DB.setupSpec[engKey()] || {}, sp = (ss[pend.cond] = ss[pend.cond] || {vals: {}, u: now()});
+  pend.ch.forEach(c => { if (c.was == null) delete sp.vals[c.id]; else sp.vals[c.id] = c.was; });
+  sp.u = now(); if (!Object.keys(sp.vals).length) delete ss[pend.cond];
+  st.pend = null; save(); render(); toast('Prova annullata: rimetti i valori di prima anche nel gioco'); engOpen();
+}
+function engSaveBase() {
+  engRecord('Riferimento'); UI.engR = null; save(); render(); toast('Riferimento salvato'); engOpen();
+}
+/* pressioni a caldo: di quanto correggere quelle a freddo per arrivare al valore che vuoi a caldo */
+function engPressIds() {
+  const all = engAll().filter(p => /pression/.test(p.label.toLowerCase()) && /gomm/.test(p.sec.toLowerCase())), out = {};
+  all.forEach(p => { const t = (p.sub + ' ' + p.label).toLowerCase(); const f = p.ax === 'F' || /ant/.test(t), r = p.ax === 'R' || /post/.test(t); const sx = /sx|sinistr/.test(t), dx = /dx|destr/.test(t); const c = (f ? 'F' : r ? 'R' : '') + (sx ? 'L' : dx ? 'R' : ''); if (c.length === 2) out[c] = p.id; });
+  return out;
+}
+function engPress() {
+  const ids = engPressIds(), snap = setupSnap(engCond()), tg = DB.settings.hotTarget || '27.0';
+  if (Object.keys(ids).length < 4) return sheet('Pressioni a caldo', '<div class="empty">Non trovo le 4 pressioni nel setup (servono Ant. sx, Ant. dx, Post. sx, Post. dx).</div><div class="btns"><button class="sec2" data-act="eng">◀ Indietro</button></div>', carNameFull());
+  const names = {FL: 'Ant. sx', FR: 'Ant. dx', RL: 'Post. sx', RR: 'Post. dx'};
+  const inp = c => `<label class="f">${names[c]} a caldo<input id="hp${c}" inputmode="decimal" placeholder="${esc(tg)}" autocomplete="off"><span class="meta">a freddo ora ${esc(snap[ids[c]] ?? '—')}</span></label>`;
+  sheet('Pressioni a caldo', `<p class="meta">Dopo 5 giri puliti scrivi le pressioni a caldo che leggi nel gioco. Ti dico di quanto correggere quelle a freddo per arrivare al valore voluto. È una stima: la variazione a freddo si riflette quasi uno a uno a caldo.</p>
+    <label class="f">Valore voluto a caldo<input id="hpT" value="${esc(tg)}" inputmode="decimal" style="max-width:140px"></label>
+    <div class="zg">${['FL', 'FR', 'RL', 'RR'].map(inp).join('')}</div><div id="hpOut"></div>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="engpcalc">Calcola</button><button class="sec2" data-act="eng">◀ Indietro</button></div>`, carNameFull());
+}
+function engPCalc() {
+  const ids = engPressIds(), snap = setupSnap(engCond()), tg = parseFloat($('hpT').value.replace(',', '.'));
+  if (!(tg > 0)) return toast('Scrivi il valore voluto a caldo');
+  DB.settings.hotTarget = String(tg);
+  const res = []; let any = false;
+  for (const c of ['FL', 'FR', 'RL', 'RR']) {
+    const raw = $('hp' + c).value.trim(); if (!raw) continue;
+    const hot = parseFloat(raw.replace(',', '.')); if (isNaN(hot)) return toast('Scrivi le pressioni come numeri, per esempio 27,3');
+    const cold = engParse(snap[ids[c]]); if (!cold) continue;
+    const dlt = hot - tg, to = engFmt(cold, cold.n - dlt, Math.max(cold.dec, 1));
+    res.push({c, id: ids[c], hot, raw, dlt, cold: String(snap[ids[c]]), to, ok: Math.abs(dlt) < 0.2}); any = true;
+  }
+  if (!any) return toast('Scrivi almeno una pressione a caldo');
+  UI.engP = res;
+  const names = {FL: 'Ant. sx', FR: 'Ant. dx', RL: 'Post. sx', RR: 'Post. dx'};
+  $('hpOut').innerHTML = res.map(r => `<div class="gi${r.ok ? '' : ' hot'}"><b>${names[r.c]}</b><p>A caldo ${esc(r.raw.replace('.', ','))} (${r.dlt > 0 ? '+' : r.dlt < 0 ? '−' : '±'}${Math.abs(r.dlt).toFixed(1).replace('.', ',')} dal valore voluto)</p><p><b>${r.ok ? 'Va bene così' : 'A freddo: ' + esc(r.cold) + ' → ' + esc(r.to)}</b></p></div>`).join('') + (res.some(r => !r.ok) ? '<div class="btns"><button class="pri" data-act="engpapply">Applica nel setup specifico</button></div>' : '');
+}
+function engPApply() {
+  const res = (UI.engP || []).filter(r => !r.ok); if (!res.length) return;
+  const cond = engCond(), key = engKey(), ss = DB.setupSpec[key] = DB.setupSpec[key] || {}, spec = (ss[cond] = ss[cond] || {vals: {}, u: now()});
+  const gen = (DB.setupGen[A.id] || {}), baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
+  res.forEach(r => { if (String(baseVals[r.id] ?? '') === r.to) delete spec.vals[r.id]; else spec.vals[r.id] = r.to; });
+  spec.u = now(); if (!Object.keys(spec.vals).length) delete ss[cond];
+  save(); render(); toast('Pressioni a freddo aggiornate. Rimettile anche nel gioco.'); engOpen();
 }
 function openSetup(cond, mode) {
   if (!needCtx('av')) return;
@@ -2277,6 +2610,22 @@ const ACT = {
   },
   setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
   ctltoggle: () => { UI.ctlHide = !UI.ctlHide; drawMap(); },
+  eng: engOpen,
+  engcond: b => { UI.engCond = b.dataset.c; engOpen(); },
+  engph: b => engPhase(b.dataset.p),
+  engsym: b => engSymptom(b.dataset.s),
+  engtry: b => engTry(b.dataset.s, +b.dataset.i),
+  engstep: b => { const row = b.closest('[data-eid]'), inp = row.querySelector('.ev'), st = parseFloat(b.dataset.st); if (!(st > 0)) return toast('Per questo parametro scrivi tu il valore'); const v = engMove(inp.value, st, +b.dataset.dd); if (v != null) inp.value = v; },
+  engapply: engApply,
+  engres: engRes,
+  engcalc: engCalc,
+  engkeep: () => engFinish('tieni'),
+  engrevert: () => engFinish('indietro'),
+  engsaveb: engSaveBase,
+  engundo: engUndo,
+  engpress: engPress,
+  engpcalc: engPCalc,
+  engpapply: engPApply,
   paredit: b => openParEdit(b.dataset.pid, b.dataset.cond, b.dataset.n),
   pesave: b => saveParEdit(b.dataset.pid, b.dataset.cond),
   guide: () => guideOpen('prob'),
@@ -2380,7 +2729,7 @@ document.addEventListener('click', e => {
       return addCopy('prima della cancellazione').then(() => {
         const keep = DB.settings, games = DB.games;
         if (a === 'wipeall') { DB = newDB(); DB.settings.copies = keep.copies; DB.settings.quick = keep.quick; DB.settings.lastExport = keep.lastExport; }
-        else { Object.assign(DB, {groups: [], cars: [], brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: []}); DB.settings.sel = {game: DB.settings.sel.game, c: DB.settings.sel.c, v: DB.settings.sel.v}; }
+        else { Object.assign(DB, {groups: [], cars: [], brakes: {}, pits: {}, perf: {}, setupGen: {}, setupSpec: {}, notes: [], hist: [], eng: {}}); DB.settings.sel = {game: DB.settings.sel.game, c: DB.settings.sel.c, v: DB.settings.sel.v}; }
         UI.vb = null; UI.selTurn = null; return flush();
       }).then(() => { render(); toast(a === 'wipeall' ? 'Tutto cancellato' : 'Dati cancellati, piste e curve restano'); });
     }
