@@ -151,8 +151,6 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 @media(min-width:900px){.sheet{max-width:960px}}
 .gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl{position:relative}.tl[data-act]{cursor:pointer}.tl .ii{position:absolute;top:0;right:0;padding:6px 8px;color:var(--accent);font-size:15px;line-height:1}.tl[data-act] .k{padding-right:16px}
 .hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
- #vc{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
-#vcv{max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}.vct{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700}.vcm{font-size:30px;font-weight:800;line-height:1.15}.vcs{font-size:15px;color:var(--muted,var(--fg));opacity:.85}.vch{font-size:13px;opacity:.7;min-height:18px}.vcb{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.vcb button{flex:1 1 140px;min-height:52px;font-size:16px}
 .engph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.engph .bigb{min-height:56px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -205,7 +203,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.26';   // versione dell'app
+const APP_V = '0.25';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1657,7 +1655,7 @@ function engOpen() {
   if (!needCtx('av')) return;
   const cond = engCond(), st = engState(), pend = st.pend;
   const chip = (c, t) => `<button class="sec2" data-act="engcond" data-c="${c}" aria-pressed="${cond === c}">${t}</button>`;
-  let html = `<div class="seg">${chip('dry', 'Asciutto')}${chip('wet', 'Bagnato')}</div><div class="btns"><button class="pri" data-act="vc">🎙 Copilota vocale</button></div>`;
+  let html = `<div class="seg">${chip('dry', 'Asciutto')}${chip('wet', 'Bagnato')}</div>`;
   if (pend) {
     html += `<div class="gi hot"><b>Modifica da provare</b><p>${pend.ch.map(c => esc(c.n) + ': ' + esc(c.from) + ' → ' + esc(c.to)).join('<br>')}</p><p class="meta">Fai qualche giro e senti se il problema è migliorato.</p>
       <div class="btns"><button class="pri" data-act="engkeep">Funziona, la tengo</button><button class="sec2" data-act="engrevert">Non funziona, torno indietro</button></div></div>`;
@@ -1705,31 +1703,27 @@ function engTry(sid, idx) {
 }
 function engApply() {
   const t = UI.engTry; if (!t) return;
-  const vals = {}; let bad = false;
-  document.querySelectorAll('.sheet [data-eid]').forEach(r => { const v = r.querySelector('.ev').value.trim(); if (v === '') bad = true; vals[r.dataset.eid] = v; });
-  if (bad) return toast('Scrivi un valore');
-  const r = engApplyVals(t.sid, t.idx, vals);
-  if (r.err) return toast(r.err);
-  toast('Applicato. Prova la macchina.'); engOpen();
-}
-function engSymById(sid) { let sym = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === sid) sym = s; })); return sym; }
-function engApplyVals(sid, idx, vals) {   // scrive la modifica nel setup specifico e apre la prova; vals = {idParametro: nuovoValore}
-  if (engState().pend) return {err: 'Chiudi prima la prova in corso'};
-  const sym = engSymById(sid), fx = sym.fixes[idx], cond = engCond(), key = engKey();
+  if (engState().pend) return toast('Chiudi prima la prova in corso');
+  let sym = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === t.sid) sym = s; }));
+  const fx = sym.fixes[t.idx], cond = engCond(), key = engKey();
   const ss = DB.setupSpec[key] = DB.setupSpec[key] || {};
   const spec = (ss[cond] = ss[cond] || {vals: {}, u: now()}), gen = (DB.setupGen[A.id] || {});
-  const baseVals = (gen[cond] || gen.dry || {vals: {}}).vals, snap = setupSnap(cond), all = engAll(), ch = [];
-  for (const id of Object.keys(vals)) {
-    const to = String(vals[id]).trim(), cur = snap[id];
+  const baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
+  const ch = [], rows = [...document.querySelectorAll('.sheet [data-eid]')];
+  const all = engAll();
+  for (const r of rows) {
+    const id = r.dataset.eid, to = r.querySelector('.ev').value.trim(), cur = setupSnap(cond)[id];
+    if (to === '') return toast('Scrivi un valore');
     if (String(cur ?? '') === to) continue;
     const p = all.find(x => x.id === id);
     ch.push({id, n: (p.sub ? p.sub + ' ' : '') + p.label, from: String(cur ?? '—'), to, was: spec.vals[id] == null ? null : spec.vals[id]});
   }
-  if (!ch.length) return {err: 'Nessun valore è cambiato'};
+  if (!ch.length) return toast('Nessun valore è cambiato');
   ch.forEach(c => { if (String(baseVals[c.id] ?? '') === c.to) delete spec.vals[c.id]; else spec.vals[c.id] = c.to; });
   spec.u = now(); if (!Object.keys(spec.vals).length) delete ss[cond];
-  engState().pend = {s: sid, k: fx.k, d: fx.d, cond, ch, t: now()};
-  save(); return {ok: true, ch};
+  const st = engState();
+  st.pend = {s: t.sid, k: fx.k, d: fx.d, cond, ch, t: now()};
+  save(); toast('Applicato. Prova la macchina.'); engOpen();
 }
 function engFinish(res) {
   const st = engState(), pend = st.pend; if (!pend) return;
@@ -1740,152 +1734,8 @@ function engFinish(res) {
   }
   st.log = (st.log || []).concat([{s: pend.s, k: pend.k, d: pend.d, res, t: now()}]).slice(-60);
   st.pend = null; save(); render();
-  if (UI.vc) return pend;
   toast(res === 'tieni' ? 'Modifica tenuta' : 'Valori ripristinati: ricordati di rimetterli anche nel gioco');
   engSymptom(pend.s);
-}
-
-/* ---------- copilota vocale: parli, lui capisce il sintomo, ti dice cosa cambiare, tu rispondi a voce ---------- */
-const vcNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-const vcSay = v => String(v == null ? '' : v).replace(/[−-]/g, 'meno ').replace(/[.,]/g, ' virgola ').replace(/\s+/g, ' ').replace(/%/g, ' per cento').trim();
-function vcMatch(text) {   // frase -> {sid} oppure {ask:'fase'|'asse'|'tipo'}
-  const t = vcNorm(text), has = r => r.test(t);
-  const under = has(/sottosterz|non gira|non entra|allarg|largo|davanti (scivola|non)|anterior\w* (scivola|non)|va dritt/);
-  const over = has(/sovrasterz|posterior\w* (scivola|parte|se ne va|mi sorpass)|scivola il posteriore|coda|dietro (scivola|parte|se ne va)|testacoda|trompo/);
-  if (has(/cordol|dossi|salta/)) return {sid: 'cor_s'};
-  if (has(/gomm.*(scald|consum|surriscald|usur)|(scald|consum|surriscald|usur).*gomm/)) return {sid: 'gom_c'};
-  if (has(/rettilineo|velocita massima|velocita di punta|poca velocita|sono lento|lungo il dritto/)) return {sid: has(/instabil|ballo|galleggia/) ? 'ret_i' : 'ret_v'};
-  if (has(/frenat|frenand|stacc|bloc/) && !has(/uscita|uscendo|entrata|entrando/)) {
-    if (has(/instabil|nervos|scod|serpegg/)) return {sid: 'fre_i'};
-    if (has(/anterior|davanti/)) return {sid: 'fre_a'};
-    if (has(/posterior|dietro/)) return {sid: 'fre_p'};
-    return {ask: 'asse'};
-  }
-  const fast = has(/veloc|curvone|alta velocita|curve veloci/);
-  const ph = has(/entrata|entrando|ingresso|inserimento|inserisco|turn in/) ? 'ent' : has(/uscita|uscendo|gas|accelero|riaccelero|trazione/) ? 'usc' : has(/centro|percorrenza|a meta|in curva/) ? 'cen' : '';
-  if (has(/pattin|spinta|poca trazione|ruote girano|slitta/)) return {sid: 'usc_t'};
-  if (!under && !over) return {ask: 'tipo', ph};
-  if (!ph) return {ask: 'fase', over};
-  if (ph === 'ent') return {sid: over ? 'ent_o' : 'ent_s'};
-  if (ph === 'usc') return {sid: over ? 'usc_o' : 'usc_s'};
-  return {sid: over ? (fast ? 'cen_vo' : 'cen_o') : (fast ? 'cen_v' : 'cen_s')};
-}
-function vcCards(sid) {
-  const sym = engSymById(sid), all = engAll(), snap = setupSnap(engCond()), log = engState().log || [], out = [];
-  sym.fixes.forEach((fx, i) => { const f = engFix(fx, all, snap); if (!f) return; const tried = log.filter(l => l.s === sid && l.k === fx.k && l.d === fx.d).pop(); out.push({i, f, tried}); });
-  return {sym, cards: out};
-}
-function vcPropose(sid, from) {   // propone la prossima modifica non ancora provata
-  const {sym, cards} = vcCards(sid);
-  const c = cards.slice(from || 0).find(x => !x.tried) || cards.slice(from || 0)[0];
-  if (!c) return vcTalk('Questo setup non ha i parametri per questa modifica. Dimmi un altro problema.', 'sym');
-  const r = c.f.rows[0], same = c.f.rows.every(x => x.cur === r.cur && x.to === r.to);
-  const what = r.to == null ? 'un passo ' + (c.f.d > 0 ? 'più alto' : 'più basso') : (same ? 'da ' + vcSay(r.cur) + ' a ' + vcSay(r.to) : (c.f.d > 0 ? 'più ' : 'meno ') + vcSay(String(c.f.st).replace('.', ',')) + ' su ogni valore');
-  UI.vc.sid = sid; UI.vc.idx = c.i; UI.vc.rows = c.f.rows;
-  const txt = c.f.n + ' ' + what + '. ' + c.f.w + (c.f.r ? ' Attenzione: ' + c.f.r : '');
-  const view = c.f.n + ': ' + engSummary(c.f);
-  vcTalk(txt + ' Applico?', 'confirm', view, sym.t);
-}
-const vcYes = t => /\b(si|sisi|ok|okay|vai|applica|applico|certo|conferma|fallo|va bene)\b/.test(t);
-const vcNo = t => /\b(no|nono|niente|salta|prossima|prossimo|altra|altro|un altra|diversa)\b/.test(t);
-const vcOk = t => /\b(funziona|tengo|tienila|tienilo|meglio|migliorato|bene|ok|okay|perfetto|si)\b/.test(t) && !/non funziona|non va|peggio|non e/.test(t);
-const vcBack = t => /(non funziona|torno indietro|tornare indietro|indietro|peggio|peggiorato|uguale|non cambia|non va|annulla|toglila|toglilo)/.test(t);
-function vcHandle(raw) {
-  const vc = UI.vc; if (!vc) return;
-  const t = vcNorm(raw); if (!t) return;
-  vc.heard = raw; vcDraw();
-  if (/^(stop|basta|chiudi|esci|fine|spegni)\b/.test(t) || /\b(chiudi copilota|stop copilota)\b/.test(t)) return vcStop();
-  if (/\b(ripeti|ripetilo|non ho capito|come)\b/.test(t) && vc.last) return vcTalk(vc.last, vc.state, vc.view, vc.title);
-  const pend = engState().pend;
-  if (vc.state === 'confirm') {
-    if (vcNo(t) && !vcYes(t)) { const {cards} = vcCards(vc.sid), pos = cards.findIndex(c => c.i === vc.idx); return vcPropose(vc.sid, pos + 1 >= cards.length ? 0 : pos + 1); }
-    if (vcYes(t)) {
-      const vals = {}; vc.rows.forEach(r => { if (r.to != null) vals[r.id] = r.to; });
-      const r = engApplyVals(vc.sid, vc.idx, vals);
-      if (r.err) return vcTalk(r.err + '. Dimmi il problema che senti.', 'sym');
-      render();
-      return vcTalk('Fatto, ricordati di cambiarlo anche nel gioco. Poi prova la macchina e dimmi: funziona, oppure torno indietro.', 'verdict', 'Modifica applicata. Provala: funziona o torno indietro?', 'In prova');
-    }
-    return vcTalk('Non ho capito. Dimmi sì per applicare, oppure no per la prossima proposta.', 'confirm');
-  }
-  if (vc.state === 'verdict' || pend) {
-    if (!pend) { vc.state = 'sym'; }
-    else if (vcBack(t)) {
-      const sid = pend.s; engFinish('indietro'); render();
-      const {cards} = vcCards(sid), pos = cards.findIndex(c => c.f.k === pend.k && c.f.d === pend.d);
-      vc.sid = sid;
-      return vcTalk('Ho rimesso i valori di prima, ricordati anche nel gioco. Vuoi provare la prossima modifica?', 'next', 'Valori ripristinati. Provo la prossima?', 'Indietro', pos + 1);
-    } else if (vcOk(t)) {
-      engFinish('tieni'); render();
-      return vcTalk('Modifica tenuta. Dimmi il prossimo problema, oppure stop.', 'sym', 'Modifica tenuta', 'Tenuta');
-    } else return vcTalk('Non ho capito. Funziona, oppure torno indietro?', 'verdict');
-  }
-  if (vc.state === 'next') {
-    if (vcYes(t)) return vcPropose(vc.sid, vc.nextPos || 0);
-    return vcTalk('Va bene. Dimmi un altro problema, oppure stop.', 'sym');
-  }
-  if (vc.state === 'asse' || vc.state === 'tipo' || vc.state === 'fase') {
-    const m = vcMatch((vc.pre || '') + ' ' + raw);
-    if (m.sid) return vcPropose(m.sid, 0);
-    vc.pre = (vc.pre || '') + ' ' + raw;
-  }
-  const m = vcMatch(vc.state === 'sym' ? raw : (vc.pre || raw));
-  if (m.sid) { vc.pre = ''; return vcPropose(m.sid, 0); }
-  vc.pre = raw;
-  if (m.ask === 'asse') return vcTalk('Si bloccano le ruote davanti o dietro?', 'asse');
-  if (m.ask === 'fase') return vcTalk('In che punto della curva? Entrata, centro o uscita?', 'fase');
-  return vcTalk('Non ho capito il problema. Dimmi per esempio: sottosterzo in entrata, sovrasterzo in uscita, si bloccano le ruote davanti.', 'sym');
-}
-function vcTalk(text, state, view, title, nextPos) {
-  const vc = UI.vc; if (!vc) return;
-  vc.state = state; vc.last = text; vc.view = view || vc.view; vc.title = title || vc.title; if (nextPos != null) vc.nextPos = nextPos;
-  vc.said = text; vcDraw();
-  try { speechSynthesis.cancel(); } catch (_) {}
-  if (vc.mute) return vcListen();
-  try {
-    vcRecStop();
-    const u = new SpeechSynthesisUtterance(text); u.lang = 'it-IT'; u.rate = 1.05;
-    u.onend = u.onerror = () => { if (UI.vc === vc) setTimeout(vcListen, 250); };
-    vc.speaking = true; speechSynthesis.speak(u);
-  } catch (_) { vcListen(); }
-}
-function vcRecStop() { const vc = UI.vc; if (vc && vc.rec) { const r = vc.rec; vc.rec = null; r.onend = r.onerror = r.onresult = null; try { r.abort(); } catch (_) {} } }
-function vcListen() {
-  const vc = UI.vc; if (!vc || vc.rec) return;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
-  vc.speaking = false;
-  const r = new SR(); r.lang = 'it-IT'; r.interimResults = false; r.maxAlternatives = 1; r.continuous = false;
-  r.onresult = e => { const tx = e.results[0] && e.results[0][0] ? e.results[0][0].transcript : ''; vc.rec = null; vcHandle(tx); };
-  r.onerror = e => { vc.rec = null; if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { vc.err = 'Microfono non consentito: abilitalo nelle impostazioni del browser.'; vcDraw(); } else if (UI.vc === vc) setTimeout(vcListen, 600); };
-  r.onend = () => { if (vc.rec === r) { vc.rec = null; if (UI.vc === vc && !vc.speaking) setTimeout(vcListen, 300); } };
-  vc.rec = r; vc.listening = true; vcDraw();
-  try { r.start(); } catch (_) { vc.rec = null; }
-}
-function vcDraw() {
-  const vc = UI.vc, el = $('vcv'); if (!vc || !el) return;
-  el.innerHTML = `<div class="vct">${esc(vc.title || 'Copilota')}</div>
-    <div class="vcm">${esc(vc.view || 'Dimmi il problema che senti')}</div>
-    <div class="vcs">${esc(vc.said || '')}</div>
-    <div class="vch">${vc.heard ? 'Ho sentito: «' + esc(vc.heard) + '»' : ''}${vc.err ? '<br><b>' + esc(vc.err) + '</b>' : ''}</div>
-    <div class="vcb">${vc.state === 'confirm' ? '<button class="pri" data-act="vcsay" data-t="si">Sì, applica</button><button class="sec2" data-act="vcsay" data-t="no">Altra</button>' : vc.state === 'verdict' ? '<button class="pri" data-act="vcsay" data-t="funziona">Funziona</button><button class="sec2" data-act="vcsay" data-t="torno indietro">Torna indietro</button>' : vc.state === 'next' ? '<button class="pri" data-act="vcsay" data-t="si">Prossima</button><button class="sec2" data-act="vcsay" data-t="no">No</button>' : ''}<button class="sec2" data-act="vcmute">${vc.mute ? 'Attiva voce' : 'Solo testo'}</button><button class="sec2" data-act="vcstop">Chiudi</button></div>`;
-}
-async function vcStart() {
-  if (!needCtx('av')) return;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR || !('speechSynthesis' in window)) return toast('Voce non supportata qui: usa Chrome');
-  closeSheet();
-  const pend = engState().pend;
-  UI.vc = {state: pend ? 'verdict' : 'sym'};
-  const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vcv"></div>'; document.body.appendChild(d);
-  try { UI.vc.wake = await navigator.wakeLock.request('screen'); } catch (_) {}
-  vcTalk(pend ? 'C\'è una modifica in prova. Funziona, oppure torno indietro?' : 'Copilota attivo. Dimmi il problema che senti.', pend ? 'verdict' : 'sym', pend ? 'Modifica in prova: ' + pend.ch.map(c => c.n + ' ' + c.from + ' → ' + c.to).join(', ') : 'Dimmi il problema che senti', 'Copilota');
-}
-function vcStop() {
-  const vc = UI.vc; if (!vc) return;
-  try { speechSynthesis.cancel(); } catch (_) {}
-  vcRecStop(); try { vc.wake && vc.wake.release(); } catch (_) {}
-  UI.vc = null; const d = $('vc'); if (d) d.remove();
-  render();
 }
 function engUndo() {   // annulla la prova senza giri: rimette i valori di prima
   const st = engState(), pend = st.pend; if (!pend) return;
@@ -2711,10 +2561,6 @@ const ACT = {
   engkeep: () => engFinish('tieni'),
   engrevert: () => engFinish('indietro'),
   engundo: engUndo,
-  vc: vcStart,
-  vcstop: vcStop,
-  vcmute: () => { const vc = UI.vc; if (!vc) return; vc.mute = !vc.mute; if (vc.mute) { try { speechSynthesis.cancel(); } catch (_) {} } vcDraw(); if (!vc.rec) vcListen(); },
-  vcsay: b => vcHandle(b.dataset.t),
   engpress: engPress,
   engpcalc: engPCalc,
   engpapply: engPApply,
