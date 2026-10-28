@@ -204,7 +204,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.27.2';   // versione dell'app
+const APP_V = '0.28';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1324,6 +1324,7 @@ function drawPerf() {
       ${showPace ? `<label class="f">Passo gara asciutto<input id="pPD" value="${esc(p.paceD)}" placeholder="1:45.900"><input id="fPD" class="fu" inputmode="decimal" value="${esc((p.fu || {}).paceD || '')}" placeholder="Carburante (${fuelU()})" aria-label="Carburante"></label>
       <label class="f">Passo gara bagnato<input id="pPW" value="${esc(p.paceW)}" placeholder="1:55.100"><input id="fPW" class="fu" inputmode="decimal" value="${esc((p.fu || {}).paceW || '')}" placeholder="Carburante (${fuelU()})" aria-label="Carburante"></label>` : ''}
     </div>
+    ${showLap || showPace ? `<div class="zg" style="margin-top:8px"><label class="f">Temp. aria (°C)<input id="pAir" inputmode="decimal" value="${esc(p.air || '')}" placeholder="es. 24" autocomplete="off"></label><label class="f">Temp. pista (°C)<input id="pRoad" inputmode="decimal" value="${esc(p.road || '')}" placeholder="es. 31" autocomplete="off"></label><p class="meta full" style="margin:0">Facoltative: si salvano con i tempi che cambi adesso e le vedi nello storico.</p></div>` : ''}
     ${showCons ? `<h3>Consumo (${esc(G.unit)})</h3>
     <p class="meta">Una riga per ogni prova, con la sua ${esc(mapL.toLowerCase())}. Quella segnata Principale appare nella schermata.</p>
     <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
@@ -1337,6 +1338,8 @@ function collectPerf() {
   const gv = (id, k) => { if ($(id)) p[k] = normTime($(id).value); };
   if ($('pNote')) UI.pfNote = $('pNote').value.trim();
   gv('pLD', 'lapD'); gv('pLW', 'lapW'); gv('pAD', 'avgD'); gv('pAW', 'avgW'); gv('pPD', 'paceD'); gv('pPW', 'paceW');
+  if ($('pAir')) p.air = $('pAir').value.trim().replace(',', '.');
+  if ($('pRoad')) p.road = $('pRoad').value.trim().replace(',', '.');
   p.fu = p.fu || {};
   [['fLD', 'lapD'], ['fLW', 'lapW'], ['fAD', 'avgD'], ['fAW', 'avgW'], ['fPD', 'paceD'], ['fPW', 'paceW']].forEach(([id, k]) => { if ($(id)) p.fu[k] = $(id).value.trim().replace(',', '.'); });
   document.querySelectorAll('#clist [data-ci]').forEach(r => { const c = p.cons[+r.dataset.ci]; c.map = r.querySelector('.cm').value.trim(); c.v = r.querySelector('.cv').value.trim(); });
@@ -1351,13 +1354,13 @@ function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specific
   const o = Object.assign({}, gen); Object.keys(sp).forEach(k => { if (sp[k] != null && sp[k] !== '') o[k] = sp[k]; });
   return o;
 }
-function histAdd(k, val, map, note, cond, snap, t, fuel) {
-  (DB.hist = DB.hist || []).push({id: uid(), t: t || now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', fuel: fuel || '', cond: cond || (/W$/.test(k) ? 'wet' : 'dry'), snap: snap || setupSnap(cond || (/W$/.test(k) ? 'wet' : 'dry'))});
+function histAdd(k, val, map, note, cond, snap, t, fuel, env) {
+  (DB.hist = DB.hist || []).push({id: uid(), t: t || now(), c: A.id, v: V.id, k, val, map: map || '', note: note || '', fuel: fuel || '', air: (env && env.air) || '', road: (env && env.road) || '', cond: cond || (/W$/.test(k) ? 'wet' : 'dry'), snap: snap || setupSnap(cond || (/W$/.test(k) ? 'wet' : 'dry'))});
 }
 function logHist(old, p, note) {
   ['lapD', 'lapW', 'avgD', 'avgW', 'paceD', 'paceW'].forEach(k => {
     const fu = (p.fu || {})[k] || '', ofu = (old.fu || {})[k] || '';
-    if (p[k] && (p[k] !== (old[k] || '') || fu !== ofu)) histAdd(k, p[k], '', note, undefined, undefined, undefined, fu);   // anche se cambia solo il carburante: è un'altra prova
+    if (p[k] && (p[k] !== (old[k] || '') || fu !== ofu)) histAdd(k, p[k], '', note, undefined, undefined, undefined, fu, {air: p.air || '', road: p.road || ''});   // anche se cambia solo il carburante: è un'altra prova
   });
   (p.cons || []).forEach(c => { const o = (old.cons || []).find(x => x.map === c.map); if (c.v && (!o || o.v !== c.v)) histAdd('cons', c.v, c.map, note); });
 }
@@ -1403,13 +1406,15 @@ function openHist(grp) {
     const group = all.filter(x => x.k === e.k && x.map === e.map), best = group.reduce((m, x) => hNum(x) < hNum(m) ? x : m, group[0]) === e;
     let diff = '', ch = '', fch = '';
     if (prev) {
-      if (e.k !== 'cons' && (e.fuel || '') !== (prev.fuel || '')) fch = 'carburante ' + (prev.fuel ? esc(prev.fuel.replace('.', ',')) : '—') + ' → ' + (e.fuel ? esc(e.fuel.replace('.', ',')) : '—') + ' ' + esc(fuelU()) + ' · ';
+      const tc = (a, b, n) => (a || '') !== (b || '') && (a || b) ? n + ' ' + (b ? esc(b.replace('.', ',')) : '—') + ' → ' + (a ? esc(a.replace('.', ',')) : '—') + ' °C · ' : '';
+      if (e.k !== 'cons') fch += tc(e.air, prev.air, 'aria') + tc(e.road, prev.road, 'pista');
+      if (e.k !== 'cons' && (e.fuel || '') !== (prev.fuel || '')) fch += 'carburante ' + (prev.fuel ? esc(prev.fuel.replace('.', ',')) : '—') + ' → ' + (e.fuel ? esc(e.fuel.replace('.', ',')) : '—') + ' ' + esc(fuelU()) + ' · ';
       const d = hNum(e) - hNum(prev); diff = hDiff(d, e.k === 'cons' ? 'L' : 's');
       const a = prev.snap || {}, b = e.snap || {}, ids = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(i => (a[i] ?? '') !== (b[i] ?? ''));
       ch = fch + (ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(hChg(a[i], b[i]))}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima');
     } else ch = 'prima prova';
     const better = prev && (hNum(e) < hNum(prev));
-    return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
+    return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${e.air || e.road ? ` <span class="meta">· ${e.air ? 'aria ' + esc(e.air.replace('.', ',')) + '°' : ''}${e.air && e.road ? ' ' : ''}${e.road ? 'pista ' + esc(e.road.replace('.', ',')) + '°' : ''}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
   sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns">${fuelMissing().h || fuelMissing().q ? '<button class="sec2" data-act="hfuel">Imposta il carburante sui tempi vecchi</button>' : ''}</div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
@@ -1421,6 +1426,7 @@ function savePerf() {
     if (p[k] && !TIME_RE.test(p[k])) return toast('Il tempo ' + l + ' va scritto come 1:43.210 (anche 143210 o 1.43.210)');
   }
   for (const k of Object.keys(p.fu || {})) if (p.fu[k] && !(parseFloat(p.fu[k]) >= 0)) return toast('Il carburante deve essere un numero');
+  for (const k of ['air', 'road']) if (p[k] && isNaN(parseFloat(p[k]))) return toast('La temperatura deve essere un numero');
   p.cons = p.cons.filter(c => c.v || c.map);
   for (const c of p.cons) if (!(parseFloat(c.v.replace(',', '.')) > 0)) return toast('Il consumo deve essere un numero');
   if (p.cons.length && !p.cons.some(c => c.main)) p.cons[0].main = true;
