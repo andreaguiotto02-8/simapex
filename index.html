@@ -204,7 +204,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.27';   // versione dell'app
+const APP_V = '0.27.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1373,6 +1373,26 @@ function hChg(a, b) {   // "−0,5" se sono numeri, altrimenti "a → b"
   if (a == null || a === '' || b == null || b === '' || isNaN(x) || isNaN(y)) return (a ?? '—') + ' → ' + (b ?? '—');
   const d = y - x; return (d > 0 ? '+' : '−') + Math.abs(d).toFixed(Math.max(hDec(a), hDec(b))).replace('.', ',');
 }
+const TIMEK = ['lapD', 'lapW', 'avgD', 'avgW', 'paceD', 'paceW'];
+function fuelMissing() {   // quante righe dello storico e quanti tempi in Dati rapidi non hanno ancora il carburante
+  const h = (DB.hist || []).filter(e => e.k !== 'cons' && !e.fuel).length;
+  let q = 0; Object.values(DB.perf || {}).forEach(p => TIMEK.forEach(k => { if (p[k] && !((p.fu || {})[k])) q++; }));
+  return {h, q};
+}
+function fuelBackfill() {
+  const m = fuelMissing();
+  sheet('Carburante sui tempi vecchi', `<p>Aggiunge lo stesso carburante a <b>tutti</b> i tempi già salvati che non lo hanno: ${m.q} in Dati rapidi e ${m.h} righe dello storico, per tutte le auto e le piste. Quelli che hanno già un valore non vengono toccati.</p>
+    <label class="f">Carburante (${esc(fuelU())})<input id="bfFuel" inputmode="decimal" value="50" autocomplete="off"></label>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="hfuelgo">Aggiungi a tutti</button><button class="sec2" data-act="hist">Annulla</button></div>`, carNameFull());
+}
+function fuelBackfillGo() {
+  const v = $('bfFuel').value.trim().replace(',', '.');
+  if (!(parseFloat(v) > 0)) return toast('Scrivi i litri, per esempio 50');
+  let n = 0;
+  (DB.hist || []).forEach(e => { if (e.k !== 'cons' && !e.fuel) { e.fuel = v; n++; } });
+  Object.values(DB.perf || {}).forEach(p => { let ch = false; p.fu = p.fu || {}; TIMEK.forEach(k => { if (p[k] && !p.fu[k]) { p.fu[k] = v; ch = true; n++; } }); if (ch) p.u = now(); });
+  save(); render(); toast('Carburante aggiunto a ' + n + ' tempi'); openHist();
+}
 function openHist(grp) {
   if (!needCtx('av')) return;
   grp = UI.hg = grp || UI.hg || 'lap';
@@ -1392,7 +1412,7 @@ function openHist(grp) {
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
-  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns">${fuelMissing().h || fuelMissing().q ? '<button class="sec2" data-act="hfuel">Imposta il carburante sui tempi vecchi</button>' : ''}</div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
 }
 function savePerf() {
   collectPerf();
@@ -2570,6 +2590,8 @@ const ACT = {
   engkeep: () => engFinish('tieni'),
   engrevert: () => engFinish('indietro'),
   engundo: engUndo,
+  hfuel: fuelBackfill,
+  hfuelgo: fuelBackfillGo,
   engpress: engPress,
   engpcalc: engPCalc,
   engpapply: engPApply,
