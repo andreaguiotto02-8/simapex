@@ -152,6 +152,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl{position:relative}.tl[data-act]{cursor:pointer}.tl .ii{position:absolute;top:0;right:0;padding:6px 8px;color:var(--accent);font-size:15px;line-height:1}.tl[data-act] .k{padding-right:16px}
 .hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
 .f .fu{margin-top:4px;font-size:13px;padding:6px 10px;min-height:0;opacity:.9}
+.calc{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}.calc summary{font-weight:700;cursor:pointer;min-height:32px;display:flex;align-items:center}
 .engph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.engph .bigb{min-height:56px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -204,7 +205,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.28';   // versione dell'app
+const APP_V = '0.29';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1300,6 +1301,29 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => { if (e.target.matches && e.target.matches('#pLD,#pLW,#pPD,#pPW,#pAD,#pAW,#pT1,#pT2,#pT3')) e.target.value = normTime(e.target.value); });
 const fuelU = () => String((G && G.unit) || 'L').split('/')[0].trim() || 'L';
+function calcCons(p) {   // consumo al giro da proporre: quello principale salvato
+  const c = (p.cons || []).find(x => x.main) || (p.cons || [])[0];
+  return c && c.v ? String(c.v).replace(',', '.') : '';
+}
+function fuelCalc() {
+  const num = id => { const e = $(id); return e ? parseFloat(String(e.value).trim().replace(',', '.')) : NaN; };
+  const start = num('cStart'), cons = num('cCons');
+  if (!(start > 0)) return toast('Scrivi la benzina di partenza');
+  if (!(cons > 0)) return toast('Scrivi il consumo al giro');
+  UI.cStart = $('cStart').value.trim();
+  const at = n => start - (n - 0.5) * cons, wet = $('cCond').value === 'W', out = [];
+  const put = (id, v, name) => {
+    if (!$(id)) return;
+    if (v < 0) { out.push(name + ': numeri non validi (negativo)'); return; }
+    $(id).value = String(Math.round(v)); out.push(name + ' ' + Math.round(v) + ' ' + fuelU());
+  };
+  const L = num('cL'), P1 = num('cP1'), P2 = num('cP2'), A = $('cA') ? ($('cA').value.match(/\d+/g) || []).map(Number) : [];
+  if (L > 0) put(wet ? 'fLW' : 'fLD', at(L), 'giro veloce');
+  if (A.length) put(wet ? 'fAW' : 'fAD', A.reduce((t, n) => t + at(n), 0) / A.length, 'media 3');
+  if (P1 > 0 && P2 >= P1) put(wet ? 'fPW' : 'fPD', at((P1 + P2) / 2), 'passo gara');
+  if (!out.length) return toast('Scrivi almeno un numero di giro');
+  toast(out.join(' · '));
+}
 function editPerf(part) {
   if (!needCtx('av')) return;
   UI.pfPart = typeof part === 'string' ? part : 'all'; UI.pfNote = '';
@@ -1329,6 +1353,16 @@ function drawPerf() {
     <p class="meta">Una riga per ogni prova, con la sua ${esc(mapL.toLowerCase())}. Quella segnata Principale appare nella schermata.</p>
     <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
     <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>` : ''}
+    ${showLap || showPace ? `<details class="calc"><summary>Calcola il carburante dai giri</summary>
+      <p class="meta">Scrivi la benzina di partenza e i numeri dei giri (contando anche il giro di uscita dai box): calcolo i litri a metà giro con il consumo qui sotto e li inserisco nei campi del carburante. È una stima, precisa a 1-3 litri.</p>
+      <div class="zg"><label class="f">Benzina di partenza (${esc(fuelU())})<input id="cStart" inputmode="decimal" value="${esc(UI.cStart || '')}" autocomplete="off"></label>
+      <label class="f">Consumo al giro (${esc(fuelU())})<input id="cCons" inputmode="decimal" value="${esc(calcCons(p))}" autocomplete="off"></label>
+      <label class="f full">Condizione dei tempi<select id="cCond"><option value="D">Asciutto</option><option value="W">Bagnato</option></select></label>
+      ${showLap ? `<label class="f">Giro n° del giro veloce<input id="cL" inputmode="numeric" autocomplete="off"></label>
+      <label class="f">Giri n° dei 3 migliori<input id="cA" placeholder="es. 12 14 15" autocomplete="off"></label>` : ''}
+      ${showPace ? `<label class="f">Passo gara: dal giro n°<input id="cP1" inputmode="numeric" autocomplete="off"></label>
+      <label class="f">fino al giro n°<input id="cP2" inputmode="numeric" autocomplete="off"></label>` : ''}</div>
+      <div class="btns"><button class="pri" data-act="fcalc">Calcola e inserisci</button></div></details>` : ''}
     <label class="f" style="margin-top:12px">Nota per lo storico (facoltativa)<input id="pNote" value="${esc(UI.pfNote || '')}" placeholder="es. ala −1"></label>
     <div class="btns" style="margin-top:16px"><button class="pri" data-act="pfsave">Salva</button><button class="sec2" data-act="close">Annulla</button><button class="sec2" data-act="hist">Storico</button></div>`, carNameFull());
 }
@@ -2596,6 +2630,7 @@ const ACT = {
   engkeep: () => engFinish('tieni'),
   engrevert: () => engFinish('indietro'),
   engundo: engUndo,
+  fcalc: fuelCalc,
   hfuel: fuelBackfill,
   hfuelgo: fuelBackfillGo,
   engpress: engPress,
