@@ -206,7 +206,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.29.2';   // versione dell'app
+const APP_V = '0.29.3';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1566,8 +1566,8 @@ function openParEdit(pid, cond, name) {
   const old = $('guide'); if (old) old.remove();
   const el = document.createElement('div'); el.id = 'guide'; el.className = 'back'; el.style.zIndex = 30;
   el.innerHTML = `<div class="sheet" role="dialog" aria-label="Modifica parametro"><div class="sh"><div><h3>${esc(name)}</h3><div class="meta">${esc(carNameFull())}</div></div><button class="x" data-act="guideclose" aria-label="Chiudi">✕</button></div>
-    <div class="zg"><label class="f">Generale<input id="peG" value="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"><button type="button" class="sec2 sgn" data-act="sign" data-t="peG">± meno / più</button></label>
-    <label class="f">Specifico (${esc(varName())})<input id="peS" value="${esc(sp[pid] ?? '')}" placeholder="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"><button type="button" class="sec2 sgn" data-act="sign" data-t="peS">± meno / più</button></label></div>
+    <div class="zg"><label class="f">Generale<input id="peG" value="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"></label>
+    <label class="f">Specifico (${esc(varName())})<input id="peS" value="${esc(sp[pid] ?? '')}" placeholder="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"></label></div>
     <p class="meta">Lascia vuoto lo specifico per usare il valore generale.</p>
     <div class="btns" style="margin-top:12px"><button class="pri" data-act="pesave" data-pid="${pid}" data-cond="${cond}">Salva</button><button class="sec2" data-act="guideclose">Annulla</button><button class="sec2" data-act="parinfo" data-l="${esc(name)}">ⓘ Cosa fa</button></div></div>`;
   el.onclick = e => { if (e.target === el) el.remove(); };
@@ -1765,7 +1765,7 @@ function engTry(sid, idx) {
   const rows = f.rows.map(r => { const p = allByIds.find(x => x.id === r.id); const nm = (p.sub ? p.sub + ' ' : '') + p.label; return `<div class="row2" data-eid="${r.id}"><div style="flex:1;min-width:0"><div class="meta">${esc(nm)}</div><div style="font-weight:700">ora ${esc(r.cur || '—')}</div></div>
     <button class="x" data-act="engstep" data-dd="-1" data-st="${f.st ?? ''}" aria-label="Un passo in meno">−</button>
     <input class="ev" value="${esc(r.to ?? r.cur)}" inputmode="text" autocomplete="off" style="width:96px;text-align:center;font-weight:700">
-    <button class="x" data-act="engstep" data-dd="1" data-st="${f.st ?? ''}" aria-label="Un passo in più">+</button><button class="x" data-act="sign" aria-label="Cambia segno meno o più">±</button></div>`; }).join('');
+    <button class="x" data-act="engstep" data-dd="1" data-st="${f.st ?? ''}" aria-label="Un passo in più">+</button></div>`; }).join('');
   sheet('Provo: ' + f.n, `<p>${esc(f.w)}</p>${f.r ? `<p class="meta">Attenzione: ${esc(f.r)}</p>` : ''}
     <p class="meta">Controlla i valori (puoi correggerli con − e +, un passo alla volta). Cambiali anche nel gioco. Poi fai qualche giro e senti.</p>
     <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows}</div>
