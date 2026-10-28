@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test microfono</title>
+<style>
+:root{--bg:#f3f4f6;--fg:#15171a;--card:#fff;--line:#d9dce1;--accent:#b86e00;--ok:#1b7f3b;--bad:#c0392b;--muted:#5b6370}
+@media (prefers-color-scheme:dark){:root{--bg:#14161a;--fg:#eceef1;--card:#1d2026;--line:#333842;--accent:#e59a2a;--ok:#4cc072;--bad:#ef6a5a;--muted:#9aa2af}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+main{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:22px;margin:4px 0 0}h2{font-size:17px;margin:0 0 6px}p{margin:0 0 8px}.meta{color:var(--muted);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+button{font:inherit;font-weight:700;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:10px 14px;cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>button{flex:1 1 140px}
+.phrase{border:1px dashed var(--line);border-radius:12px;padding:10px;margin-top:8px}
+.phrase q{display:block;font-weight:700;font-size:17px;margin-bottom:6px}.res{margin-top:6px;font-size:15px;min-height:20px}
+.res b{color:var(--accent)}.ok{color:var(--ok)}.bad{color:var(--bad)}
+textarea{width:100%;min-height:150px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:14px/1.4 ui-monospace,monospace;padding:10px}
+#state{font-weight:700}
+</style>
+</head>
+<body>
+<main>
+  <h1>Test microfono</h1>
+  <p class="meta">Serve a capire se il telefono ti capisce quando parli con il gioco acceso. Non tocca l'app e non salva niente. Tieni il telefono dove lo terresti durante la guida e il gioco con l'audio che usi di solito.</p>
+  <div class="card" id="support"></div>
+
+  <div class="card">
+    <h2>1. Frasi singole</h2>
+    <p class="meta">Tocca "Ascolta", poi leggi la frase a voce normale. Provale tutte, anche più volte.</p>
+    <div id="phrases"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Ascolto continuo (60 secondi)</h2>
+    <p class="meta">Avvia, poi metti in pausa o gioca per un minuto parlando ogni tanto: numeri, tempi, "semaforo verde". Contiamo quante volte l'ascolto si interrompe e si riavvia da solo.</p>
+    <div class="row"><button class="pri" id="contBtn">Avvia 60 secondi</button></div>
+    <p class="res" id="contRes"></p>
+  </div>
+
+  <div class="card">
+    <h2>3. La voce del telefono</h2>
+    <p class="meta">Controlla di sentirla sopra il gioco, al volume che userai.</p>
+    <div class="row"><button id="ttsBtn">Fammi sentire la voce</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Risultati</h2>
+    <p class="meta">Tocca "Copia" e incollali nella chat con Claude (o fai uno screenshot di questa schermata).</p>
+    <textarea id="log" readonly></textarea>
+    <div class="row" style="margin-top:8px"><button id="copyBtn">Copia</button></div>
+  </div>
+</main>
+<script>
+(function () {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var PHRASES = [
+    'giro quattordici, uno cinquantadue quattrocentoottantacinque',
+    'semaforo verde',
+    'ho fatto dieci giri',
+    'temperatura pista trentuno gradi',
+    'benzina ottanta litri',
+    'sottosterzo in uscita dalla prima variante',
+    'fine stint',
+    'sì, salva',
+    'giro sporco'
+  ];
+  var logEl = document.getElementById('log'), lines = [];
+  function log(t) { lines.push(t); logEl.value = lines.join('\n'); logEl.scrollTop = logEl.scrollHeight; }
+  var sup = document.getElementById('support');
+  var ua = navigator.userAgent;
+  log('Test microfono — ' + new Date().toLocaleString('it'));
+  log('Browser: ' + ua.replace(/\(.*?\)/, '').slice(0, 90));
+  if (!SR) {
+    sup.innerHTML = '<b class="bad">Questo browser non ha il riconoscimento vocale.</b><br>Su Android serve Chrome. Apri questa pagina da Chrome (non dall\'app installata di altri browser).';
+    log('Riconoscimento vocale: NON disponibile');
+    return;
+  }
+  sup.innerHTML = '<b class="ok">Riconoscimento vocale disponibile.</b> La prima volta il telefono chiede il permesso per il microfono: accetta.';
+  log('Riconoscimento vocale: disponibile');
+
+  function listenOnce(done) {
+    var r = new SR(); r.lang = 'it-IT'; r.interimResults = false; r.maxAlternatives = 3; r.continuous = false;
+    var t0 = Date.now(), got = false;
+    r.onresult = function (e) {
+      got = true;
+      var alts = [], res = e.results[0];
+      for (var i = 0; i < res.length; i++) alts.push({ t: res[i].transcript, c: res[i].confidence });
+      done({ ok: true, alts: alts, ms: Date.now() - t0 });
+    };
+    r.onerror = function (e) { if (!got) { got = true; done({ ok: false, err: e.error, ms: Date.now() - t0 }); } };
+    r.onend = function () { if (!got) { got = true; done({ ok: false, err: 'nessun audio capito', ms: Date.now() - t0 }); } };
+    try { r.start(); } catch (e) { done({ ok: false, err: String(e) }); }
+    return r;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var box = document.getElementById('phrases');
+  PHRASES.forEach(function (p, idx) {
+    var d = document.createElement('div'); d.className = 'phrase';
+    d.innerHTML = '<q>«' + esc(p) + '»</q><div class="row"><button class="pri">Ascolta</button></div><div class="res"></div>';
+    var btn = d.querySelector('button'), res = d.querySelector('.res');
+    btn.onclick = function () {
+      btn.disabled = true; res.innerHTML = 'Ti ascolto…';
+      listenOnce(function (o) {
+        btn.disabled = false;
+        if (!o.ok) { res.innerHTML = '<span class="bad">Errore: ' + esc(o.err) + '</span>'; log('[' + (idx + 1) + '] "' + p + '" → ERRORE ' + o.err); return; }
+        var a = o.alts[0];
+        res.innerHTML = 'Ho sentito: <b>' + esc(a.t) + '</b> <span class="meta">(sicurezza ' + Math.round(a.c * 100) + '%, ' + (o.ms / 1000).toFixed(1) + ' s)</span>';
+        log('[' + (idx + 1) + '] "' + p + '" → "' + a.t + '" (' + Math.round(a.c * 100) + '%, ' + (o.ms / 1000).toFixed(1) + ' s)' + (o.alts.length > 1 ? ' | alt: ' + o.alts.slice(1).map(function (x) { return x.t; }).join(' / ') : ''));
+      });
+    };
+    box.appendChild(d);
+  });
+
+  // ascolto continuo
+  var contBtn = document.getElementById('contBtn'), contRes = document.getElementById('contRes'), running = false;
+  contBtn.onclick = function () {
+    if (running) return; running = true; contBtn.disabled = true;
+    var starts = 0, results = 0, errors = 0, end = Date.now() + 60000, heard = [], cur = null;
+    function tick() {
+      if (Date.now() >= end) {
+        running = false; contBtn.disabled = false;
+        contRes.innerHTML = 'Finito. Avvii dell\'ascolto: <b>' + starts + '</b> · frasi capite: <b>' + results + '</b> · errori: <b>' + errors + '</b>';
+        log('Ascolto continuo 60 s: ' + starts + ' avvii, ' + results + ' frasi, ' + errors + ' errori');
+        heard.forEach(function (h) { log('   · ' + h); });
+        return;
+      }
+      starts++;
+      contRes.innerHTML = 'In ascolto… avvii ' + starts + ', frasi ' + results + ', errori ' + errors;
+      cur = listenOnce(function (o) {
+        if (o.ok) { results++; heard.push(o.alts[0].t + ' (' + Math.round(o.alts[0].c * 100) + '%)'); }
+        else if (o.err !== 'nessun audio capito' && o.err !== 'no-speech') { errors++; log('   errore: ' + o.err); }
+        setTimeout(tick, 150);
+      });
+    }
+    tick();
+  };
+
+  // voce del telefono
+  document.getElementById('ttsBtn').onclick = function () {
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance('Box box. Tra due giri si ferma. Servono quaranta litri all\'uscita.');
+      u.lang = 'it-IT'; u.rate = 1.05; speechSynthesis.speak(u);
+      log('Voce del telefono: provata');
+    } catch (e) { log('Voce del telefono: ERRORE ' + e); }
+  };
+
+  document.getElementById('copyBtn').onclick = function () {
+    logEl.select();
+    try { navigator.clipboard.writeText(logEl.value).then(function () { document.getElementById('copyBtn').textContent = 'Copiato'; }, function () { document.execCommand('copy'); }); }
+    catch (e) { document.execCommand('copy'); }
+  };
+})();
+</script>
+</body>
+</html>
