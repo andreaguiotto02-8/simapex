@@ -154,6 +154,11 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .f .fu{margin-top:4px;font-size:13px;padding:6px 10px;min-height:0;opacity:.9}
 .calc{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}.calc summary{font-weight:700;cursor:pointer;min-height:32px;display:flex;align-items:center}
 .f .sgn{margin-top:4px;padding:6px 10px;min-height:0;font-size:13px}
+#vzo{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+#vzv{max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}.vzt{font-size:15px;font-weight:700;color:var(--accent)}.vzn{font-weight:500;color:var(--muted,var(--fg));opacity:.8;font-size:13px;margin-left:6px}
+.vzm{font-size:26px;font-weight:800;line-height:1.15;min-height:60px}.vzs{font-size:15px;opacity:.85}.vze{color:#c0392b;font-weight:700}.vzl{display:flex;flex-direction:column;gap:6px;margin:4px 0}
+.vzr{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface)}.vzr span{font-size:12px;opacity:.65}.vzr.bad{border-color:#c0392b}
+.vzb{display:flex;gap:8px;flex-wrap:wrap}.vzb input{flex:1 1 200px;min-width:0}.vzb button{flex:1 1 120px;min-height:48px}
 .engph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.engph .bigb{min-height:56px}
 .tsub{margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -206,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.29.3';   // versione dell'app
+const APP_V = '0.30';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1725,7 +1730,7 @@ function engOpen() {
   if (!needCtx('av')) return;
   const cond = engCond(), st = engState(), pend = st.pend;
   const chip = (c, t) => `<button class="sec2" data-act="engcond" data-c="${c}" aria-pressed="${cond === c}">${t}</button>`;
-  let html = `<div class="seg">${chip('dry', 'Asciutto')}${chip('wet', 'Bagnato')}</div>`;
+  let html = `<div class="seg">${chip('dry', 'Asciutto')}${chip('wet', 'Bagnato')}</div><div class="btns"><button class="sec2" data-act="vz">🎙 Ingegnere vocale (prova)</button></div>`;
   if (pend) {
     html += `<div class="gi hot"><b>Modifica da provare</b><p>${pend.ch.map(c => esc(c.n) + ': ' + esc(c.from) + ' → ' + esc(c.to)).join('<br>')}</p><p class="meta">Fai qualche giro e senti se il problema è migliorato.</p>
       <div class="btns"><button class="pri" data-act="engkeep">Funziona, la tengo</button><button class="sec2" data-act="engrevert">Non funziona, torno indietro</button></div></div>`;
@@ -1806,6 +1811,195 @@ function engFinish(res) {
   st.pend = null; save(); render();
   toast(res === 'tieni' ? 'Modifica tenuta' : 'Valori ripristinati: ricordati di rimetterli anche nel gioco');
   engSymptom(pend.s);
+}
+/* ======== INGEGNERE VOCALE (fase 1: ascolta, ti dice cosa ha capito, NON salva niente) ======== */
+const VZ = {NUM: null};
+function vzNumMap() {   // parole italiane -> numero (0-999), generate una volta
+  if (VZ.NUM) return VZ.NUM;
+  const U = ['zero', 'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci', 'undici', 'dodici', 'tredici', 'quattordici', 'quindici', 'sedici', 'diciassette', 'diciotto', 'diciannove'];
+  const T = {venti: 20, trenta: 30, quaranta: 40, cinquanta: 50, sessanta: 60, settanta: 70, ottanta: 80, novanta: 90};
+  const m = {};
+  U.forEach((w, i) => { m[w] = i; });
+  m.un = 1; m.una = 1;
+  Object.keys(T).forEach(t => {
+    m[t] = T[t];
+    for (let u = 1; u <= 9; u++) { const base = (u === 1 || u === 8) ? t.slice(0, -1) : t; m[base + U[u]] = T[t] + u; m[t + U[u]] = T[t] + u; }
+  });
+  const below = Object.assign({}, m);
+  for (let h = 1; h <= 9; h++) {
+    const hw = h === 1 ? 'cento' : U[h] + 'cento';
+    m[hw] = h * 100;
+    Object.keys(below).forEach(rw => {
+      const r = below[rw]; if (!(r >= 1 && r <= 99)) return;
+      m[hw + rw] = h * 100 + r;
+      if (/^otto/.test(rw)) m[hw.slice(0, -1) + rw] = h * 100 + r;
+    });
+  }
+  VZ.NUM = m; return m;
+}
+function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
+  let t = String(raw || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  t = t.replace(/°/g, ' gradi ').replace(/(\d)\s*[:.,]\s*(\d)/g, '$1.$2').replace(/[^a-z0-9.\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/\b(venne|vene|fin|fine) ?stin[a-z]*\b/g, 'fine stint').replace(/\bgira\b/g, 'giro').replace(/\bvarianza\b/g, 'variante').replace(/\bbandiera verde\b/g, 'semaforo verde').replace(/\bsemaforo verdi?\b/g, 'semaforo verde').replace(/\bgiro sporgo\b/g, 'giro sporco');
+  const M = vzNumMap(), out = [];
+  t.split(' ').forEach(w => {
+    if (w in M && !/^(sei|un|una)$/.test(w)) { out.push({n: M[w]}); }
+    else out.push(w);
+  });
+  const res = [];
+  out.forEach(x => {
+    const prev = res[res.length - 1];
+    if (typeof x === 'object' && prev && typeof prev === 'object') {
+      const a = prev.n, b = x.n;
+      if ((a >= 100 && a % 100 === 0 && b >= 1 && b < 100) || (a >= 20 && a < 100 && a % 10 === 0 && b >= 1 && b <= 9)) { prev.n = a + b; return; }
+    }
+    res.push(typeof x === 'object' ? {n: x.n} : x);
+  });
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ');
+}
+function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
+  let m, ss, ms;
+  if (g.length === 1 && /^\d{6}$/.test(g[0])) { m = g[0][0]; ss = g[0].slice(1, 3); ms = g[0].slice(3); }
+  else if (g.length === 2 && /^\d{3}$/.test(g[0]) && /^\d{3}$/.test(g[1])) { m = g[0][0]; ss = g[0].slice(1); ms = g[1]; }
+  else if (g.length === 2 && /^\d$/.test(g[0]) && /^\d{5}$/.test(g[1])) { m = g[0]; ss = g[1].slice(0, 2); ms = g[1].slice(2); }
+  else if (g.length === 3 && /^\d$/.test(g[0]) && /^\d{2}$/.test(g[1]) && /^\d{3}$/.test(g[2])) { m = g[0]; ss = g[1]; ms = g[2]; }
+  else return null;
+  if (+ss > 59) return null;
+  return m + ':' + ss + '.' + ms;
+}
+function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
+  const t = vzNorm(raw); ctx = ctx || {};
+  const words = t.split(' ').filter(Boolean);
+  const r = {norm: t, k: 'unknown'};
+  if (!t) return r;
+  if (/\b(stop|basta|chiudi|spegni)\b/.test(t) && words.length <= 3) return Object.assign(r, {k: 'stop'});
+  if (/\bripeti\b/.test(t)) return Object.assign(r, {k: 'repeat'});
+  if (/\bannulla\b/.test(t) && words.length <= 3) return Object.assign(r, {k: 'cancel'});
+  if (words.length <= 3 && /\b(si|ok|okay|vai|salva|conferma|certo)\b/.test(t)) return Object.assign(r, {k: 'yes'});
+  if (words.length <= 3 && /\b(no|scarta|niente)\b/.test(t)) return Object.assign(r, {k: 'no'});
+  if (/semaforo verde/.test(t)) return Object.assign(r, {k: 'race_start'});
+  if (/fine stint/.test(t)) return Object.assign(r, {k: 'stint_end'});
+  if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
+  let mm = t.match(/(?:ho fatto|fatto|sono al|siamo al|siamo a|sono a)\s+(\d+)\s+giri/);
+  if (mm) return Object.assign(r, {k: 'laps_done', n: +mm[1]});
+  const dec = t.match(/\b\d+(?:\.\d+)?\b/g) || [];
+  if (/\b(carburante|benzina|serbatoio|litri)\b/.test(t) && dec.length && !/\bgiro\b/.test(t)) return Object.assign(r, {k: 'fuel', v: parseFloat(dec[0]), start: /partenza|iniziale|inizio|parto|partiti/.test(t)});
+  if (/\b(temperatura|temp)\b/.test(t) && dec.length) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: /\baria\b/.test(t) ? 'aria' : 'pista'});
+  // giro e tempo
+  const ints = (t.match(/\b\d+\b/g) || []);
+  const hasGiro = /\bgiro\b/.test(t);
+  if (ints.length || hasGiro) {
+    const direct = t.match(/\b(\d)\.(\d{2})\.(\d{3})\b/) || null;
+    let time = direct ? direct[1] + ':' + direct[2] + '.' + direct[3] : vzTime(ints);
+    let lap = null;
+    if (!time && hasGiro && ints.length >= 2 && +ints[0] <= 99) { lap = +ints[0]; time = vzTime(ints.slice(1)); }
+    if (time) return Object.assign(r, {k: 'lap_time', time, lap});
+    if (hasGiro && ints.length === 1 && +ints[0] <= 99) return Object.assign(r, {k: 'lap_only', lap: +ints[0]});
+    if (!hasGiro && ints.length === 1 && ctx.pendLap) { return Object.assign(r, {k: 'partial', ints}); }
+    if (hasGiro) return Object.assign(r, {k: 'lap_bad'});
+  }
+  if (/\b(sottosterzo|sovrasterzo|pattina|pattinano|bloccano|blocca|instabile|scivola|nervos[oa]|saltella|molle|dura|morbida)\b/.test(t)) return Object.assign(r, {k: 'feeling', text: raw});
+  return r;
+}
+const vzSay = {   // come si legge a voce un tempo: "1:52.485" -> "uno, cinquantadue, quattrocentottantacinque"
+  time: s => { const m = String(s).match(/^(\d):(\d{2})\.(\d{3})$/); return m ? m[1] + ', ' + m[2] + ', ' + m[3] : s; }
+};
+function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo). Fase 1: non scrive niente nell'app.
+  switch (p.k) {
+    case 'stop': return {say: 'Chiudo.', stop: true, line: 'stop'};
+    case 'repeat': return {say: st.last || 'Non ho niente da ripetere.', line: 'ripeti', keep: true};
+    case 'cancel': return {say: 'Annullato.', line: 'annulla'};
+    case 'yes': return {say: 'Ok. In questa prova non salvo niente.', line: 'sì'};
+    case 'no': return {say: 'Ok.', line: 'no'};
+    case 'race_start': st.raceT0 = Date.now(); return {say: 'Semaforo verde. Il cronometro parte. In questa prova non fa altro.', line: 'semaforo verde → cronometro partito'};
+    case 'stint_end': return {say: 'Fine stint. Giri contati: ' + st.laps.length + '.', line: 'fine stint · giri: ' + st.laps.length};
+    case 'lap_dirty': { const l = st.laps[st.laps.length - 1]; if (l) l.dirty = true; return {say: 'Giro sporco, lo escludo.', line: 'giro sporco' + (l ? ' (giro ' + l.n + ')' : '')}; }
+    case 'laps_done': st.lapNo = p.n; return {say: p.n + ' giri fatti.', line: p.n + ' giri fatti'};
+    case 'fuel': return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
+    case 'temp': return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
+    case 'lap_time': {
+      const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
+      st.lapNo = n; st.pendLap = null;
+      st.laps.push({n, t: p.time});
+      return {say: 'Giro ' + n + ', ' + vzSay.time(p.time) + '.', line: 'giro ' + n + ' · ' + p.time};
+    }
+    case 'lap_only': st.pendLap = p.lap; return {say: 'Giro ' + p.lap + '. Dimmi il tempo.', line: 'giro ' + p.lap + ' (aspetto il tempo)'};
+    case 'lap_bad': return {say: 'Non ho capito il tempo. Ripeti: giro, numero, e il tempo, per esempio uno cinquantadue quattrocentottantacinque.', line: 'tempo non chiaro', bad: true};
+    case 'partial': return {say: 'Non ho capito tutto il tempo. Ripeti il tempo intero.', line: 'tempo incompleto', bad: true};
+    case 'feeling': return {say: 'Annotato: ' + p.text + '.', line: 'sensazione: ' + p.text};
+    default: return {say: 'Non ho capito.', line: 'non capito', bad: true};
+  }
+}
+const vzSupport = () => (window.SpeechRecognition || window.webkitSpeechRecognition) && ('speechSynthesis' in window);
+function vzStart() {
+  if (UI.vz) return;
+  if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
+  closeSheet();
+  const d = document.createElement('div'); d.id = 'vzo'; d.innerHTML = '<div id="vzv"></div>'; document.body.appendChild(d);
+  UI.vz = {st: {laps: [], last: ''}, log: [], heard: '', status: 'start', errs: [], pend: false};
+  try { navigator.wakeLock.request('screen').then(w => { if (UI.vz) UI.vz.wake = w; else w.release(); }).catch(() => {}); } catch (_) {}
+  vzDraw(); vzTalk('Ingegnere vocale in prova. Dimmi un tempo, per esempio: giro quattordici, uno cinquantadue quattrocentottantacinque.');
+}
+function vzStop() {
+  const vz = UI.vz; if (!vz) return;
+  try { speechSynthesis.cancel(); } catch (_) {}
+  vzRecStop(); try { vz.wake && vz.wake.release(); } catch (_) {}
+  UI.vz = null; const d = $('vzo'); if (d) d.remove();
+  render();
+}
+function vzRecStop() { const vz = UI.vz; if (vz && vz.rec) { const r = vz.rec; vz.rec = null; r.onend = r.onerror = r.onresult = null; try { r.abort(); } catch (_) {} } }
+function vzTalk(text) {   // parla, poi torna ad ascoltare
+  const vz = UI.vz; if (!vz) return;
+  vz.st.last = text; vz.status = 'speak'; vz.said = text; vzDraw();
+  vzRecStop();
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'it-IT'; u.rate = 1.05;
+    let done = false; const fin = () => { if (done) return; done = true; if (UI.vz === vz) setTimeout(vzListen, 200); };
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, Math.max(4000, text.length * 90));   // se la voce non finisce mai, riprendo comunque
+    speechSynthesis.speak(u);
+  } catch (_) { vzListen(); }
+}
+function vzListen() {
+  const vz = UI.vz; if (!vz || vz.rec) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR(); r.lang = 'it-IT'; r.interimResults = false; r.maxAlternatives = 1; r.continuous = false;
+  r.onresult = e => { const tx = e.results[0] && e.results[0][0] ? e.results[0][0].transcript : ''; vz.rec = null; vzHandle(tx); };
+  r.onerror = e => {
+    vz.rec = null;
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { vz.status = 'err'; vz.err = 'Microfono non consentito: abilitalo nelle impostazioni del browser.'; return vzDraw(); }
+    const t = Date.now(); vz.errs = vz.errs.filter(x => t - x < 4000); vz.errs.push(t);
+    if (vz.errs.length > 6) { vz.status = 'err'; vz.err = 'L\'ascolto si è interrotto. Tocca "Riprendi".'; return vzDraw(); }
+    if (UI.vz === vz) setTimeout(vzListen, 400);
+  };
+  r.onend = () => { if (vz.rec === r) { vz.rec = null; if (UI.vz === vz) setTimeout(vzListen, 200); } };
+  vz.rec = r; vz.status = 'listen'; vz.err = ''; vzDraw();
+  try { r.start(); } catch (_) { vz.rec = null; setTimeout(vzListen, 500); }
+}
+function vzHandle(raw) {
+  const vz = UI.vz; if (!vz) return;
+  const p = vzParse(raw, {pendLap: vz.st.pendLap}), rep = vzReply(p, vz.st);
+  vz.heard = raw; vz.log.unshift({heard: raw, norm: p.norm, k: p.k, line: rep.line, bad: !!rep.bad});
+  vz.log = vz.log.slice(0, 40);
+  if (rep.stop) { vzDraw(); return setTimeout(vzStop, 1200); }
+  if (rep.keep) { vzDraw(); return vzTalk(rep.say); }
+  vzTalk(rep.say);
+}
+function vzDraw() {
+  const vz = UI.vz, el = $('vzv'); if (!vz || !el) return;
+  const stTxt = {start: 'Avvio…', listen: '🎙 In ascolto', speak: '🔊 Sta parlando', err: '⚠️ Fermo'}[vz.status] || '';
+  el.innerHTML = `<div class="vzt">${stTxt} <span class="vzn">Prova: non salva niente</span></div>
+    <div class="vzm">${esc(vz.heard || 'Dimmi un tempo, un numero, o un comando')}</div>
+    <div class="vzs">${esc(vz.said || '')}</div>${vz.err ? '<div class="vze">' + esc(vz.err) + '</div>' : ''}
+    <div class="vzl">${vz.log.slice(0, 8).map(l => `<div class="vzr${l.bad ? ' bad' : ''}"><b>${esc(l.line || '')}</b><span>${esc(l.heard)}</span></div>`).join('')}</div>
+    <div class="vzb"><input id="vzIn" placeholder="…oppure scrivi una frase" autocomplete="off"><button class="sec2" data-act="vzsend">Invia</button></div>
+    <div class="vzb">${vz.status === 'err' ? '<button class="pri" data-act="vzgo">Riprendi</button>' : ''}<button class="sec2" data-act="vzcopy">Copia i risultati</button><button class="sec2" data-act="vzstop">Chiudi</button></div>`;
+}
+function vzCopy() {
+  const vz = UI.vz; if (!vz) return;
+  const txt = ['Prova ingegnere vocale ' + new Date().toLocaleString('it')].concat(vz.log.slice().reverse().map(l => '"' + l.heard + '" → ' + (l.line || '?') + (l.bad ? '  [NON CAPITO]' : ''))).join('\n');
+  try { navigator.clipboard.writeText(txt).then(() => toast('Copiato'), () => toast('Copia non riuscita')); } catch (_) { toast('Copia non riuscita'); }
 }
 function engUndo() {   // annulla la prova senza giri: rimette i valori di prima
   const st = engState(), pend = st.pend; if (!pend) return;
@@ -2631,6 +2825,11 @@ const ACT = {
   engkeep: () => engFinish('tieni'),
   engrevert: () => engFinish('indietro'),
   engundo: engUndo,
+  vz: vzStart,
+  vzstop: vzStop,
+  vzgo: () => { const vz = UI.vz; if (vz) { vz.errs = []; vz.err = ''; vzListen(); } },
+  vzsend: () => { const e = $('vzIn'); if (e && e.value.trim()) { const v = e.value; e.value = ''; vzHandle(v); } },
+  vzcopy: vzCopy,
   sign: b => { const inp = b.dataset.t ? $(b.dataset.t) : b.closest('[data-eid]').querySelector('input.ev'); if (!inp) return; const v = inp.value.trim(); inp.value = /^[-−]/.test(v) ? v.replace(/^[-−]\s*/, '') : '-' + v; inp.focus(); },
   fcalc: fuelCalc,
   hfuel: fuelBackfill,
