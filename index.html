@@ -220,7 +220,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.41';   // versione dell'app
+const APP_V = '0.42';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1901,6 +1901,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\b(stop|basta|chiudi|spegni)\b/.test(t) && words.length <= 3) return Object.assign(r, {k: 'stop'});
   if (/\bripeti\b/.test(t)) return Object.assign(r, {k: 'repeat'});
   if (/\b(nuova sessione|azzera( la)? sessione)\b/.test(t)) return Object.assign(r, {k: 'sess_reset'});
+  if (words.length <= 4 && !/\d/.test(t) && /\b(bagnat[oa]|asciutt[oa]|pioggia)\b/.test(t) && !/\b(test|staccat\w*|setup|pression\w*|tempo|passo|media)\b/.test(t)) return Object.assign(r, {k: 'cond', wet: /\b(bagnat[oa]|pioggia)\b/.test(t)});
   if (/\b(annulla|ferma|chiudi) (il |lo )?test\b/.test(t)) return Object.assign(r, {k: 'test_abort'});
   if (/\btest\b/.test(t) && !/\bfine test\b/.test(t)) {
     const what = /\bconsum/.test(t) ? 'cons' : /\bpasso\b/.test(t) ? 'pace' : /\bmedia\b/.test(t) ? 'avg' : /\b(giro|veloce|tempo)\b/.test(t) ? 'lap' : null;
@@ -2182,7 +2183,7 @@ function vzSt() {   // i dati della sessione restano anche se chiudi l'ingegnere
 }
 function vzPersist() {
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, u: now()};
   save();
 }
 function vzHelp() {
@@ -2233,12 +2234,13 @@ function vzBox() {
   const fe = (st.feel || []).map(x => `<div class="gi"><b>${x.lap ? 'Giro ' + esc(x.lap) : 'Sensazione'}</b><p>${esc(x.text)}</p></div>`).join('');
   const b = (t, w, l) => `<button class="sec2" data-act="vzbcalc" data-t="${t}" data-w="${w}">${l}</button>`;
   sheet('Dati della sessione', `<p class="meta">Tutto quello che hai detto durante la guida. Qui controlli, correggi e scegli cosa calcolare e salvare. Non salva niente finché non lo confermi.</p>
-    <h3>Giri (${L.length})</h3><p class="meta"><span class="vzsw best"></span> il più veloce · <span class="vzsw tp"></span> 2° e 3° · <span class="vzsw bad"></span> sporco o lento: non contano in media e passo. Tocca un giro per cambiarlo.</p><div style="display:flex;flex-direction:column;gap:6px;margin:6px 0">${rows || '<div class="empty">Nessun giro registrato.</div>'}</div>
-    ${(() => { const w = !!UI.vzWet, m = vzSummary(st, w); return `<div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
+    ${(() => { const w = !!st.wet, m = vzSummary(st, w); return `<div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
       <div class="vzsum">
-        <div class="vzsr"><span class="vzsl">Giro veloce di questo test</span><b>${m.lap ? esc(m.lap.t) : '—'}</b>${m.lap ? '<span class="meta">giro ' + esc(m.lap.n) + '</span>' : ''}<span class="meta">salvato: ${m.sl ? esc(m.sl) : 'nessuno'}</span>${vzDf(m.dLap)}</div>
-        <div class="vzsr"><span class="vzsl">Media dei 3 giri migliori</span><b>${m.avg ? esc(m.avg) : '—'}</b>${m.top.length >= 3 ? '<span class="meta">giri ' + m.top.map(x => esc(x.n)).join(', ') + '</span>' : '<span class="meta">servono 3 giri validi (ne ho ' + m.valid + ')</span>'}<span class="meta">salvata: ${m.sa ? esc(m.sa) : 'nessuna'}</span>${vzDf(m.dAvg)}</div>
+        <div class="vzsr"><span class="vzsl">Giro veloce di questo test</span><b>${m.lap ? esc(m.lap.t) : '—'}</b>${m.lap ? '<span class="meta">giro ' + esc(m.lap.n) + '</span>' : ''}<span class="meta">salvato: ${m.sl ? esc(m.sl) : 'nessuno'}</span>${vzDf(m.dLap)}${m.lap ? `<button class="sec2" data-act="vzbcalc" data-t="lap" data-w="${w ? 1 : 0}">Salva giro veloce</button>` : ''}</div>
+        <div class="vzsr"><span class="vzsl">Media dei 3 giri migliori</span><b>${m.avg ? esc(m.avg) : '—'}</b>${m.top.length >= 3 ? '<span class="meta">giri ' + m.top.map(x => esc(x.n)).join(', ') + '</span>' : '<span class="meta">servono 3 giri validi (ne ho ' + m.valid + ')</span>'}<span class="meta">salvata: ${m.sa ? esc(m.sa) : 'nessuna'}</span>${vzDf(m.dAvg)}${m.top.length >= 3 ? `<button class="sec2" data-act="vzbcalc" data-t="avg" data-w="${w ? 1 : 0}">Salva media 3 giri</button>` : ''}</div>
       </div>`; })()}
+    <div id="vzbRes" style="margin:8px 0"></div>
+    <h3>Giri (${L.length})</h3><p class="meta"><span class="vzsw best"></span> il più veloce · <span class="vzsw tp"></span> 2° e 3° · <span class="vzsw bad"></span> sporco o lento: non contano in media e passo. Tocca un giro per cambiarlo.</p><div style="display:flex;flex-direction:column;gap:6px;margin:6px 0">${rows || '<div class="empty">Nessun giro registrato.</div>'}</div>
     <div class="zg"><label class="f">Benzina di partenza (${esc(fuelU())})<input id="bxFuel" inputmode="decimal" value="${esc(st.fuelStart || '')}" autocomplete="off"></label>
       <label class="f">Mappa motore${st.map ? '' : ' (non detta)'}<input id="bxMap" inputmode="numeric" value="${esc(st.map || '')}" autocomplete="off"></label>
       <label class="f">Temp. aria (°C)<input id="bxAir" inputmode="decimal" value="${esc(st.air || '')}" autocomplete="off"></label>
@@ -2256,10 +2258,10 @@ function vzBox() {
     <div class="zg"><label class="f">Dopo il giro n°<input id="bxFN" inputmode="numeric" autocomplete="off"></label><label class="f">Benzina rimasta<input id="bxFV" inputmode="decimal" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbfadd">Aggiungi lettura</button></div>
     ${fe ? `<h3>Sensazioni</h3>${fe}` : ''}
-    <details class="calc"><summary>Salva un risultato nello storico</summary><p class="meta">Qui sopra vedi già giro veloce e media. Questi pulsanti servono solo se vuoi salvare un risultato nello storico (e quindi nei dati rapidi): scegli cosa, poi confermi. Asciutto o bagnato: scegli prima sopra.</p><div class="btns">${b('lap', 0, 'Giro veloce')}${b('lap', 1, 'Giro veloce bagnato')}${b('avg', 0, 'Media 3 giri')}${b('avg', 1, 'Media 3 bagnato')}${b('cons', 0, 'Consumo')}</div>
+    <details class="calc"><summary>Passo gara e consumo</summary><p class="meta">Giro veloce e media si salvano dai pulsanti in alto. Qui passo gara e consumo: calcola e poi confermi in alto. Valgono per asciutto o bagnato come scelto in alto.</p><div class="btns">${b('cons', 0, 'Calcola il consumo')}</div>
     <div class="zg" style="margin-top:8px"><label class="f">Passo: dal giro<input id="bxA" inputmode="numeric" autocomplete="off"></label><label class="f">al giro<input id="bxB" inputmode="numeric" autocomplete="off"></label></div>
-    <div class="btns">${b('pace', 0, 'Passo gara')}${b('pace', 1, 'Passo gara bagnato')}</div>
-    <div id="vzbRes" style="margin-top:10px"></div></details>
+    <div class="btns">${b('pace', st.wet ? 1 : 0, 'Calcola il passo gara')}</div>
+    </details>
     <div class="btns" style="margin-top:16px"><button class="sec2" data-act="vzbcopy">Copia per Claude</button><button class="sec2" data-act="vzbclear">Svuota sessione</button><button class="sec2" data-act="close">Chiudi</button></div>`, carNameFull());
 }
 function vzBoxShow(r) {
@@ -2316,6 +2318,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
       st.dirtyNext = true; return {say: 'Giro sporco. Lo segno sul prossimo tempo.', line: 'giro sporco (sul prossimo giro)'};
     }
     case 'laps_done': st.lapNo = p.n; return {say: p.n + ' giri fatti.', line: p.n + ' giri fatti'};
+    case 'cond': st.wet = !!p.wet; return {say: 'Condizioni: ' + (p.wet ? 'bagnato' : 'asciutto') + '. I dati di questa sessione valgono per il ' + (p.wet ? 'bagnato' : 'asciutto') + '.', line: 'condizioni · ' + (p.wet ? 'bagnato' : 'asciutto')};
     case 'sc_on': st.sc = true; return {say: 'Safety car. Metto in pausa i conti. In questa prova non fa altro.', line: 'safety car'};
     case 'sc_off': st.sc = false; return {say: 'Via libera. Riprendo i conti.', line: 'via libera'};
     case 'cons': st.cons = p.v; return {say: 'Consumo ' + String(p.v).replace('.', ',') + ' litri al giro.', line: 'consumo ' + p.v + ' L/giro'};
@@ -2334,7 +2337,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_brake': return vzReadBrake(p);
     case 'read_note': return vzReadNote(p);
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
-    case 'sess_reset': st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
+    case 'sess_reset': st.wet = false; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
     case 'fuel': {
       if (p.start) { st.fuelStart = p.v; return {say: 'Carburante di partenza ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
@@ -3308,7 +3311,7 @@ const ACT = {
   vzhelp: vzHelp,
   vzbox: () => { if (needCtx('av')) vzBox(); },
   vzbdirty: b => { const l = vzSt().laps[+b.dataset.i]; if (l) { l.dirty = !l.dirty; vzPersist(); vzBoxRead(); vzBox(); } },
-  vzbwet: b => { UI.vzWet = b.dataset.w === '1'; vzBoxRead(); vzBox(); },
+  vzbwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBoxRead(); vzBox(); },
   vzbok: b => { const l = vzSt().laps[+b.dataset.i]; if (l) { l.ok = !l.ok; l.odd = false; vzPersist(); vzBoxRead(); vzBox(); } },
   vzbdel: b => { vzBoxRead(); vzSt().laps.splice(+b.dataset.i, 1); vzPersist(); vzBox(); },
   vzbcalc: b => {
