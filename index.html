@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.34';   // versione dell'app
+const APP_V = '0.34.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2108,7 +2108,7 @@ function vzTestEnd(st, type, wet, range) {
   const cmp = (val, key) => { const b = pf[key]; if (!b) return ' Non hai ancora un valore salvato.'; const d = paceP(val) - paceP(b); return ' ' + vzDiffSay(d, 'del valore salvato'); };
   if (t.type === 'cons') {
     const m = String(st.map || ''), first = st.laps[0], rd = (st.fuelLog || []).filter(x => !m || !x.map || String(x.map) === m);   // solo le letture fatte con questa mappa
-    if (st.fuelStart > 0 && (!m || !first || first.map == null || String(first.map) === m)) rd.unshift({lap: 0, fuel: st.fuelStart});
+    if (st.fuelStart > 0 && !(first && first.dirty) && (!m || !first || first.map == null || String(first.map) === m)) rd.unshift   // se il primo giro è sporco (uscita dai box) non lo uso come base({lap: 0, fuel: st.fuelStart});
     const a = rd[0], b = rd[rd.length - 1];
     if (!a || !b || !(b.lap > a.lap) || !(a.fuel > b.fuel)) { st.test = null; st.ask = null; return {say: 'Mi servono almeno due letture della benzina su giri diversi. Test chiuso senza salvare.', line: 'consumo: dati insufficienti', bad: true}; }
     const v = ((a.fuel - b.fuel) / (b.lap - a.lap)).toFixed(2), old = (pf.cons || []).find(x => String(x.map).split(' ')[0] === String(st.map));
@@ -2185,7 +2185,10 @@ function vzBox() {
     <div class="zg"><label class="f">Giro n°<input id="bxN" inputmode="numeric" autocomplete="off"></label><label class="f">Tempo<input id="bxT" placeholder="1:52.485" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
     ${(st.junk || []).length ? `<h3>Frasi non capite (${st.junk.length})</h3>${st.junk.map(j => `<div class="gi"><b>«${esc(j.text)}»</b><p class="meta">${j.lap ? 'dopo il giro ' + esc(j.lap) : 'prima del primo giro'}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbjclr">Cancella l'elenco</button></div>` : ''}
-    ${fl ? `<p class="meta">Benzina rimasta: ${esc(fl)}</p>` : ''}
+    <h3>Benzina rimasta</h3>
+    ${(st.fuelLog || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: <b>${esc(x.fuel)}</b> ${esc(fuelU())}${x.map ? ' <span class="meta">mappa ' + esc(x.map) + '</span>' : ''}</span><button class="x" data-act="vzbfdel" data-i="${i}" aria-label="Elimina lettura">✕</button></div>`).join('') || '<div class="empty">Nessuna lettura.</div>'}
+    <div class="zg"><label class="f">Dopo il giro n°<input id="bxFN" inputmode="numeric" autocomplete="off"></label><label class="f">Benzina rimasta<input id="bxFV" inputmode="decimal" autocomplete="off"></label></div>
+    <div class="btns"><button class="sec2" data-act="vzbfadd">Aggiungi lettura</button></div>
     ${fe ? `<h3>Sensazioni</h3>${fe}` : ''}
     <h3>Calcola</h3><div class="btns">${b('lap', 0, 'Giro veloce')}${b('lap', 1, 'Giro veloce bagnato')}${b('avg', 0, 'Media 3 giri')}${b('avg', 1, 'Media 3 bagnato')}${b('cons', 0, 'Consumo')}</div>
     <div class="zg" style="margin-top:8px"><label class="f">Passo: dal giro<input id="bxA" inputmode="numeric" autocomplete="off"></label><label class="f">al giro<input id="bxB" inputmode="numeric" autocomplete="off"></label></div>
@@ -3203,6 +3206,13 @@ const ACT = {
   vzbsave: () => { const st = vzSt(), c = st.confirm; if (!c) return; vzTestSave(st); st.confirm = null; vzPersist(); const el = $('vzbRes'); if (el) el.innerHTML = '<div class="gi"><p><b>Salvato nello storico.</b> Dati rapidi restano sul tuo migliore.</p></div>'; },
   vzbno: () => { vzSt().confirm = null; const el = $('vzbRes'); if (el) el.innerHTML = '<div class="meta">Non salvato.</div>'; },
   vzbcopy: vzBoxCopy,
+  vzbfdel: b => { vzBoxRead(); vzSt().fuelLog.splice(+b.dataset.i, 1); vzPersist(); vzBox(); },
+  vzbfadd: () => {
+    vzBoxRead(); const st = vzSt(), n = parseInt($('bxFN').value, 10), v = parseFloat($('bxFV').value.replace(',', '.'));
+    if (!(n >= 0) || !(v > 0)) return toast('Scrivi il numero del giro e i litri');
+    const lp = st.laps.find(l => l.n === n); st.fuelLog = st.fuelLog.filter(x => x.lap !== n); st.fuelLog.push({lap: n, fuel: v, map: lp ? lp.map : st.map}); st.fuelLog.sort((a, b) => a.lap - b.lap);
+    vzPersist(); vzBox(); toast('Lettura aggiunta');
+  },
   vzbjclr: () => { vzBoxRead(); vzSt().junk = []; vzPersist(); vzBox(); },
   vzbadd: () => {
     vzBoxRead(); const st = vzSt(), n = parseInt($('bxN').value, 10), t = normTime($('bxT').value);
