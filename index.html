@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.33.1';   // versione dell'app
+const APP_V = '0.34';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1925,7 +1925,18 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   const dec = t.match(/\b\d+(?:\.\d+)?\b/g) || [];
   if (/\bconsumo\b/.test(t) && dec.length) return Object.assign(r, {k: 'cons', v: parseFloat(dec[0])});
   if (/\b(carburante|benzina|serbatoio|litri)\b/.test(t) && dec.length && !/\bgiro\b/.test(t)) return Object.assign(r, {k: 'fuel', v: parseFloat(dec[0]), start: /partenza|iniziale|inizio|parto|partiti/.test(t)});
+  if (/^\d+(?:\.\d+)?\s*(l|litri)$/.test(t)) return Object.assign(r, {k: 'fuel', v: parseFloat(dec[0]), start: false});
+  if (/\b(aria|area|aia)\b/.test(t) && dec.length && /\bgradi\b/.test(t)) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: 'aria'});
+  if (/\bpista\b/.test(t) && dec.length && /\bgradi\b/.test(t) && !/\btemperatura\b/.test(t)) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: 'pista'});
   if (/\b(temperatura|temp)\b/.test(t) && dec.length) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: /\baria\b/.test(t) ? 'aria' : 'pista'});
+  // tempo detto a pezzi: "un minuto 53 secondi", "740 millesimi", "1 54" poi "705", "53 e 157" (manca il minuto)
+  const tm = t.replace(/\b(un|uno|una)\b(?= minut)/g, '1');
+  const mM = tm.match(/\b(\d+) minut[oi]\b/), sM = tm.match(/\b(\d+) second[oi]\b/), msM = tm.match(/\b(\d+) (?:millesim\w*|decim\w*)\b/), gM = tm.match(/\bgiro (\d+)\b/);
+  if (mM || sM || msM) return Object.assign(r, {k: 'tpart', m: mM ? +mM[1] : null, s: sM ? +sM[1] : null, ms: msM ? msM[1] : null, lap: gM ? +gM[1] : null});
+  let q2;
+  if ((q2 = t.match(/^(\d) (\d{1,2})$/)) && +q2[2] <= 59) return Object.assign(r, {k: 'tpart', m: +q2[1], s: +q2[2], ms: null, lap: null});
+  if ((q2 = t.match(/^(\d{2}) e (\d{3})$/)) && +q2[1] <= 59) return Object.assign(r, {k: 'tpart', m: null, s: +q2[1], ms: q2[2], lap: null});
+  if (/^\d{3}$/.test(t) && ctx.pendT) return Object.assign(r, {k: 'tpart', m: null, s: null, ms: t, lap: null});
   // giro e tempo
   const ints = (t.match(/\b\d+\b/g) || []);
   const hasGiro = /\bgiro\b/.test(t);
@@ -2129,12 +2140,12 @@ function vzTestEnd(st, type, wet, range) {
   return {say: 'Hai ' + clean.length + ' giri validi, dal ' + clean[0].n + ' al ' + clean[clean.length - 1].n + '. Calcolo il passo dal giro quale al giro quale? Oppure dì tutti.', line: 'passo gara: su quali giri?', keep: true};
 }
 function vzSt() {   // i dati della sessione restano anche se chiudi l'ingegnere o l'app
-  if (!UI.vzst) UI.vzst = Object.assign({laps: [], fuelLog: [], feel: [], last: ''}, JSON.parse(JSON.stringify(DB.settings.vzSess || {})));
+  if (!UI.vzst) UI.vzst = Object.assign({laps: [], fuelLog: [], feel: [], junk: [], last: ''}, JSON.parse(JSON.stringify(DB.settings.vzSess || {})));
   return UI.vzst;
 }
 function vzPersist() {
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, junk: s.junk, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, u: now()};
   save();
 }
 function vzHelp() {
@@ -2170,6 +2181,10 @@ function vzBox() {
       <label class="f">Mappa del consumo<input id="bxMap" inputmode="numeric" value="${esc(st.map || '')}" autocomplete="off"></label>
       <label class="f">Temp. aria (°C)<input id="bxAir" inputmode="decimal" value="${esc(st.air || '')}" autocomplete="off"></label>
       <label class="f">Temp. pista (°C)<input id="bxRoad" inputmode="decimal" value="${esc(st.road || '')}" autocomplete="off"></label></div>
+    <h3>Aggiungi un giro a mano</h3>
+    <div class="zg"><label class="f">Giro n°<input id="bxN" inputmode="numeric" autocomplete="off"></label><label class="f">Tempo<input id="bxT" placeholder="1:52.485" autocomplete="off"></label></div>
+    <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
+    ${(st.junk || []).length ? `<h3>Frasi non capite (${st.junk.length})</h3>${st.junk.map(j => `<div class="gi"><b>«${esc(j.text)}»</b><p class="meta">${j.lap ? 'dopo il giro ' + esc(j.lap) : 'prima del primo giro'}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbjclr">Cancella l'elenco</button></div>` : ''}
     ${fl ? `<p class="meta">Benzina rimasta: ${esc(fl)}</p>` : ''}
     ${fe ? `<h3>Sensazioni</h3>${fe}` : ''}
     <h3>Calcola</h3><div class="btns">${b('lap', 0, 'Giro veloce')}${b('lap', 1, 'Giro veloce bagnato')}${b('avg', 0, 'Media 3 giri')}${b('avg', 1, 'Media 3 bagnato')}${b('cons', 0, 'Consumo')}</div>
@@ -2236,7 +2251,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
     case 'sess_reset': st.laps = []; st.fuelLog = []; st.feel = []; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
-    case 'fuel': if (p.start) st.fuelStart = p.v; else { st.fuelNow = p.v; if (!st.laps.length && !(st.fuelStart > 0)) st.fuelStart = p.v; else if (st.lapNo) { st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== st.lapNo); st.fuelLog.push({lap: st.lapNo, fuel: p.v, map: st.map}); } } return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
+    case 'fuel': if (p.start) st.fuelStart = p.v; else { st.fuelNow = p.v; if (!st.laps.length && !(st.fuelStart > 0)) st.fuelStart = p.v; else if (st.pendLap || st.lapNo) { const ln = st.pendLap || st.lapNo; st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== ln); st.fuelLog.push({lap: ln, fuel: p.v, map: st.map}); } } return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
     case 'temp': st[p.kind === 'aria' ? 'air' : 'road'] = p.v; if (st.confirm) return {say: 'Ok, ' + p.kind + ' ' + String(p.v).replace('.', ',') + '. ' + vzConfirmSay(st), line: 'temp. ' + p.kind + ' ' + p.v + ' °C'}; return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
@@ -2244,6 +2259,16 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
       const lp = {n, t: p.time, air: st.air, road: st.road, map: st.map}; st.laps.push(lp);   // ogni giro ricorda mappa e temperature valide in quel momento
       if (st.test) return vzLapTest(lp, st);
       return {say: 'Giro ' + n + ', ' + vzSay.time(p.time) + '.', line: 'giro ' + n + ' · ' + p.time};
+    }
+    case 'tpart': {
+      const pt = (st.pendT && Date.now() - st.pendT.at < 60000) ? st.pendT : {};
+      ['m', 's', 'ms'].forEach(k => { if (p[k] != null) pt[k] = p[k]; }); pt.at = Date.now(); st.pendT = pt;
+      if (pt.m == null && pt.s != null) { const lt = (st.laps[st.laps.length - 1] || {}).t, sv = (DB.perf[engKey()] || {}).lapD; pt.m = lt ? +lt[0] : sv ? +String(sv)[0] : 1; }
+      if (pt.m != null && pt.s != null && pt.ms != null) {
+        const time = pt.m + ':' + String(pt.s).padStart(2, '0') + '.' + String(pt.ms).padStart(3, '0'); st.pendT = null;
+        return vzReply({k: 'lap_time', time, lap: p.lap, norm: p.norm}, st);
+      }
+      return {say: 'Ok.', line: 'tempo a pezzi: ' + [pt.m != null ? pt.m + ' min' : '', pt.s != null ? pt.s + ' s' : '', pt.ms != null ? pt.ms + ' ms' : ''].filter(Boolean).join(' ') + ' (aspetto il resto)'};
     }
     case 'lap_only': st.pendLap = p.lap; return {say: 'Giro ' + p.lap + '. Dimmi il tempo.', line: 'giro ' + p.lap + ' (aspetto il tempo)'};
     case 'lap_bad': return {say: 'Non ho capito il tempo. Ripeti: giro, numero, e il tempo, per esempio uno cinquantadue quattrocentottantacinque.', line: 'tempo non chiaro', bad: true};
@@ -2304,7 +2329,7 @@ function vzListen() {
 function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} }
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
-  let p = vzParse(raw, {pendLap: vz.st.pendLap}), rep;
+  let p = vzParse(raw, {pendLap: vz.st.pendLap, pendT: !!(vz.st.pendT && vz.st.pendT.m != null && vz.st.pendT.s != null && Date.now() - vz.st.pendT.at < 60000)}), rep;
   const ask = vz.st.ask, nums = vzNorm(raw).match(/\b\d+(?:\.\d+)?\b/g);
   if (ask && ask.fn) {
     vz.st.ask = null;
@@ -2314,6 +2339,7 @@ function vzHandle0(raw) {
     vz.st.ask = null; vz.st[ask.need] = parseFloat(nums[0]);
     p = {k: 'answer', norm: vzNorm(raw)}; rep = vzFuelAt(ask.lap, vz.st);
   } else { if (ask && (p.k === 'cancel' || p.k === 'no')) vz.st.ask = null; rep = vzReply(p, vz.st); }
+  if (rep && rep.bad && ['unknown', 'lap_bad', 'partial'].includes(p.k)) { vz.st.junk = vz.st.junk || []; vz.st.junk.push({text: raw, lap: vz.st.lapNo || null}); vz.st.junk = vz.st.junk.slice(-30); }   // quello che non ho capito resta in lista per i box
   vz.heard = raw; vz.log.unshift({heard: raw, norm: p.norm, k: p.k, line: rep.line, bad: !!rep.bad});
   vz.log = vz.log.slice(0, 40);
   if (rep.stop) { vzDraw(); return setTimeout(vzStop, 1200); }
@@ -3177,6 +3203,13 @@ const ACT = {
   vzbsave: () => { const st = vzSt(), c = st.confirm; if (!c) return; vzTestSave(st); st.confirm = null; vzPersist(); const el = $('vzbRes'); if (el) el.innerHTML = '<div class="gi"><p><b>Salvato nello storico.</b> Dati rapidi restano sul tuo migliore.</p></div>'; },
   vzbno: () => { vzSt().confirm = null; const el = $('vzbRes'); if (el) el.innerHTML = '<div class="meta">Non salvato.</div>'; },
   vzbcopy: vzBoxCopy,
+  vzbjclr: () => { vzBoxRead(); vzSt().junk = []; vzPersist(); vzBox(); },
+  vzbadd: () => {
+    vzBoxRead(); const st = vzSt(), n = parseInt($('bxN').value, 10), t = normTime($('bxT').value);
+    if (!(n > 0)) return toast('Scrivi il numero del giro'); if (!TIME_RE.test(t)) return toast('Il tempo va scritto come 1:52.485');
+    st.laps = st.laps.filter(l => l.n !== n); st.laps.push({n, t, air: st.air, road: st.road, map: st.map}); st.laps.sort((a, b) => a.n - b.n); st.lapNo = Math.max(st.lapNo || 0, n);
+    vzPersist(); vzBox(); toast('Giro ' + n + ' aggiunto');
+  },
   vzbclear: b => { if (b.dataset.armed) { UI.vzst = null; DB.settings.vzSess = null; save(); vzBox(); toast('Sessione svuotata'); } else { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per svuotare'; } },
   vzyes: () => vzHandle('sì'),
   vzno: () => vzHandle('no'),
