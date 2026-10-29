@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.31';   // versione dell'app
+const APP_V = '0.31.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -823,6 +823,7 @@ const opts = (list, cur) => list.map(x => `<option value="${x.id}"${x.id === cur
 function showNotice(t) { $('notice').innerHTML = t ? '<div class="warn" style="margin-bottom:12px">' + esc(t) + '</div>' : ''; }
 
 function render() {
+  if (!UI._ps && DB && DB.hist) { UI._ps = 1; try { if (perfSyncAll()) save(); } catch (_) {} }   // allinea Dati rapidi al migliore dello storico
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
   fixSel();
   $('main').className = UI.tab === 'home' ? '' : 'narrow';
@@ -1436,6 +1437,20 @@ function fuelBackfillGo() {
   Object.values(DB.perf || {}).forEach(p => { let ch = false; p.fu = p.fu || {}; TIMEK.forEach(k => { if (p[k] && !p.fu[k]) { p.fu[k] = v; ch = true; n++; } }); if (ch) p.u = now(); });
   save(); render(); toast('Carburante aggiunto a ' + n + ' tempi'); openHist();
 }
+function perfSync(cid, vid) {   // Dati rapidi mostra sempre il MIGLIORE dello storico (tempo + carburante di quella prova)
+  const key = kk(cid, vid), hs = (DB.hist || []).filter(e => e.c === cid && e.v === vid && TIMEK.includes(e.k) && e.val && paceP(e.val) != null);
+  let ch = false, p = DB.perf[key];
+  TIMEK.forEach(k => {
+    const g = hs.filter(e => e.k === k); if (!g.length) return;
+    const b = g.reduce((m, x) => paceP(x.val) < paceP(m.val) ? x : m, g[0]);
+    if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now()};
+    p.fu = p.fu || {};
+    if (p[k] !== b.val || (p.fu[k] || '') !== (b.fuel || '')) { p[k] = b.val; p.fu[k] = b.fuel || ''; ch = true; }
+  });
+  if (ch) p.u = now();
+  return ch;
+}
+function perfSyncAll() { let ch = false; new Set((DB.hist || []).map(e => e.c + '|' + e.v)).forEach(x => { const [c, v] = x.split('|'); if (DB.perf && perfSync(c, v)) ch = true; }); return ch; }
 function openHist(grp) {
   if (!needCtx('av')) return;
   grp = UI.hg = grp || UI.hg || 'lap';
@@ -1473,6 +1488,7 @@ function savePerf() {
   p.u = now();
   logHist(DB.perf[kk(A.id, V.id)] || {}, p, UI.pfNote);
   DB.perf[kk(A.id, V.id)] = p;
+  perfSync(A.id, V.id);
   save(); closeSheet(); render(); toast('Dati rapidi salvati');
 }
 
@@ -1889,7 +1905,8 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\b(note|nota|appunti)\b/.test(t) && askW || /^(leggi|leggimi) (le )?(note|nota)/.test(t)) return Object.assign(r, {k: 'read_note', q: t.replace(/\b(leggimi|leggi|dimmi|la|le|il|nota|note|appunti|mia|mie|di|del|della|delle)\b/g, ' ').replace(/\s+/g, ' ').trim()});
   const par = vzParAlias(t);
   if (par && askW && !/\b\d+\b/.test(t)) return Object.assign(r, {k: 'read_par', key: par, wet: /\b(bagnato|pioggia)\b/.test(t)});
-  if (askW && !/\b\d+(?:\.\d+)?\b/.test(t)) {
+  const t3 = t.replace(/\b(dei |di |de )?(3|tre) (giri|migliori)( migliori)?\b/g, ' ');
+  if (askW && !/\b\d+(?:\.\d+)?\b/.test(t3)) {
     const wet = /\b(bagnato|pioggia)\b/.test(t);
     if (/\b(giro veloce|miglior giro|mio giro|mio record|record)\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'lap', wet});
     if (/\bmedia\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'avg', wet});
@@ -2987,7 +3004,7 @@ const ACT = {
   pfsave: savePerf,
   hist: () => openHist(),
   histtab: b => openHist(b.dataset.g),
-  histdel: b => { DB.hist = (DB.hist || []).filter(e => e.id !== b.dataset.id); save(); openHist(); },
+  histdel: b => { DB.hist = (DB.hist || []).filter(e => e.id !== b.dataset.id); perfSync(A.id, V.id); save(); openHist(); },
   noteedit: b => editNote(b.dataset.id, b.dataset.lvl, b.dataset.key),
   noteback: openNotes, notesave: saveNote,
   notedel: b => { if (!armed(b, 'Conferma eliminazione')) return; DB.notes = DB.notes.filter(n => n.id !== UI.sh.note.id); save(); render(); toast('Nota eliminata'); openNotes(); },
