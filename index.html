@@ -220,7 +220,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.39';   // versione dell'app
+const APP_V = '0.40';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2125,16 +2125,17 @@ function vzSlow(st) {   // giri oltre il 107% del migliore (uscita dai box, rall
   const ok = st.laps.filter(x => !x.dirty && !x.odd && paceP(x.t) != null); if (!ok.length) return [];
   const b = Math.min(...ok.map(x => paceP(x.t))); return ok.filter(x => paceP(x.t) > b * 1.07 && !x.ok);
 }
-function vzConsMaps(st) {   // consumo per mappa dalle letture: giro n = benzina a fine giro n-1 meno benzina a fine giro n (solo giri puliti)
+function vzConsMaps(st) {   // consumo per mappa dalle letture: benzina tra due letture / giri in mezzo (solo se tutti i giri in mezzo sono puliti)
   const rd = {}; if (st.fuelStart > 0) rd[0] = st.fuelStart; (st.fuelLog || []).forEach(x => { rd[x.lap] = x.fuel; });
-  const slow = vzSlow(st), out = {};
-  (st.laps || []).forEach(l => {
-    if (l.dirty || l.odd || slow.includes(l)) return;
-    const a = rd[l.n - 1], b = rd[l.n]; if (!(a > 0) || !(b >= 0)) return;
-    const d = a - b; if (!(d > 0.3 && d < 8)) return;
-    const m = String(l.map != null ? l.map : (st.map != null ? st.map : '')); if (!m) return;
-    (out[m] = out[m] || []).push({n: l.n, d});
-  });
+  const slow = vzSlow(st), out = {}, ks = Object.keys(rd).map(Number).sort((a, b) => a - b);
+  for (let i = 1; i < ks.length; i++) {
+    const a = ks[i - 1], b = ks[i], ls = []; let ok = true;
+    for (let n = a + 1; n <= b; n++) { const l = (st.laps || []).find(x => x.n === n); if (!l || l.dirty || l.odd || slow.includes(l)) { ok = false; break; } ls.push(l); }
+    if (!ok) continue;
+    const d = (rd[a] - rd[b]) / (b - a); if (!(d > 0.3 && d < 8)) continue;
+    const m = String(ls[0].map != null ? ls[0].map : (st.map != null ? st.map : '')); if (!m || ls.some(l => String(l.map != null ? l.map : st.map) !== m)) continue;
+    ls.forEach(l => (out[m] = out[m] || []).push({n: l.n, d}));
+  }
   return out;
 }
 function vzTestEnd(st, type, wet, range) {
@@ -2430,7 +2431,9 @@ function vzListen() {
 function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} }
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
-  const tn = vzNorm(raw), parts = tn.split(/(?=\btemperatura\b)/).filter(x => x.trim());
+  let tn = vzNorm(raw);
+  if (/\btemperatura\b/.test(tn) && !/\btemperatura\b.*\btemperatura\b/.test(tn)) tn = tn.replace(/(\d)(\D*?)\b(aria|pista)\b/, (m, d, g, w) => /\b(aria|pista)\b/.test(tn.slice(0, tn.indexOf(m))) ? d + g + ' temperatura ' + w : m);   // "temperatura aria 30 pista 38"
+  const parts = tn.split(/(?=\btemperatura\b)/).filter(x => x.trim());
   if (parts.length > 1 && parts.every(x => /\btemperatura\b/.test(x))) { parts.forEach(x => vzHandle0(x)); return; }   // "temperatura aria 30 temperatura pista 39" in una frase
   const two = vzNorm(raw).match(/^(.*\d.*?)\s+(?:benzina |carburante )?(\d+(?:\.\d+)?) ?(?:l|litri)$/);   // "152 e 509 35,2 l" = tempo + benzina
   if (two && !/\b(partenza|iniziale|inizio)\b/.test(two[1]) && ['lap_time', 'tpart', 'lap_only'].includes(vzParse(two[1], {pendLap: vz.st.pendLap, pendT: !!vz.st.pendT}).k)) { vzHandle0(two[1]); return vzHandle0(two[2] + ' litri'); }
