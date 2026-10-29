@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.30.1';   // versione dell'app
+const APP_V = '0.31';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1882,6 +1882,20 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/semaforo verde/.test(t)) return Object.assign(r, {k: 'race_start'});
   if (/fine stint/.test(t)) return Object.assign(r, {k: 'stint_end'});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
+  const askW = /\b(qual|quale|quanto|quanta|quanti|dimmi|dammi|leggi|leggimi|ricordami|ricordo|che|valore)\b/.test(t) || (!/\d/.test(t) && t.split(' ').length <= 5);
+  if (/\b(aiuto|comandi|cosa sai fare|cosa puoi fare)\b/.test(t)) return Object.assign(r, {k: 'help'});
+  if (/\bstaccat\w*\b/.test(t)) { const n = t.match(/\b(\d+)\b/); return Object.assign(r, {k: 'read_brake', n: n ? +n[1] : null, wet: /\b(bagnato|pioggia)\b/.test(t), name: t.replace(/\b(staccata|staccate|della|alla|a|di|dimmi|qual|e|la|il|curva|leggimi|\d+)\b/g, ' ').replace(/\s+/g, ' ').trim()}); }
+  if (/\bmappa\b/.test(t) && !/\bconsumo\b/.test(t)) { const n = t.match(/\b(\d+)\b/); if (n) return Object.assign(r, {k: 'read_map', n: +n[1]}); }
+  if (/\b(note|nota|appunti)\b/.test(t) && askW || /^(leggi|leggimi) (le )?(note|nota)/.test(t)) return Object.assign(r, {k: 'read_note', q: t.replace(/\b(leggimi|leggi|dimmi|la|le|il|nota|note|appunti|mia|mie|di|del|della|delle)\b/g, ' ').replace(/\s+/g, ' ').trim()});
+  const par = vzParAlias(t);
+  if (par && askW && !/\b\d+\b/.test(t)) return Object.assign(r, {k: 'read_par', key: par, wet: /\b(bagnato|pioggia)\b/.test(t)});
+  if (askW && !/\b\d+(?:\.\d+)?\b/.test(t)) {
+    const wet = /\b(bagnato|pioggia)\b/.test(t);
+    if (/\b(giro veloce|miglior giro|mio giro|mio record|record)\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'lap', wet});
+    if (/\bmedia\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'avg', wet});
+    if (/\bpasso\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'pace', wet});
+    if (/\bconsum\w*\b/.test(t)) return Object.assign(r, {k: 'read_perf', what: 'cons', wet});
+  }
   if (/\b(quanto|quanta|quanti|quante|quando|quale|qual|calcola|calcolami|dimmi|dammi|avevo|servono|serve|devo)\b/.test(t)) return Object.assign(r, {k: 'question', text: raw});
   let mm = t.match(/(?:ho fatto|fatto|sono al|siamo al|siamo a|sono a)\s+(\d+)\s+giri/);
   if (mm) return Object.assign(r, {k: 'laps_done', n: +mm[1]});
@@ -1906,7 +1920,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   return r;
 }
 const vzSay = {   // come si legge a voce un tempo: "1:52.485" -> "uno, cinquantadue, quattrocentottantacinque"
-  time: s => { const m = String(s).match(/^(\d):(\d{2})\.(\d{3})$/); return m ? m[1] + ', ' + m[2] + ', ' + m[3] : s; }
+  time: s => { const m = String(s).match(/^(\d):(\d{2})\.(\d{3})$/); if (!m) return s; let ms = m[3], z = ''; while (ms.length > 1 && ms[0] === '0') { z += 'zero '; ms = ms.slice(1); } return m[1] + ', ' + m[2] + ', ' + z + parseInt(ms, 10); }
 };
 function vzCons(st) {   // consumo al giro: quello detto adesso, altrimenti quello principale salvato nell'app
   if (st.cons > 0) return st.cons;
@@ -1925,6 +1939,70 @@ function vzQuestion(p, st) {
   if (/\b(carburante|benzina|litri)\b/.test(p.norm) && m) return vzFuelAt(+m[1], st);
   return {say: 'Domanda annotata. Le risposte con calcolo le aggiungiamo nelle prossime fasi.', line: 'domanda: ' + p.text, bad: true};
 }
+const VZ_PAR = [[/\bconverg\w* anterior\w*/, 'toeF'], [/\bconverg\w* posterior\w*/, 'toeR'], [/\bcampanat\w* anterior\w*/, 'camF'], [/\bbarra (?:antirollio )?anterior\w*/, 'arbF'], [/\bbarra (?:antirollio )?posterior\w*/, 'arbR'],
+  [/\b(bilanciamento|ripartizione|bias)\b/, 'bias'], [/\b(differenziale|precarico)\b/, 'diff'], [/\b(tc|traction|controllo di trazione)\b/, 'tc1'], [/\babs\b/, 'abs'], [/\bala\b/, 'wing'], [/\b(condotti|prese)\b/, 'ducts'],
+  [/\baltezza\w* (?:da terra )?anterior\w*/, 'rhF'], [/\baltezza\w* (?:da terra )?posterior\w*/, 'rhR'], [/\bmoll\w* anterior\w*/, 'springF'], [/\bmoll\w* posterior\w*/, 'springR']];
+function vzParAlias(t) { for (const [re, k] of VZ_PAR) if (re.test(t)) return k; return null; }
+const vzNumSay = v => String(v == null ? '' : v).replace(/^[-−]\s*/, 'meno ').replace(/(\d)\.(\d)/g, '$1 virgola $2').replace(/%/g, ' per cento').replace(/\s+/g, ' ').trim();
+function vzNeed(st) { if (!A || !V) return 'Seleziona prima auto e pista nell\'app.'; return null; }
+function vzReadPar(p) {
+  const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
+  const cond = p.wet ? 'wet' : 'dry', all = engAll(), snap = setupSnap(cond), K = ENG_KEYS[p.key], ids = engIds(p.key, all);
+  if (!ids.length) return {say: K.n + ': non c\'è nel setup di questa auto.', line: K.n + ' non presente', bad: true};
+  const vals = ids.map(id => { const pr = all.find(x => x.id === id); return {n: (pr.sub ? pr.sub + ' ' : '') + pr.label, v: snap[id] == null ? '' : String(snap[id])}; });
+  const same = vals.every(x => x.v === vals[0].v), cl = p.wet ? ' bagnato' : '';
+  if (same) return {say: K.n + cl + ': ' + (vals[0].v ? vzNumSay(vals[0].v) : 'non impostata') + (vals.length > 1 ? ', uguale su tutti i lati.' : '.'), line: K.n + cl + ' = ' + (vals[0].v || '—')};
+  return {say: K.n + cl + ': ' + vals.map(x => x.n + ' ' + vzNumSay(x.v)).join(', ') + '.', line: K.n + cl + ': ' + vals.map(x => x.v || '—').join(' / ')};
+}
+function vzReadPerf(p) {
+  const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
+  const pf = DB.perf[engKey()], w = p.wet, cl = w ? 'bagnato' : 'asciutto';
+  if (!pf) return {say: 'Non ci sono dati rapidi per questa auto e pista.', line: 'nessun dato rapido', bad: true};
+  const fu = k => (pf.fu || {})[k] ? ', con ' + vzNumSay(pf.fu[k]) + ' litri' : '';
+  const one = (nm, k) => pf[k] ? {say: nm + ' ' + cl + ': ' + vzSay.time(pf[k]) + fu(k) + '.', line: nm + ' ' + cl + ' ' + pf[k] + (pf.fu && pf.fu[k] ? ' · ' + pf.fu[k] + ' L' : '')} : {say: nm + ' ' + cl + ': non salvato.', line: nm + ' ' + cl + ' non salvato', bad: true};
+  if (p.what === 'lap') return one('Giro veloce', w ? 'lapW' : 'lapD');
+  if (p.what === 'avg') return one('Media dei tre giri', w ? 'avgW' : 'avgD');
+  if (p.what === 'pace') return one('Passo gara', w ? 'paceW' : 'paceD');
+  const cs = (pf.cons || []).filter(c => c.v);
+  if (!cs.length) return {say: 'Nessun consumo salvato.', line: 'nessun consumo', bad: true};
+  return {say: 'Consumo: ' + cs.map(c => (c.map ? 'mappa ' + String(c.map).replace(/\s*\((.*?)\)?$/, ' $1') + ', ' : '') + vzNumSay(String(c.v).replace(',', '.')) + ' litri al giro').join('. '), line: 'consumo: ' + cs.map(c => (c.map || '?') + ' ' + c.v).join(' · ')};
+}
+function vzReadBrake(p) {
+  const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
+  const turns = turnsOf(), data = G && V ? DB.brakes[kk(V.id, G.id)] : null;
+  if (!turns.length) return {say: 'Questa pista non ha curve inserite.', line: 'nessuna curva', bad: true};
+  let i = -1;
+  if (p.n && p.n >= 1 && p.n <= turns.length) i = p.n - 1;
+  else if (p.name) { const tk = p.name.split(' ').filter(x => x.length > 2); i = turns.findIndex(t => tk.length && tk.every(w => vzNorm(t.n || '').includes(w))); }
+  if (i < 0) return {say: 'Quale curva? Dimmi il numero, per esempio staccata curva uno.', line: 'curva non trovata', bad: true};
+  const t = turns[i], b = data && data[t.id], nm = t.n ? t.n : 'curva ' + (i + 1);
+  if (!b || !(b.dry || b.wet)) return {say: 'Curva ' + (i + 1) + ', ' + nm + ': nessuna staccata inserita.', line: 'curva ' + (i + 1) + ' senza staccata', bad: true};
+  const txt = p.wet ? (b.wet || b.dry) : b.dry;
+  return {say: 'Curva ' + (i + 1) + (t.n ? ', ' + t.n : '') + '. Staccata ' + (p.wet ? 'bagnato: ' : 'asciutto: ') + txt + '.' + (b.note ? ' Nota: ' + b.note + '.' : ''), line: 'curva ' + (i + 1) + ' · ' + txt};
+}
+function vzNotesFor() { return (DB.notes || []).filter(n => (n.lvl === 'car' && A && n.key === A.id) || (n.lvl === 'both' && A && V && n.key === kk(A.id, V.id)) || (n.lvl === 'var' && V && n.key === V.id) || (n.lvl === 'game' && GAME && n.key === GAME.id)); }
+function vzReadNote(p) {
+  const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
+  const ns = vzNotesFor();
+  if (!ns.length) return {say: 'Non ci sono note per questa auto e pista.', line: 'nessuna nota', bad: true};
+  const q = (p.q || '').split(' ').filter(x => x.length > 2);
+  const hit = q.length ? ns.find(n => q.every(w => vzNorm(n.t).includes(w))) : null;
+  if (!hit) return {say: 'Le note sono: ' + ns.map(n => n.t).join(', ') + '. Dimmi quale leggere.', line: 'note: ' + ns.map(n => n.t).join(' · ')};
+  const body = String(hit.x || '').replace(/\n+/g, '. ').slice(0, 600);
+  return {say: hit.t + '. ' + body, line: 'nota: ' + hit.t};
+}
+function vzReadMap(p) {   // le tue note "Mappe motore": righe tipo "1-5 - qualifica" (asciutto - bagnato)
+  const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
+  const n = vzNotesFor().find(x => /mapp/i.test(x.t));
+  if (!n) return {say: 'Non trovo una nota con le mappe motore.', line: 'nota mappe non trovata', bad: true};
+  for (const ln of String(n.x || '').split('\n')) {
+    const m = ln.trim().match(/^(\d+)(?:\s*-\s*(\d+))?\s*-\s*(.+)$/);
+    if (!m) continue;
+    if (+m[1] === p.n) return {say: 'Mappa ' + p.n + (m[2] ? ', asciutto' : '') + ': ' + m[3] + '.', line: 'mappa ' + p.n + ' · ' + m[3]};
+    if (m[2] && +m[2] === p.n) return {say: 'Mappa ' + p.n + ', bagnato: ' + m[3] + '.', line: 'mappa ' + p.n + ' (bagnato) · ' + m[3]};
+  }
+  return {say: 'La mappa ' + p.n + ' non è nelle tue note.', line: 'mappa ' + p.n + ' non trovata', bad: true};
+}
 function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo). Fase 1: non scrive niente nell'app.
   switch (p.k) {
     case 'stop': return {say: 'Chiudo.', stop: true, line: 'stop'};
@@ -1940,6 +2018,12 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'sc_off': st.sc = false; return {say: 'Via libera. Riprendo i conti.', line: 'via libera'};
     case 'cons': st.cons = p.v; return {say: 'Consumo ' + String(p.v).replace('.', ',') + ' litri al giro.', line: 'consumo ' + p.v + ' L/giro'};
     case 'question': return vzQuestion(p, st);
+    case 'read_par': return vzReadPar(p);
+    case 'read_perf': return vzReadPerf(p);
+    case 'read_brake': return vzReadBrake(p);
+    case 'read_note': return vzReadNote(p);
+    case 'read_map': return vzReadMap(p);
+    case 'help': return {say: 'Posso dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
     case 'fuel': if (p.start) st.fuelStart = p.v; else st.fuelNow = p.v; return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
     case 'temp': return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
