@@ -1898,7 +1898,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/semaforo verde/.test(t)) return Object.assign(r, {k: 'race_start'});
   if (/fine stint/.test(t)) return Object.assign(r, {k: 'stint_end'});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
-  const askW = /\b(qual|quale|quanto|quanta|quanti|dimmi|dammi|leggi|leggimi|ricordami|ricordo|che|valore)\b/.test(t) || (!/\d/.test(t) && t.split(' ').length <= 5);
+  const askW = /\b(qual|quale|quanto|quanta|quanti|dimmi|dammi|leggi|leggimi|ricordami|ricordo|che|valore)\b/.test(t) || (!/\d/.test(t.replace(/\b(dei |di |de )?(3|tre) (giri|migliori)( migliori)?\b/g, ' ')) && t.split(' ').length <= 5);
   if (/\b(aiuto|comandi|cosa sai fare|cosa puoi fare)\b/.test(t)) return Object.assign(r, {k: 'help'});
   if (/\bstaccat\w*\b/.test(t)) { const n = t.match(/\b(\d+)\b/); return Object.assign(r, {k: 'read_brake', n: n ? +n[1] : null, wet: /\b(bagnato|pioggia)\b/.test(t), name: t.replace(/\b(staccata|staccate|della|alla|a|di|dimmi|qual|e|la|il|curva|leggimi|\d+)\b/g, ' ').replace(/\s+/g, ' ').trim()}); }
   if (/\bmappa\b/.test(t) && !/\bconsumo\b/.test(t)) { const n = t.match(/\b(\d+)\b/); if (n) return Object.assign(r, {k: 'read_map', n: +n[1]}); }
