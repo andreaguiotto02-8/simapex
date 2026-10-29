@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.34.2';   // versione dell'app
+const APP_V = '0.35';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2102,13 +2102,18 @@ function vzConfirmSay(st) {
   const c = st.confirm, ev = c.env || {air: st.air, road: st.road}, tmp = ev.air || ev.road ? 'Temperature: ' + (ev.air ? 'aria ' + vzNumSay(ev.air) : '') + (ev.air && ev.road ? ', ' : '') + (ev.road ? 'pista ' + vzNumSay(ev.road) : '') + '.' : 'Senza temperature: dimmele se vuoi.';
   return tmp + ' Salvo ' + c.name + ' nello storico?';
 }
+function vzSlow(st) {   // giri oltre il 107% del migliore (uscita dai box, rallentati): non entrano in media e passo
+  const ok = st.laps.filter(x => !x.dirty && !x.odd && paceP(x.t) != null); if (!ok.length) return [];
+  const b = Math.min(...ok.map(x => paceP(x.t))); return ok.filter(x => paceP(x.t) > b * 1.07);
+}
 function vzTestEnd(st, type, wet, range) {
-  const t = type ? {type, wet: !!wet} : st.test, clean = st.laps.filter(x => !x.dirty && !x.odd), cond = t.wet ? 'wet' : 'dry', pf = DB.perf[engKey()] || {};
+  const t = type ? {type, wet: !!wet} : st.test, slow = (type || st.test.type !== 'lap') ? vzSlow(st) : [], clean = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x)), cond = t.wet ? 'wet' : 'dry', pf = DB.perf[engKey()] || {};
   const end = (c, text, line) => { st.test = null; st.ask = null; c.env = vzEnv(c.sel || clean, st); delete c.sel; st.confirm = c; return {say: text + ' ' + vzConfirmSay(st), line, keep: true}; };
   const cmp = (val, key) => { const b = pf[key]; if (!b) return ' Non hai ancora un valore salvato.'; const d = paceP(val) - paceP(b); return ' ' + vzDiffSay(d, 'del valore salvato'); };
   if (t.type === 'cons') {
     const m = String(st.map || ''), first = st.laps[0], rd = (st.fuelLog || []).filter(x => !m || !x.map || String(x.map) === m);   // solo le letture fatte con questa mappa
-    if (st.fuelStart > 0 && !(first && first.dirty) && (!m || !first || first.map == null || String(first.map) === m)) rd.unshift   // se il primo giro è sporco (uscita dai box) non lo uso come base({lap: 0, fuel: st.fuelStart});
+    // se il primo giro è sporco o lento (uscita dai box) non uso la benzina di partenza come base
+    if (st.fuelStart > 0 && !(first && (first.dirty || vzSlow(st).includes(first))) && (!m || !first || first.map == null || String(first.map) === m)) rd.unshift({lap: 0, fuel: st.fuelStart});
     const a = rd[0], b = rd[rd.length - 1];
     if (!a || !b || !(b.lap > a.lap) || !(a.fuel > b.fuel)) { st.test = null; st.ask = null; return {say: 'Mi servono almeno due letture della benzina su giri diversi. Test chiuso senza salvare.', line: 'consumo: dati insufficienti', bad: true}; }
     const v = ((a.fuel - b.fuel) / (b.lap - a.lap)).toFixed(2), old = (pf.cons || []).find(x => String(x.map).split(' ')[0] === String(st.map));
@@ -2171,7 +2176,7 @@ function vzBoxRead() {
 }
 function vzBox() {
   const st = vzSt(), L = st.laps || [];
-  const rows = L.map((l, i) => `<div class="row2" style="align-items:center"><b>Giro ${esc(l.n)}</b><span style="flex:1">${esc(l.t)}${l.map ? ' <span class="meta">mappa ' + esc(l.map) + '</span>' : ''}${l.road ? ' <span class="meta">pista ' + esc(l.road) + '°</span>' : ''}${l.dirty ? ' <span class="meta">sporco</span>' : ''}${l.odd ? ' <span class="meta">anomalo</span>' : ''}</span><button class="sec2" data-act="vzbdirty" data-i="${i}" style="flex:none">${l.dirty || l.odd ? 'Riammetti' : 'Sporco'}</button><button class="x" data-act="vzbdel" data-i="${i}" aria-label="Elimina giro">✕</button></div>`).join('');
+  const rows = L.map((l, i) => `<div class="row2" style="align-items:center"><b>Giro ${esc(l.n)}</b><span style="flex:1">${esc(l.t)}${l.map ? ' <span class="meta">mappa ' + esc(l.map) + '</span>' : ''}${l.road ? ' <span class="meta">pista ' + esc(l.road) + '°</span>' : ''}${l.dirty ? ' <span class="meta">sporco</span>' : ''}${l.odd ? ' <span class="meta">anomalo</span>' : (vzSlow(st).includes(l) ? ' <span class="meta">lento: non conta in media e passo</span>' : '')}</span><button class="sec2" data-act="vzbdirty" data-i="${i}" style="flex:none">${l.dirty || l.odd ? 'Riammetti' : 'Sporco'}</button><button class="x" data-act="vzbdel" data-i="${i}" aria-label="Elimina giro">✕</button></div>`).join('');
   const fl = (st.fuelLog || []).map(x => 'giro ' + x.lap + ': ' + x.fuel + ' ' + fuelU()).join(' · ');
   const fe = (st.feel || []).map(x => `<div class="gi"><b>${x.lap ? 'Giro ' + esc(x.lap) : 'Sensazione'}</b><p>${esc(x.text)}</p></div>`).join('');
   const b = (t, w, l) => `<button class="sec2" data-act="vzbcalc" data-t="${t}" data-w="${w}">${l}</button>`;
@@ -2186,7 +2191,7 @@ function vzBox() {
     <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
     ${(st.junk || []).length ? `<h3>Frasi non capite (${st.junk.length})</h3>${st.junk.map(j => `<div class="gi"><b>«${esc(j.text)}»</b><p class="meta">${j.lap ? 'dopo il giro ' + esc(j.lap) : 'prima del primo giro'}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbjclr">Cancella l'elenco</button></div>` : ''}
     <h3>Benzina rimasta</h3>
-    ${(st.fuelLog || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: <b>${esc(x.fuel)}</b> ${esc(fuelU())}${x.map ? ' <span class="meta">mappa ' + esc(x.map) + '</span>' : ''}</span><button class="x" data-act="vzbfdel" data-i="${i}" aria-label="Elimina lettura">✕</button></div>`).join('') || '<div class="empty">Nessuna lettura.</div>'}
+    ${(st.fuelLog || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: <b>${esc(x.fuel)}</b> ${esc(fuelU())}${x.was ? ' <span class="meta">(detto ' + esc(x.was) + ', corretto)</span>' : ''}${x.map ? ' <span class="meta">mappa ' + esc(x.map) + '</span>' : ''}</span><button class="x" data-act="vzbfdel" data-i="${i}" aria-label="Elimina lettura">✕</button></div>`).join('') || '<div class="empty">Nessuna lettura.</div>'}
     <div class="zg"><label class="f">Dopo il giro n°<input id="bxFN" inputmode="numeric" autocomplete="off"></label><label class="f">Benzina rimasta<input id="bxFV" inputmode="decimal" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbfadd">Aggiungi lettura</button></div>
     ${fe ? `<h3>Sensazioni</h3>${fe}` : ''}
@@ -2254,7 +2259,25 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
     case 'sess_reset': st.laps = []; st.fuelLog = []; st.feel = []; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
-    case 'fuel': if (p.start) st.fuelStart = p.v; else { st.fuelNow = p.v; if (!st.laps.length && !(st.fuelStart > 0)) st.fuelStart = p.v; else if (st.pendLap || st.lapNo) { const ln = st.pendLap || st.lapNo; st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== ln); st.fuelLog.push({lap: ln, fuel: p.v, map: st.map}); } } return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
+    case 'fuel': {
+      if (p.start) { st.fuelStart = p.v; return {say: 'Carburante di partenza ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
+      st.fuelNow = p.v;
+      if (!st.laps.length && !(st.fuelStart > 0)) { st.fuelStart = p.v; return {say: 'Carburante ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
+      const ln = st.pendLap || st.lapNo;
+      if (!ln) return {say: 'Carburante ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina ' + p.v + ' L'};
+      const prior = (st.fuelLog || []).filter(x => x.lap < ln).sort((a, b) => b.lap - a.lap)[0] || (st.fuelStart > 0 ? {lap: 0, fuel: st.fuelStart} : null);
+      let v = p.v, note = '';
+      if (prior) {   // controllo che sia credibile: la benzina scende, di 1-6 litri a giro
+        const d = Math.max(1, ln - prior.lap), ok = x => x <= prior.fuel + 0.3 && prior.fuel - x <= 7 * d;
+        if (!ok(v)) {
+          const c = []; for (let k = 1; k <= 9; k++) { const x = Math.round((v + 10 * k) * 10) / 10; if (prior.fuel - 6 * d <= x && x <= prior.fuel - 1 * d) c.push(x); }
+          if (c.length === 1) { note = ' (ho sentito ' + String(p.v).replace('.', ',') + ')'; v = c[0]; st.fuelFix = (st.fuelFix || 0) + 1; }
+          else { st.junk = (st.junk || []).concat([{text: 'benzina ' + p.v + ' (non credibile dopo ' + prior.fuel + ')', lap: ln}]).slice(-30); return {say: 'Benzina non credibile, non la segno.', line: 'benzina ' + p.v + ' L scartata (prima ' + prior.fuel + ')', bad: true}; }
+        }
+      }
+      st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== ln); st.fuelLog.push(Object.assign({lap: ln, fuel: v, map: st.map}, note ? {was: p.v} : {}));
+      return {say: 'Carburante ' + String(v).replace('.', ',') + ' litri' + note + '.', line: 'benzina ' + v + ' L' + note};
+    }
     case 'temp': st[p.kind === 'aria' ? 'air' : 'road'] = p.v; if (st.confirm) return {say: 'Ok, ' + p.kind + ' ' + String(p.v).replace('.', ',') + '. ' + vzConfirmSay(st), line: 'temp. ' + p.kind + ' ' + p.v + ' °C'}; return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
@@ -2332,6 +2355,8 @@ function vzListen() {
 function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} }
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
+  const two = vzNorm(raw).match(/^(.*\d.*?)\s+(?:benzina |carburante )?(\d+(?:\.\d+)?) ?(?:l|litri)$/);   // "152 e 509 35,2 l" = tempo + benzina
+  if (two && !/\b(partenza|iniziale|inizio)\b/.test(two[1]) && ['lap_time', 'tpart', 'lap_only'].includes(vzParse(two[1], {pendLap: vz.st.pendLap, pendT: !!vz.st.pendT}).k)) { vzHandle0(two[1]); return vzHandle0(two[2] + ' litri'); }
   let p = vzParse(raw, {pendLap: vz.st.pendLap, pendT: !!(vz.st.pendT && vz.st.pendT.m != null && vz.st.pendT.s != null && Date.now() - vz.st.pendT.at < 60000)}), rep;
   const ask = vz.st.ask, nums = vzNorm(raw).match(/\b\d+(?:\.\d+)?\b/g);
   if (ask && ask.fn) {
