@@ -220,7 +220,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.38';   // versione dell'app
+const APP_V = '0.39';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1327,7 +1327,7 @@ function fuelCalc() {
   if (!(start > 0)) return toast('Scrivi la benzina di partenza');
   if (!(cons > 0)) return toast('Scrivi il consumo al giro');
   UI.cStart = $('cStart').value.trim();
-  const at = n => start - (n - 0.5) * cons, wet = $('cCond').value === 'W', out = [];
+  const at = n => start - (n - 1) * cons, wet = $('cCond').value === 'W', out = [];
   const put = (id, v, name) => {
     if (!$(id)) return;
     if (v < 0) { out.push(name + ': numeri non validi (negativo)'); return; }
@@ -1370,7 +1370,7 @@ function drawPerf() {
     <div id="clist" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">${rows || '<div class="empty">Nessuna prova.</div>'}</div>
     <div class="btns"><button class="sec2" data-act="pfadd">+ Prova di consumo</button></div>` : ''}
     ${showLap || showPace ? `<details class="calc"><summary>Calcola il carburante dai giri</summary>
-      <p class="meta">Scrivi la benzina di partenza e i numeri dei giri (contando anche il giro di uscita dai box): calcolo i litri a metà giro con il consumo qui sotto e li inserisco nei campi del carburante. È una stima, precisa a 1-3 litri.</p>
+      <p class="meta">Scrivi la benzina di partenza e i numeri dei giri (contando anche il giro di uscita dai box): calcolo i litri a inizio giro con il consumo qui sotto e li inserisco nei campi del carburante. È una stima, precisa a 1-3 litri.</p>
       <div class="zg"><label class="f">Benzina di partenza (${esc(fuelU())})<input id="cStart" inputmode="decimal" value="${esc(UI.cStart || '')}" autocomplete="off"></label>
       <label class="f">Consumo al giro (${esc(fuelU())})<input id="cCons" inputmode="decimal" value="${esc(calcCons(p))}" autocomplete="off"></label>
       <label class="f full">Condizione dei tempi<select id="cCond"><option value="D">Asciutto</option><option value="W">Bagnato</option></select></label>
@@ -1979,13 +1979,13 @@ function vzCons(st) {   // consumo al giro: quello detto adesso, altrimenti quel
   if (st.cons > 0) return st.cons;
   try { const c = parseFloat(calcCons(DB.perf[engKey()] || {cons: []})); return c > 0 ? c : 0; } catch (_) { return 0; }
 }
-function vzFuelAt(n, st) {   // litri a metà del giro n: se manca qualcosa, lo chiede
+function vzFuelAt(n, st) {   // litri a inizio del giro n: se manca qualcosa, lo chiede
   if (!(st.fuelStart > 0)) { st.ask = {need: 'fuelStart', lap: n}; return {say: 'Quanta benzina avevi alla partenza?', line: 'carburante al giro ' + n + ' · mi serve la benzina di partenza'}; }
   const c = vzCons(st);
   if (!(c > 0)) { st.ask = {need: 'cons', lap: n}; return {say: 'Quanto consumi al giro?', line: 'carburante al giro ' + n + ' · mi serve il consumo'}; }
-  const v = st.fuelStart - (n - 0.5) * c;
+  const v = st.fuelStart - (n - 1) * c;
   if (v < 0) return {say: 'Il conto viene negativo: controlla benzina di partenza e consumo.', line: 'conto non valido', bad: true};
-  return {say: 'A metà del giro ' + n + ' avevi circa ' + Math.round(v) + ' litri.', line: 'giro ' + n + ' · circa ' + Math.round(v) + ' L (partenza ' + st.fuelStart + ', ' + String(c).replace('.', ',') + ' L/giro)'};
+  return {say: 'All\'inizio del giro ' + n + ' avevi circa ' + Math.round(v) + ' litri.', line: 'giro ' + n + ' · circa ' + Math.round(v) + ' L (partenza ' + st.fuelStart + ', ' + String(c).replace('.', ',') + ' L/giro)'};
 }
 function vzQuestion(p, st) {
   const m = p.norm.match(/giro (\d+)/);
@@ -2081,13 +2081,13 @@ const VZ_TK = {lap: ['lapD', 'lapW', 'Giro veloce'], avg: ['avgD', 'avgW', 'Medi
 const vzDiffSay = (d, ref) => Math.abs(d) < 0.005 ? 'Pari ' + ref + '.' : vzNumSay(Math.abs(d).toFixed(2)) + ' secondi ' + (d < 0 ? 'più veloce' : 'più lento') + ' ' + ref + '.';
 function vzNumAsk(st, fn) { st.ask = {fn: (raw, q, nums) => (nums && ['fuel', 'unknown', 'partial'].includes(q.k)) ? fn(parseFloat(nums[0]), nums) : null}; }
 function vzSavedLap(st) { const pf = DB.perf[engKey()], v = pf && pf[st.test.wet ? 'lapW' : 'lapD']; return v ? paceP(v) : null; }
-function vzFuelEst(n, st) {   // litri a metà del giro n, dalle letture della benzina (partenza + giri) e dal consumo
+function vzFuelEst(n, st) {   // litri a inizio del giro n (= fine del giro prima), dalle letture della benzina (partenza + giri) e dal consumo
   const rd = (st.fuelLog || []).slice(); if (st.fuelStart > 0) rd.unshift({lap: 0, fuel: st.fuelStart});
   if (!rd.length) return null;
   let cc = vzCons(st);
   if (rd.length >= 2) { const a = rd[0], b = rd[rd.length - 1]; if (b.lap > a.lap && a.fuel > b.fuel) cc = (a.fuel - b.fuel) / (b.lap - a.lap); }
   if (!(cc > 0)) return null;
-  const m = n - 0.5, r = rd.reduce((b, x) => Math.abs(x.lap - m) < Math.abs(b.lap - m) ? x : b, rd[0]), v = r.fuel - (m - r.lap) * cc;
+  const m = n - 1, r = rd.reduce((b, x) => Math.abs(x.lap - m) < Math.abs(b.lap - m) ? x : b, rd[0]), v = r.fuel - (m - r.lap) * cc;
   return v > 0 ? Math.round(v) : null;
 }
 function vzTestStart(p, st) {
@@ -2125,6 +2125,18 @@ function vzSlow(st) {   // giri oltre il 107% del migliore (uscita dai box, rall
   const ok = st.laps.filter(x => !x.dirty && !x.odd && paceP(x.t) != null); if (!ok.length) return [];
   const b = Math.min(...ok.map(x => paceP(x.t))); return ok.filter(x => paceP(x.t) > b * 1.07 && !x.ok);
 }
+function vzConsMaps(st) {   // consumo per mappa dalle letture: giro n = benzina a fine giro n-1 meno benzina a fine giro n (solo giri puliti)
+  const rd = {}; if (st.fuelStart > 0) rd[0] = st.fuelStart; (st.fuelLog || []).forEach(x => { rd[x.lap] = x.fuel; });
+  const slow = vzSlow(st), out = {};
+  (st.laps || []).forEach(l => {
+    if (l.dirty || l.odd || slow.includes(l)) return;
+    const a = rd[l.n - 1], b = rd[l.n]; if (!(a > 0) || !(b >= 0)) return;
+    const d = a - b; if (!(d > 0.3 && d < 8)) return;
+    const m = String(l.map != null ? l.map : (st.map != null ? st.map : '')); if (!m) return;
+    (out[m] = out[m] || []).push({n: l.n, d});
+  });
+  return out;
+}
 function vzTestEnd(st, type, wet, range) {
   const t = type ? {type, wet: !!wet} : st.test, slow = (type || st.test.type !== 'lap') ? vzSlow(st) : [], clean = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x)), cond = t.wet ? 'wet' : 'dry', pf = DB.perf[engKey()] || {};
   const end = (c, text, line) => { st.test = null; st.ask = null; c.env = vzEnv(c.sel || clean, st); delete c.sel; st.confirm = c; return {say: text + ' ' + vzConfirmSay(st), line, keep: true}; };
@@ -2152,7 +2164,7 @@ function vzTestEnd(st, type, wet, range) {
   // passo gara
   const paceRes = (sel, q) => {
     if (!sel.length) return {say: 'Non ho giri validi in quell\'intervallo.', line: 'passo: intervallo vuoto', bad: true, again: true};
-    const v = vzFmt(sel.reduce((m, x) => m + paceP(x.t), 0) / sel.length), mid = sel[Math.floor(sel.length / 2)], f = vzFuelEst(mid.n, st);
+    const v = vzFmt(sel.reduce((m, x) => m + paceP(x.t), 0) / sel.length), fp = sel.map(x => vzFuelEst(x.n, st)).filter(x => x != null), f = fp.length ? Math.round(fp.reduce((m, x) => m + x, 0) / fp.length) : null;
     return end({k: key, val: v, fuel: f, wet: t.wet, name: 'il passo gara', sel}, 'Passo gara ' + vzSay.time(v) + ' su ' + sel.length + ' giri' + (f ? ', con circa ' + f + ' litri' : '') + '.' + cmp(v, key), 'passo gara ' + v + ' su ' + sel.length + ' giri' + (f ? ' · ' + f + ' L' : ''));
   };
   if (range) return paceRes(range === 'all' ? clean : clean.filter(x => x.n >= range.a && x.n <= range.b));
@@ -2177,7 +2189,7 @@ function vzHelp() {
     <h3>Prima di partire</h3>
     <div class="gi"><p><b>«Partenza 80 litri»</b><br><b>«Mappa 2»</b><br><b>«Temperatura pista 31»</b><br><b>«Temperatura aria 24»</b></p></div>
     <h3>A ogni giro</h3>
-    <div class="gi"><p><b>«Giro 7, uno cinquantadue quattrocentottantacinque»</b><br>Il numero del giro si può saltare: dì solo il tempo.<br><b>«Benzina 74»</b> (facoltativo, dopo il tempo: serve per il consumo)<br><b>«Pressioni 27,1 27,4 26,9 27,0»</b>: a caldo, nell'ordine anteriore sinistra, anteriore destra, posteriore sinistra, posteriore destra. Oppure una sola: <b>«pressione anteriore destra 27,3»</b></p></div>
+    <div class="gi"><p><b>«Giro 7, uno cinquantadue quattrocentottantacinque»</b><br>Il numero del giro si può saltare: dì solo il tempo.<br><b>«Benzina 74»</b> (dopo il tempo, a fine giro: è la benzina a inizio del giro dopo. Se la dici a ogni giro, l'app ricava da sola il consumo per mappa)<br><b>«Pressioni 27,1 27,4 26,9 27,0»</b>: a caldo, nell'ordine anteriore sinistra, anteriore destra, posteriore sinistra, posteriore destra. Oppure una sola: <b>«pressione anteriore destra 27,3»</b></p></div>
     <h3>Quando succede qualcosa</h3>
     <div class="gi"><p><b>«Giro sporco»</b>: esci di pista, il giro non conta<br><b>«Annulla»</b>: toglie l'ultimo giro detto male<br><b>«Mappa 4»</b>: se la cambi, vale dal giro dopo<br><b>«Temperatura pista 33»</b>: se cambia<br>Una frase normale, per esempio <b>«sottosterzo in uscita dalla prima variante»</b>: la segna con il numero del giro</p></div>
     <h3>Alla fine</h3>
@@ -2229,6 +2241,9 @@ function vzBox() {
       <label class="f">Mappa del consumo<input id="bxMap" inputmode="numeric" value="${esc(st.map || '')}" autocomplete="off"></label>
       <label class="f">Temp. aria (°C)<input id="bxAir" inputmode="decimal" value="${esc(st.air || '')}" autocomplete="off"></label>
       <label class="f">Temp. pista (°C)<input id="bxRoad" inputmode="decimal" value="${esc(st.road || '')}" autocomplete="off"></label></div>
+    ${(() => { const cm = vzConsMaps(st), ks = Object.keys(cm); if (!ks.length) return ''; const pf = DB.perf[engKey()] || {};
+      return '<h3>Consumo per mappa</h3><p class="meta">Dalle letture della benzina: litri persi in ogni giro pulito. Non salvo finché non tocchi il pulsante: il nuovo valore si unisce a quello già salvato, pesato sul numero di giri.</p>' + ks.map(m => { const v = cm[m], avg = v.reduce((t, x) => t + x.d, 0) / v.length, o = (pf.cons || []).find(x => String(x.map).split(' ')[0] === m);
+        return `<div class="gi"><b>Mappa ${esc(m)}: ${avg.toFixed(2).replace('.', ',')} ${esc(fuelU())}/giro</b><p class="meta">su ${v.length} giri (${v.map(x => x.n).join(', ')})${o ? ' · salvato ora: ' + esc(String(o.v).replace('.', ',')) : ' · non ancora salvato'}</p><div class="btns"><button class="sec2" data-act="vzbcons" data-m="${esc(m)}">${o ? 'Aggiorna' : 'Salva'} consumo mappa ${esc(m)}</button></div></div>`; }).join(''); })()}
     <h3>Aggiungi un giro a mano</h3>
     <div class="zg"><label class="f">Giro n°<input id="bxN" inputmode="numeric" autocomplete="off"></label><label class="f">Tempo<input id="bxT" placeholder="1:52.485" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
@@ -3296,6 +3311,15 @@ const ACT = {
     vzBoxRead(); const st = vzSt(), t = b.dataset.t; st.confirm = null;
     let range; if (t === 'pace') { const a = parseInt($('bxA').value, 10), z = parseInt($('bxB').value, 10); range = a > 0 && z >= a ? {a, b: z} : 'all'; }
     const r = vzTestEnd(st, t, b.dataset.w === '1', range); vzPersist(); vzBoxShow(r);
+  },
+  vzbcons: b => {
+    vzBoxRead(); const st = vzSt(), m = b.dataset.m, v = (vzConsMaps(st)[m] || []); if (!v.length) return;
+    const avg = v.reduce((t, x) => t + x.d, 0) / v.length, key = engKey(); let p = DB.perf[key];
+    if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now()};
+    p.cons = p.cons || []; const o = p.cons.find(x => String(x.map).split(' ')[0] === m), w = o ? (o.n || 3) : 0, ov = o ? parseFloat(String(o.v).replace(',', '.')) : 0;
+    const nv = o && ov > 0 ? (ov * w + avg * v.length) / (w + v.length) : avg, val = nv.toFixed(2);
+    if (o) { o.v = val; o.n = w + v.length; } else p.cons.push({map: m, v: val, n: v.length, main: !p.cons.length});
+    histAdd('cons', val, o ? o.map : m, 'Dalle letture della sessione (' + v.length + ' giri)'); p.u = now(); save(); render(); vzBox(); toast('Consumo mappa ' + m + ': ' + val);
   },
   vzbsave: () => { const st = vzSt(), c = st.confirm; if (!c) return; vzTestSave(st); st.confirm = null; vzPersist(); const el = $('vzbRes'); if (el) el.innerHTML = '<div class="gi"><p><b>Salvato nello storico.</b> Dati rapidi restano sul tuo migliore.</p></div>'; },
   vzbno: () => { vzSt().confirm = null; const el = $('vzbRes'); if (el) el.innerHTML = '<div class="meta">Non salvato.</div>'; },
