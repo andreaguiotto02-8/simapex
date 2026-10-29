@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.30';   // versione dell'app
+const APP_V = '0.30.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1839,7 +1839,7 @@ function vzNumMap() {   // parole italiane -> numero (0-999), generate una volta
 }
 function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
   let t = String(raw || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  t = t.replace(/°/g, ' gradi ').replace(/(\d)\s*[:.,]\s*(\d)/g, '$1.$2').replace(/[^a-z0-9.\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/([a-z])(\d)/g, '$1 $2').replace(/(\d)([a-z])/g, '$1 $2').replace(/°/g, ' gradi ').replace(/(\d)\s*[:.,]\s*(\d)/g, '$1.$2').replace(/[^a-z0-9.\s]/g, ' ').replace(/\s+/g, ' ').trim();
   t = t.replace(/\b(venne|vene|fin|fine) ?stin[a-z]*\b/g, 'fine stint').replace(/\bgira\b/g, 'giro').replace(/\bvarianza\b/g, 'variante').replace(/\bbandiera verde\b/g, 'semaforo verde').replace(/\bsemaforo verdi?\b/g, 'semaforo verde').replace(/\bgiro sporgo\b/g, 'giro sporco');
   const M = vzNumMap(), out = [];
   t.split(' ').forEach(w => {
@@ -1855,7 +1855,7 @@ function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
     }
     res.push(typeof x === 'object' ? {n: x.n} : x);
   });
-  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ');
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2');
 }
 function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
   let m, ss, ms;
@@ -1877,12 +1877,16 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\bannulla\b/.test(t) && words.length <= 3) return Object.assign(r, {k: 'cancel'});
   if (words.length <= 3 && /\b(si|ok|okay|vai|salva|conferma|certo)\b/.test(t)) return Object.assign(r, {k: 'yes'});
   if (words.length <= 3 && /\b(no|scarta|niente)\b/.test(t)) return Object.assign(r, {k: 'no'});
+  if (/\b(via libera|fine safety|safety car finita|ripartenza|ripartiamo)\b/.test(t)) return Object.assign(r, {k: 'sc_off'});
+  if (/safety ?car/.test(t)) return Object.assign(r, {k: 'sc_on'});
   if (/semaforo verde/.test(t)) return Object.assign(r, {k: 'race_start'});
   if (/fine stint/.test(t)) return Object.assign(r, {k: 'stint_end'});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
+  if (/\b(quanto|quanta|quanti|quante|quando|quale|qual|calcola|calcolami|dimmi|dammi|avevo|servono|serve|devo)\b/.test(t)) return Object.assign(r, {k: 'question', text: raw});
   let mm = t.match(/(?:ho fatto|fatto|sono al|siamo al|siamo a|sono a)\s+(\d+)\s+giri/);
   if (mm) return Object.assign(r, {k: 'laps_done', n: +mm[1]});
   const dec = t.match(/\b\d+(?:\.\d+)?\b/g) || [];
+  if (/\bconsumo\b/.test(t) && dec.length) return Object.assign(r, {k: 'cons', v: parseFloat(dec[0])});
   if (/\b(carburante|benzina|serbatoio|litri)\b/.test(t) && dec.length && !/\bgiro\b/.test(t)) return Object.assign(r, {k: 'fuel', v: parseFloat(dec[0]), start: /partenza|iniziale|inizio|parto|partiti/.test(t)});
   if (/\b(temperatura|temp)\b/.test(t) && dec.length) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: /\baria\b/.test(t) ? 'aria' : 'pista'});
   // giro e tempo
@@ -1904,6 +1908,23 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
 const vzSay = {   // come si legge a voce un tempo: "1:52.485" -> "uno, cinquantadue, quattrocentottantacinque"
   time: s => { const m = String(s).match(/^(\d):(\d{2})\.(\d{3})$/); return m ? m[1] + ', ' + m[2] + ', ' + m[3] : s; }
 };
+function vzCons(st) {   // consumo al giro: quello detto adesso, altrimenti quello principale salvato nell'app
+  if (st.cons > 0) return st.cons;
+  try { const c = parseFloat(calcCons(DB.perf[engKey()] || {cons: []})); return c > 0 ? c : 0; } catch (_) { return 0; }
+}
+function vzFuelAt(n, st) {   // litri a metà del giro n: se manca qualcosa, lo chiede
+  if (!(st.fuelStart > 0)) { st.ask = {need: 'fuelStart', lap: n}; return {say: 'Quanta benzina avevi alla partenza?', line: 'carburante al giro ' + n + ' · mi serve la benzina di partenza'}; }
+  const c = vzCons(st);
+  if (!(c > 0)) { st.ask = {need: 'cons', lap: n}; return {say: 'Quanto consumi al giro?', line: 'carburante al giro ' + n + ' · mi serve il consumo'}; }
+  const v = st.fuelStart - (n - 0.5) * c;
+  if (v < 0) return {say: 'Il conto viene negativo: controlla benzina di partenza e consumo.', line: 'conto non valido', bad: true};
+  return {say: 'A metà del giro ' + n + ' avevi circa ' + Math.round(v) + ' litri.', line: 'giro ' + n + ' · circa ' + Math.round(v) + ' L (partenza ' + st.fuelStart + ', ' + String(c).replace('.', ',') + ' L/giro)'};
+}
+function vzQuestion(p, st) {
+  const m = p.norm.match(/giro (\d+)/);
+  if (/\b(carburante|benzina|litri)\b/.test(p.norm) && m) return vzFuelAt(+m[1], st);
+  return {say: 'Domanda annotata. Le risposte con calcolo le aggiungiamo nelle prossime fasi.', line: 'domanda: ' + p.text, bad: true};
+}
 function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo). Fase 1: non scrive niente nell'app.
   switch (p.k) {
     case 'stop': return {say: 'Chiudo.', stop: true, line: 'stop'};
@@ -1915,7 +1936,11 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'stint_end': return {say: 'Fine stint. Giri contati: ' + st.laps.length + '.', line: 'fine stint · giri: ' + st.laps.length};
     case 'lap_dirty': { const l = st.laps[st.laps.length - 1]; if (l) l.dirty = true; return {say: 'Giro sporco, lo escludo.', line: 'giro sporco' + (l ? ' (giro ' + l.n + ')' : '')}; }
     case 'laps_done': st.lapNo = p.n; return {say: p.n + ' giri fatti.', line: p.n + ' giri fatti'};
-    case 'fuel': return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
+    case 'sc_on': st.sc = true; return {say: 'Safety car. Metto in pausa i conti. In questa prova non fa altro.', line: 'safety car'};
+    case 'sc_off': st.sc = false; return {say: 'Via libera. Riprendo i conti.', line: 'via libera'};
+    case 'cons': st.cons = p.v; return {say: 'Consumo ' + String(p.v).replace('.', ',') + ' litri al giro.', line: 'consumo ' + p.v + ' L/giro'};
+    case 'question': return vzQuestion(p, st);
+    case 'fuel': if (p.start) st.fuelStart = p.v; else st.fuelNow = p.v; return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
     case 'temp': return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
@@ -1979,7 +2004,12 @@ function vzListen() {
 }
 function vzHandle(raw) {
   const vz = UI.vz; if (!vz) return;
-  const p = vzParse(raw, {pendLap: vz.st.pendLap}), rep = vzReply(p, vz.st);
+  let p = vzParse(raw, {pendLap: vz.st.pendLap}), rep;
+  const ask = vz.st.ask, nums = vzNorm(raw).match(/\b\d+(?:\.\d+)?\b/g);
+  if (ask && nums && !['stop', 'cancel'].includes(p.k)) {   // sta rispondendo a una domanda dell'ingegnere
+    vz.st.ask = null; vz.st[ask.need] = parseFloat(nums[0]);
+    p = {k: 'answer', norm: vzNorm(raw)}; rep = vzFuelAt(ask.lap, vz.st);
+  } else { if (ask && (p.k === 'cancel' || p.k === 'no')) vz.st.ask = null; rep = vzReply(p, vz.st); }
   vz.heard = raw; vz.log.unshift({heard: raw, norm: p.norm, k: p.k, line: rep.line, bad: !!rep.bad});
   vz.log = vz.log.slice(0, 40);
   if (rep.stop) { vzDraw(); return setTimeout(vzStop, 1200); }
