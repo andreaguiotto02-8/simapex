@@ -211,7 +211,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.32';   // versione dell'app
+const APP_V = '0.32.1';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2163,7 +2163,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_note': return vzReadNote(p);
     case 'read_map': return vzReadMap(p);
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
-    case 'fuel': if (p.start) st.fuelStart = p.v; else st.fuelNow = p.v; return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
+    case 'fuel': if (p.start) st.fuelStart = p.v; else { st.fuelNow = p.v; if (st.test && st.lapNo) { st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== st.lapNo); st.fuelLog.push({lap: st.lapNo, fuel: p.v}); } } return {say: (p.start ? 'Carburante di partenza ' : 'Carburante ') + String(p.v).replace('.', ',') + ' litri.', line: (p.start ? 'benzina di partenza ' : 'benzina ') + p.v + ' L'};
     case 'temp': st[p.kind === 'aria' ? 'air' : 'road'] = p.v; if (st.confirm) return {say: 'Ok, ' + p.kind + ' ' + String(p.v).replace('.', ',') + '. ' + vzConfirmSay(st), line: 'temp. ' + p.kind + ' ' + p.v + ' °C'}; return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
@@ -2199,7 +2199,9 @@ function vzStop() {
 function vzRecStop() { const vz = UI.vz; if (vz && vz.rec) { const r = vz.rec; vz.rec = null; r.onend = r.onerror = r.onresult = null; try { r.abort(); } catch (_) {} } }
 function vzTalk(text) {   // parla, poi torna ad ascoltare
   const vz = UI.vz; if (!vz) return;
-  vz.st.last = text; vz.status = 'speak'; vz.said = text; vzDraw();
+  vz.st.last = text; vz.said = text;
+  if (DB.settings.vzMute) { vz.status = 'listen'; vzDraw(); vzRecStop(); setTimeout(() => { if (UI.vz === vz) vzListen(); }, 120); return; }   // modo muto: niente voce, risponde solo sullo schermo
+  vz.status = 'speak'; vzDraw();
   vzRecStop();
   try {
     speechSynthesis.cancel();
@@ -2249,10 +2251,11 @@ function vzDraw() {
   const stTxt = {start: 'Avvio…', listen: '🎙 In ascolto', speak: '🔊 Sta parlando', err: '⚠️ Fermo'}[vz.status] || '';
   el.innerHTML = `<div class="vzt">${stTxt} <span class="vzn">Salva solo dopo il tuo sì</span></div>
     <div class="vzm">${esc(vz.heard || 'Dimmi un tempo, un numero, o un comando')}</div>
-    <div class="vzs">${esc(vz.said || '')}</div>${vz.err ? '<div class="vze">' + esc(vz.err) + '</div>' : ''}
+    <div class="${DB.settings.vzMute ? 'vzm' : 'vzs'}" style="${DB.settings.vzMute ? 'font-size:20px;min-height:0;color:var(--accent,#b86e00)' : ''}">${esc(vz.said || '')}</div>
+    ${vz.st.confirm ? '<div class="vzb"><button class="pri" data-act="vzyes">Sì, salva</button><button class="sec2" data-act="vzno">No</button></div>' : ''}${vz.err ? '<div class="vze">' + esc(vz.err) + '</div>' : ''}
     <div class="vzl">${vz.log.slice(0, 8).map(l => `<div class="vzr${l.bad ? ' bad' : ''}"><b>${esc(l.line || '')}</b><span>${esc(l.heard)}</span></div>`).join('')}</div>
     <div class="vzb"><input id="vzIn" placeholder="…oppure scrivi una frase" autocomplete="off"><button class="sec2" data-act="vzsend">Invia</button></div>
-    <div class="vzb">${vz.status === 'err' ? '<button class="pri" data-act="vzgo">Riprendi</button>' : ''}<button class="sec2" data-act="vzcopy">Copia i risultati</button><button class="sec2" data-act="vzstop">Chiudi</button></div>`;
+    <div class="vzb">${vz.status === 'err' ? '<button class="pri" data-act="vzgo">Riprendi</button>' : ''}<button class="sec2" data-act="vzmute">${DB.settings.vzMute ? '🔇 Muto' : '🔊 Voce'}</button><button class="sec2" data-act="vzcopy">Copia i risultati</button><button class="sec2" data-act="vzstop">Chiudi</button></div>`;
 }
 function vzCopy() {
   const vz = UI.vz; if (!vz) return;
@@ -3088,6 +3091,9 @@ const ACT = {
   vzgo: () => { const vz = UI.vz; if (vz) { vz.errs = []; vz.err = ''; vzListen(); } },
   vzsend: () => { const e = $('vzIn'); if (e && e.value.trim()) { const v = e.value; e.value = ''; vzHandle(v); } },
   vzcopy: vzCopy,
+  vzyes: () => vzHandle('sì'),
+  vzno: () => vzHandle('no'),
+  vzmute: () => { DB.settings.vzMute = !DB.settings.vzMute; save(); try { speechSynthesis.cancel(); } catch (_) {} vzDraw(); toast(DB.settings.vzMute ? 'Muto: ti risponde solo lo schermo' : 'Voce attiva'); },
   sign: b => { const inp = b.dataset.t ? $(b.dataset.t) : b.closest('[data-eid]').querySelector('input.ev'); if (!inp) return; const v = inp.value.trim(); inp.value = /^[-−]/.test(v) ? v.replace(/^[-−]\s*/, '') : '-' + v; inp.focus(); },
   fcalc: fuelCalc,
   hfuel: fuelBackfill,
