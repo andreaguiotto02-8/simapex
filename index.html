@@ -31,7 +31,8 @@ body{background:var(--bg) radial-gradient(120% 50% at 50% -10%, color-mix(in srg
 .wrap{max-width:1000px;margin:0 auto}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
 @font-face{font-family:'Orbitron';font-weight:900;font-display:swap;src:url(orbitron-900.woff2) format('woff2')}
-h1{font-family:'Orbitron',var(--font);font-size:23px;margin:0;font-weight:900;letter-spacing:.07em;text-transform:uppercase;background:linear-gradient(90deg, var(--fg) 45%, var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h1{font-family:'Orbitron',var(--font);font-size:23px;margin:0;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--fg)}
+h1 .ra{color:var(--accent)}
 .top{padding-bottom:10px;border-bottom:2px solid transparent;border-image:linear-gradient(90deg, var(--accent), var(--line) 55%, transparent) 1}
 h2,h3{font-style:italic;letter-spacing:.02em}
 .card{border-left:3px solid var(--accent)}
@@ -206,7 +207,7 @@ details[open] summary::after{content:"\2212"}
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>Simapex</h1><span style="display:flex;align-items:center;gap:10px"><span class="ver" id="ver"></span><button class="ed" data-act="menu" aria-label="Menu" style="min-height:40px;min-width:44px;padding:0 12px;font-size:20px;line-height:1">⋯</button></span></div>
+  <div class="top"><h1>Sim<span class="ra">a</span>pex</h1><span style="display:flex;align-items:center;gap:10px"><span class="ver" id="ver"></span><button class="ed" data-act="menu" aria-label="Menu" style="min-height:40px;min-width:44px;padding:0 12px;font-size:20px;line-height:1">⋯</button></span></div>
   <div id="notice"></div>
   <main id="main"></main>
 </div>
@@ -224,7 +225,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.45';   // versione dell'app
+const APP_V = '0.46';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta

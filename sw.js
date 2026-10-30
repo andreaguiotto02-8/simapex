@@ -1,6 +1,6 @@
 // Service worker di Simapex: tiene l'app in memoria per usarla senza rete.
 // Aumenta il numero di versione quando carichi una nuova versione dell'app.
-const CACHE = 'simapex-0.45';
+const CACHE = 'simapex-0.46';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png', 'catalogo-acc.json', 'orbitron-900.woff2'];
 
 self.addEventListener('install', e => {
