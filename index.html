@@ -225,7 +225,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.46';   // versione dell'app
+const APP_V = '0.47';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -253,6 +253,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const now = () => new Date().toISOString();
 const clone = o => JSON.parse(JSON.stringify(o));
 const kk = (...a) => a.join('|');
+const gk = () => kk(A ? A.id : '', V ? V.cid : (C ? C.id : ''));   // il setup generale è di un'auto su una pista (come i valori di base del gioco)
 const MESI = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 const fdt = iso => {
   if (!iso) return 'mai';
@@ -526,6 +527,19 @@ const gCarsAll = () => { const ids = new Set(gGroups().map(g => g.id)); return D
 const gVariants = cid => DB.variants.filter(v => (cid == null || v.cid === cid) && v.games.includes(GAME.id));
 const gCircuits = () => DB.circuits.filter(c => gVariants(c.id).length);
 const gameName = id => (DB.games.find(x => x.id === id) || {name: '?'}).name;
+function genMigrate() {   // vecchio formato: un solo setup generale per auto -> ora uno per auto e pista (quello dove hai già i setup specifici)
+  const sg = DB.setupGen; if (!sg) return;
+  const old = Object.keys(sg).filter(k => k.indexOf('|') < 0); if (!old.length) return;
+  const sel = (DB.settings.sel || {}).c;
+  old.forEach(car => {
+    const cids = new Set();
+    Object.keys(DB.setupSpec || {}).filter(k => k.startsWith(car + '|')).forEach(k => { const v = (DB.variants || []).find(x => x.id === k.split('|')[1]); if (v && v.cid) cids.add(v.cid); });
+    if (!cids.size && sel) cids.add(sel);
+    cids.forEach(c => { if (!sg[car + '|' + c]) sg[car + '|' + c] = JSON.parse(JSON.stringify(sg[car])); });
+    if (cids.size) delete sg[car];
+  });
+  try { save(); } catch (_) {}
+}
 function fixSel() {
   const s = DB.settings.sel || (DB.settings.sel = {});
   GAME = DB.games.find(x => x.id === s.game) || DB.games[0]; s.game = GAME.id;
@@ -536,6 +550,7 @@ function fixSel() {
   const as = g ? DB.cars.filter(a => a.gid === g.id) : [];
   const a = as.find(x => x.id === s.a) || as[0]; s.a = a ? a.id : null;
   C = c || null; V = v || null; G = g || null; A = a || null;
+  genMigrate();
 }
 const varName = () => C && V ? C.name + ' ' + V.name : '';
 
@@ -543,7 +558,7 @@ const varName = () => C && V ? C.name + ' ' + V.name : '';
 const dropKeys = (obj, test) => Object.keys(obj).forEach(k => { if (test(k)) delete obj[k]; });
 function removeCar(id) {
   DB.cars = DB.cars.filter(a => a.id !== id);
-  delete DB.setupGen[id];
+  delete DB.setupGen[id]; dropKeys(DB.setupGen, k => k.startsWith(id + '|'));
   dropKeys(DB.perf, k => k.startsWith(id + '|'));
   dropKeys(DB.setupSpec, k => k.startsWith(id + '|'));
   DB.notes = DB.notes.filter(n => n.key !== id && !n.key.startsWith(id + '|'));
@@ -887,7 +902,7 @@ function setupState(cond) {
   if (!G || !G.sections.length) return {t:'senza parametri', cls:''};
   const sp = A && V ? DB.setupSpec[kk(A.id, V.id)] : null;
   if (sp && sp[cond]) return {t:'specifico', cls:'sp'};
-  const g = A ? DB.setupGen[A.id] : null;
+  const g = A ? DB.setupGen[gk()] : null;
   if (g && g[cond]) return {t:'generale', cls:''};
   return {t:'vuoto', cls:''};
 }
@@ -1404,7 +1419,7 @@ function collectPerf() {
 const HK = {lapD: 'Giro veloce asciutto', lapW: 'Giro veloce bagnato', avgD: 'Media 3 giri asciutto', avgW: 'Media 3 giri bagnato', paceD: 'Passo gara asciutto', paceW: 'Passo gara bagnato', cons: 'Consumo'};
 const HGROUP = {lap: ['lapD', 'lapW'], avg: ['avgD', 'avgW'], pace: ['paceD', 'paceW'], cons: ['cons']};
 function setupSnap(cond) {   // valori che l'auto ha adesso: generale + specifico di questa variante
-  const g = DB.setupGen[A.id] || {}, gen = (g[cond] || g.dry || {}).vals || {};
+  const g = DB.setupGen[gk()] || {}, gen = (g[cond] || g.dry || {}).vals || {};
   const sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
   const o = Object.assign({}, gen); Object.keys(sp).forEach(k => { if (sp[k] != null && sp[k] !== '') o[k] = sp[k]; });
   return o;
@@ -1597,11 +1612,11 @@ function guideOpen(tab, label) {
 
 /* tocco su una tessera del setup: cambia subito il valore generale e quello specifico */
 function openParEdit(pid, cond, name) {
-  const g = ((DB.setupGen[A.id] || {})[cond] || {}).vals || {}, sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
+  const g = ((DB.setupGen[gk()] || {})[cond] || {}).vals || {}, sp = ((DB.setupSpec[kk(A.id, V.id)] || {})[cond] || {}).vals || {};
   const old = $('guide'); if (old) old.remove();
   const el = document.createElement('div'); el.id = 'guide'; el.className = 'back'; el.style.zIndex = 30;
   el.innerHTML = `<div class="sheet" role="dialog" aria-label="Modifica parametro"><div class="sh"><div><h3>${esc(name)}</h3><div class="meta">${esc(carNameFull())}</div></div><button class="x" data-act="guideclose" aria-label="Chiudi">✕</button></div>
-    <div class="zg"><label class="f">Generale<input id="peG" value="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"></label>
+    <div class="zg"><label class="f">Generale (${esc(C ? C.name : '')})<input id="peG" value="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"></label>
     <label class="f">Specifico (${esc(varName())})<input id="peS" value="${esc(sp[pid] ?? '')}" placeholder="${esc(g[pid] ?? '')}" inputmode="text" autocomplete="off"></label></div>
     <p class="meta">Lascia vuoto lo specifico per usare il valore generale.</p>
     <div class="btns" style="margin-top:12px"><button class="pri" data-act="pesave" data-pid="${pid}" data-cond="${cond}">Salva</button><button class="sec2" data-act="guideclose">Annulla</button><button class="sec2" data-act="parinfo" data-l="${esc(name)}">ⓘ Cosa fa</button></div></div>`;
@@ -1611,7 +1626,7 @@ function openParEdit(pid, cond, name) {
 }
 function saveParEdit(pid, cond) {
   const gv = $('peG').value.trim(), sv = $('peS').value.trim(), key = kk(A.id, V.id);
-  const gg = DB.setupGen[A.id] = DB.setupGen[A.id] || {};
+  const gg = DB.setupGen[gk()] = DB.setupGen[gk()] || {};
   if (gv !== '' || gg[cond]) { gg[cond] = gg[cond] || {vals: {}, u: now()}; if (gv === '') delete gg[cond].vals[pid]; else gg[cond].vals[pid] = gv; gg[cond].u = now(); }
   const base = (gg[cond] || gg.dry || {vals: {}}).vals[pid];
   const ss = DB.setupSpec[key] = DB.setupSpec[key] || {};
@@ -1812,7 +1827,7 @@ function engApply() {
   let sym = null; ENG_PH.forEach(p => p.list.forEach(s => { if (s.id === t.sid) sym = s; }));
   const fx = sym.fixes[t.idx], cond = engCond(), key = engKey();
   const ss = DB.setupSpec[key] = DB.setupSpec[key] || {};
-  const spec = (ss[cond] = ss[cond] || {vals: {}, u: now()}), gen = (DB.setupGen[A.id] || {});
+  const spec = (ss[cond] = ss[cond] || {vals: {}, u: now()}), gen = (DB.setupGen[gk()] || {});
   const baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
   const ch = [], rows = [...document.querySelectorAll('.sheet [data-eid]')];
   const all = engAll();
@@ -2527,7 +2542,7 @@ function engPCalc() {
 function engPApply() {
   const res = (UI.engP || []).filter(r => !r.ok); if (!res.length) return;
   const cond = engCond(), key = engKey(), ss = DB.setupSpec[key] = DB.setupSpec[key] || {}, spec = (ss[cond] = ss[cond] || {vals: {}, u: now()});
-  const gen = (DB.setupGen[A.id] || {}), baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
+  const gen = (DB.setupGen[gk()] || {}), baseVals = (gen[cond] || gen.dry || {vals: {}}).vals;
   res.forEach(r => { if (String(baseVals[r.id] ?? '') === r.to) delete spec.vals[r.id]; else spec.vals[r.id] = r.to; });
   spec.u = now(); if (!Object.keys(spec.vals).length) delete ss[cond];
   save(); render(); toast('Pressioni a freddo aggiornate. Rimettile anche nel gioco.'); engOpen();
@@ -2536,13 +2551,13 @@ function openSetup(cond, mode) {
   if (!needCtx('av')) return;
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato', sub = carNameFull();
   if (!carSections().length) return sheet('Setup ' + cname, '<div class="empty">Il gruppo ' + esc(G.name) + ' non ha ancora i parametri del setup. Aggiungili con ✎ vicino a Gruppo auto.</div>', sub);
-  const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
+  const gen = (DB.setupGen[gk()] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
   if (!gen && !sp) {
     return sheet('Setup ' + cname, `<div class="empty">Nessun setup ${cname} inserito per questa auto.</div>
       <div class="btns" style="justify-content:center"><button class="pri" data-act="setupedit" data-cond="${cond}" data-scope="gen">Inserisci il setup generale</button></div>`, sub);
   }
   mode = mode || (sp ? 'spec' : 'gen');
-  const baseGen = gen ? gen.vals : ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals;
+  const baseGen = gen ? gen.vals : ((DB.setupGen[gk()] || {}).dry || {vals: {}}).vals;
   let html = '';
   if (sp) html += `<div class="seg"><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="spec" aria-pressed="${mode === 'spec'}">Specifico</button><button class="sec2" data-act="setupmode" data-cond="${cond}" data-mode="gen" aria-pressed="${mode === 'gen'}">Generale</button></div>`;
   else html += '<p class="meta">Nessun setup specifico per questa variante: mostro il generale.</p>';
@@ -2569,14 +2584,14 @@ function openSetup(cond, mode) {
   sheet('Setup ' + cname, html, sub);
 }
 function editSetup(cond, scope) {
-  const gen = (DB.setupGen[A.id] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
-  const dryGen = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals;
+  const gen = (DB.setupGen[gk()] || {})[cond], sp = (DB.setupSpec[kk(A.id, V.id)] || {})[cond];
+  const dryGen = ((DB.setupGen[gk()] || {}).dry || {vals: {}}).vals;
   const base = gen ? gen.vals : (scope === 'spec' ? dryGen : {});
   const vals = scope === 'gen' ? (gen ? gen.vals : {}) : (sp ? sp.vals : {});
   UI.sh = {cond, scope, base};
   const cname = cond === 'dry' ? 'asciutto' : 'bagnato';
   let html = scope === 'gen'
-    ? '<p class="meta">Compila tutti i valori del setup generale di questa auto.</p>'
+    ? '<p class="meta">Compila tutti i valori del setup generale di questa auto su questa pista (quelli standard del gioco).</p>'
     : '<p class="meta">Scrivi solo i valori diversi dal generale. I campi vuoti usano il valore generale, mostrato in grigio.</p>';
   if (scope === 'gen' && cond === 'wet' && dryGen && Object.keys(dryGen).length) html += '<div class="btns" style="margin:0 0 10px"><button class="sec2" data-act="setupcopy">Parti dall\'asciutto</button></div>';
   let bar = '', body = '';
@@ -2589,10 +2604,10 @@ function editSetup(cond, scope) {
   html += `<div class="btns" style="margin-top:12px"><button class="pri" data-act="setupsave">Salva</button><button class="sec2" data-act="setupback">Annulla</button><button class="sec2" data-act="setupstruct" data-cond="${cond}" data-scope="${scope}">Modifica parametri</button><button class="sec2" data-act="guide">📖 Guida</button></div>`;
   sheet((scope === 'gen' ? 'Setup generale ' : 'Setup specifico ') + cname, html, carNameFull());
 }
-function setupBack(r) { if (r.scope && (DB.setupGen[A.id] || DB.setupSpec[kk(A.id, V.id)])) return editSetup(r.cond, r.scope); openSetup(r.cond); }
+function setupBack(r) { if (r.scope && (DB.setupGen[gk()] || DB.setupSpec[kk(A.id, V.id)])) return editSetup(r.cond, r.scope); openSetup(r.cond); }
 function applySetupInputs() {   // scrive i campi della finestra nel setup, senza toccare i valori dei parametri nascosti a questa auto
   const {cond, scope, base} = UI.sh, key = kk(A.id, V.id);
-  const cur = scope === 'gen' ? (DB.setupGen[A.id] || {})[cond] : (DB.setupSpec[key] || {})[cond];
+  const cur = scope === 'gen' ? (DB.setupGen[gk()] || {})[cond] : (DB.setupSpec[key] || {})[cond];
   const out = Object.assign({}, cur ? cur.vals : {});
   document.querySelectorAll('.sheet input[data-pid]').forEach(i => {
     const v = i.value.trim(), pid = i.dataset.pid;
@@ -2600,7 +2615,7 @@ function applySetupInputs() {   // scrive i campi della finestra nel setup, senz
   });
   if (scope === 'gen') {
     if (!Object.keys(out).length) return false;
-    (DB.setupGen[A.id] = DB.setupGen[A.id] || {})[cond] = {vals: out, u: now()};
+    (DB.setupGen[gk()] = DB.setupGen[gk()] || {})[cond] = {vals: out, u: now()};
   } else if (Object.keys(out).length) (DB.setupSpec[key] = DB.setupSpec[key] || {})[cond] = {vals: out, u: now()};
   else if (DB.setupSpec[key]) { delete DB.setupSpec[key][cond]; if (!Object.keys(DB.setupSpec[key]).length) delete DB.setupSpec[key]; }
   save(); return true;
@@ -3296,7 +3311,7 @@ const ACT = {
     A.hide = hide; A.extra = UI.cp.extra.filter(e => e.label); A.u = now();
     save(); const c = UI.cp.cond; render(); openSetup(c); toast('Parametri di questa auto salvati');
   },
-  setupcopy: () => { const dry = ((DB.setupGen[A.id] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
+  setupcopy: () => { const dry = ((DB.setupGen[gk()] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
   ctltoggle: () => { UI.ctlHide = !UI.ctlHide; drawMap(); },
   eng: engOpen,
   engcond: b => { UI.engCond = b.dataset.c; engOpen(); },
