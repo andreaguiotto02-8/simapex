@@ -227,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.51';   // versione dell'app
+const APP_V = '0.52';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1794,7 +1794,7 @@ function pathCtx() {
 function pathSteps() {
   const c = pathCtx();
   return [
-    {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Inserisci il setup standard del gioco per questa pista.', ok: c.gen('dry'), go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Apri il setup asciutto e controlla che i valori siano quelli standard del gioco per questa pista' + (c.gen('dry') ? ' (ora c\'è già un setup generale: potrebbe essere una copia di un\'altra pista).' : ': ancora vuoto.'), ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
     {id: 'learn', ph: 'dry', t: 'Impara la pista e le pressioni', d: '10 giri puliti, senza toccare niente. Durante i giri leggi le pressioni a caldo; tornato ai box correggile subito nel setup specifico (obiettivo 27,0 a caldo).', man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
     {id: 'brk', ph: 'dry', t: 'Punti di staccata', d: 'Segna la staccata di almeno ' + Math.max(3, Math.ceil(c.tn * 0.6)) + ' curve (ora ' + c.nb + '). Tocca una curva sulla mappa.', ok: c.tn > 0 && c.nb >= Math.max(3, Math.ceil(c.tn * 0.6)), go: [['Vai alla mappa', 'map']]},
     {id: 'ref', ph: 'dry', t: 'Tempo di riferimento', d: 'Stint di 6 giri puliti senza modifiche. Salva giro veloce e media (servono anche alla strategia).', ok: c.saved('lapD') && c.saved('avgD'), go: [['Parti con la voce', 'vzDev']]},
@@ -1827,7 +1827,7 @@ function openPath() {
   const row = (x, i) => {
     if (x.done) return `<div class="pth done"><span>✓</span><b>${esc(x.t)}</b></div>`;
     if (i !== p.cur) return `<div class="pth lock"><span>🔒</span><b>${esc(x.t)}</b></div>`;
-    return `<div class="pth cur"><div><b>${i + 1}. ${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="btns">${x.go.map(g => `<button class="${x.man ? 'sec2' : 'pri'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}</div>`;
+    return `<div class="pth cur"><div><b>${i + 1}. ${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="btns">${x.go.map(g => `<button class="${x.man ? 'sec2' : 'pri'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false && !x.man ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}</div>`;
   };
   let html = `<div class="pbar"><i style="width:${Math.round(n / p.steps.length * 100)}%"></i></div><p class="meta">${n} di ${p.steps.length} passi · prima l'asciutto, poi il bagnato</p>`;
   html += p.steps.map((x, i) => (i === 0 || x.ph !== p.steps[i - 1].ph ? `<h3>${x.ph === 'dry' ? 'Asciutto' : 'Bagnato'}</h3>` : '') + row(x, i)).join('');
