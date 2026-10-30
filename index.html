@@ -227,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.52';   // versione dell'app
+const APP_V = '0.53';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1836,7 +1836,7 @@ function openPath() {
   sheet('Percorso della pista', html, carNameFull());
 }
 function pathGo(g) {
-  const st = () => vzSt(), go = (mode, wet) => { const s = st(); s.mode = mode; s.wet = !!wet; vzPersist(); vzStart(); };
+  const st = () => vzSt(), go = (mode, wet) => { const s = st(); s.mode = mode; s.wet = !!wet; vzPersist(); vzBrief(); };
   ({setupD: () => openSetup('dry'), setupW: () => openSetup('wet'), map: () => { closeSheet(); toast('Tocca una curva sulla mappa'); }, press: engPress, eng: engOpen,
     vzDev: () => go('sviluppo', false), vzPasso: () => go('passo', false), vzWet: () => go('sviluppo', true), vzWetPasso: () => go('passo', true), strat: openStrat}[g] || (() => {}))();
 }
@@ -2507,6 +2507,27 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
   }
 }
 const vzSupport = () => (window.SpeechRecognition || window.webkitSpeechRecognition) && ('speechSynthesis' in window);
+const VZ_MODES = {
+  libera: {n: 'Libera', what: 'Registra tutto quello che dici, senza un obiettivo preciso. Poi ai box scegli cosa calcolare e salvare.', fuel: false},
+  sviluppo: {n: 'Sviluppo auto', what: 'Provi una modifica al setup per volta. L\'app ricorda dopo quale giro l\'hai fatta e confronta giro veloce e media con quelli salvati.', fuel: false, extra: ['Quando cambi il setup nel gioco: «ho cambiato l\'ala da 5 a 4».']},
+  passo: {n: 'Passo gara', what: 'Stint lungo a ritmo costante. L\'app calcola il passo (media dei giri puliti) e il consumo.', fuel: true},
+  qualifica: {n: 'Qualifica', what: 'Conta solo il giro veloce. Giri di lancio e di rientro li segni sporchi.', fuel: false}
+};
+function vzBrief(from) {
+  const st = vzSt(), md = st.mode || 'libera', m = VZ_MODES[md], wet = !!st.wet;
+  UI.vzFrom = from === undefined ? UI.vzFrom : from;
+  const li = a => '<ul style="margin:6px 0 0;padding-left:18px">' + a.map(x => `<li style="margin:3px 0">${x}</li>`).join('') + '</ul>';
+  const seg = Object.keys(VZ_MODES).map(k => `<button class="sec2" data-act="vzbrmode" data-m="${k}" aria-pressed="${md === k}">${VZ_MODES[k].n}</button>`).join('');
+  sheet('Prima di partire', `<p class="meta">Scegli la modalità e le condizioni. Poi tocca Parti: l'ingegnere si mette in ascolto.</p>
+    <div class="seg" style="flex-wrap:wrap">${seg}</div>
+    <div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbrwet" data-w="0" aria-pressed="${!wet}">Asciutto</button><button class="sec2" data-act="vzbrwet" data-w="1" aria-pressed="${wet}">Bagnato</button></div>
+    <div class="gi"><b>${esc(m.n)} · ${wet ? 'bagnato' : 'asciutto'}</b><p>${esc(m.what)}</p></div>
+    <h3>1. Prima di partire, dì</h3>${li(['«Partenza 50 litri» (la benzina che hai)', '«Mappa 1»', '«Temperatura aria 24, pista 31»'])}
+    <h3>2. A ogni giro, dì</h3>${li(['Il tempo, per esempio «1 52 e 614» (minuto, secondi, «e», millesimi)'].concat(m.fuel ? ['<b>«Benzina 44»</b> subito dopo il tempo: serve per il consumo'] : ['«Benzina 44» dopo il tempo (facoltativo, serve per il consumo)']).concat(['Se esci di pista: «giro sporco» prima del tempo', 'Per misurare la corsia box: «giro box» prima del tempo']).concat(m.extra || []))}
+    <h3>3. Alla fine</h3><p>Non devi dire niente. Torni ai box e apri <b>Dati della sessione</b>: controlli i giri, vedi il confronto con i tuoi tempi salvati e scegli cosa salvare.</p>
+    <p class="meta">${DB.settings.vzMute ? 'Modalità muta: non senti risposte, vedi tutto sullo schermo.' : 'L\'ingegnere risponde a voce: puoi metterlo muto con il pulsante nella schermata.'} Non salva mai niente senza il tuo tocco.</p>
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="vzstart">Parti</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
+}
 function vzStart() {
   if (UI.vz) return;
   if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
@@ -2589,6 +2610,7 @@ function vzDraw() {
   const vz = UI.vz, el = $('vzv'); if (!vz || !el) return;
   const stTxt = {start: 'Avvio…', listen: '🎙 In ascolto', speak: '🔊 Sta parlando', err: '⚠️ Fermo'}[vz.status] || '';
   el.innerHTML = `<div class="vzt">${stTxt} <span class="vzn">Salva solo dopo il tuo sì</span></div>
+    <div class="vzs" style="opacity:.9"><b>${esc((VZ_MODES[vz.st.mode || 'libera'] || {}).n || 'Libera')}</b> · ${vz.st.wet ? 'bagnato' : 'asciutto'}</div>
     <div class="vzm">${esc(vz.heard || 'Dimmi un tempo, un numero, o un comando')}</div>
     <div class="${DB.settings.vzMute ? 'vzm' : 'vzs'}" style="${DB.settings.vzMute ? 'font-size:20px;min-height:0;color:var(--accent,#b86e00)' : ''}">${esc(vz.said || '')}</div>
     <div class="vzs" style="opacity:.7">Sessione in corso: <b>${vz.st.laps.length}</b> giri${vz.st.lapNo ? ' · ultimo giro ' + esc(vz.st.lapNo) : ''}${vz.st.map ? ' · mappa ' + esc(vz.st.map) : ''}${vz.st.fuelStart ? ' · partenza ' + esc(vz.st.fuelStart) + ' L' : ''}</div>
@@ -3429,7 +3451,10 @@ const ACT = {
   engkeep: () => engFinish('tieni'),
   engrevert: () => engFinish('indietro'),
   engundo: engUndo,
-  vz: vzStart,
+  vz: () => vzBrief(),
+  vzstart: vzStart,
+  vzbrmode: b => { vzSt().mode = b.dataset.m; vzPersist(); vzBrief(); },
+  vzbrwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBrief(); },
   vzstop: vzStop,
   vzgo: () => { const vz = UI.vz; if (vz) { vz.errs = []; vz.err = ''; vzListen(); } },
   vzsend: () => { const e = $('vzIn'); if (e && e.value.trim()) { const v = e.value; e.value = ''; vzHandle(v); } },
