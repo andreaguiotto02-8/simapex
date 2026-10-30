@@ -227,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.54';   // versione dell'app
+const APP_V = '0.55';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -3529,7 +3529,8 @@ const ACT = {
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
   brakefull: () => { if ($('bD')) $('bD').value = ''; if ($('bW')) $('bW').value = ''; saveBrake(); const key = kk(V.id, G.id), tid = UI.sh && UI.sh.tid; if (tid) { (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry: '', wet: null, note: ($('bN') ? $('bN').value.trim() : ''), full: true, u: now()}; save(); render(); } },
   quick: b => { $(b.dataset.to).value = b.dataset.v; },
-  menu: () => sheet('Menu', `<div class="btns" style="flex-direction:column;align-items:stretch"><button class="sec2" data-act="catalog">Catalogo piste (disegni già pronti)</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Aggiungi una pista da un altro gioco</button>' : ''}<button class="sec2" data-act="quickedit">Pulsanti rapidi delle staccate</button></div>`, 'Gioco: ' + GAME.name),
+  menu: () => sheet('Menu', `<div class="btns" style="flex-direction:column;align-items:stretch"><button class="sec2" data-act="catalog">Catalogo piste (disegni già pronti)</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Aggiungi una pista da un altro gioco</button>' : ''}<button class="sec2" data-act="quickedit">Pulsanti rapidi delle staccate</button><button class="sec2" data-act="forceupd">Forza aggiornamento app (i dati restano)</button></div>`, 'Gioco: ' + GAME.name),
+  forceupd: async () => { try { toast('Aggiorno…'); const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (_) {} location.reload(); },
   turnq: () => {
     if (!needCtx('gv')) return;
     ownVariant(); if (!V.shape) V.shape = {pts: [], closed: true, h: 240, turns: []};
