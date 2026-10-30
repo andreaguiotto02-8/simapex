@@ -227,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.49';   // versione dell'app
+const APP_V = '0.50';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -928,7 +928,7 @@ function rowsHtml() {
   let html = turns.map((t, i) => {
     const s = data && data[t.id];
     const body = s
-      ? `<div class="line"><span class="pill w">Asciutto: ${esc(s.dry)}</span>${s.wet ? `<span class="pill w">Bagnato: ${esc(s.wet)}</span>` : '<span class="pill">Bagnato: = asciutto</span>'}</div>${s.note ? `<div class="meta" style="margin-top:3px">${esc(s.note)}</div>` : ''}<div class="meta">modificato ${fd(s.u)}</div>`
+      ? `<div class="line">${s.dry ? `<span class="pill w">Asciutto: ${esc(s.dry)}</span>` : '<span class="pill w">In piena</span>'}${s.wet ? `<span class="pill w">Bagnato: ${esc(s.wet)}</span>` : '<span class="pill">Bagnato: = asciutto</span>'}</div>${s.note ? `<div class="meta" style="margin-top:3px">${esc(s.note)}</div>` : ''}<div class="meta">modificato ${fd(s.u)}</div>`
       : '<div class="meta">Nessuna staccata inserita</div>';
     return `<div class="srow${UI.selTurn === t.id ? ' on' : ''}" data-row="${t.id}"><div class="snum">${i + 1}</div><div><div class="nm">${t.n ? esc(t.n) : 'Curva ' + (i + 1)}</div>${body}</div><button class="ed" data-act="brake" data-tid="${t.id}" aria-label="Modifica staccata curva ${i + 1}">Modifica</button></div>`;
   }).join('');
@@ -964,22 +964,27 @@ function editBrake(tid) {
   const chips = which => DB.settings.quick.map(q => `<button class="chip" data-act="quick" data-to="${which}" data-v="${esc(q.label)}">${esc(q.label)}</button>`).join('');
   UI.sh = {tid};
   sheet('Curva ' + (idx + 1) + (t.n ? ' · ' + t.n : ''), `
+    <div class="f2"><span>Numero della curva (cambialo per spostarla nell'ordine)</span><input type="text" inputmode="numeric" id="bNum" value="${idx + 1}"></div>
     <div class="f2"><span>Nome della curva (facoltativo)</span><input type="text" id="bTn" value="${esc(t.n || '')}" placeholder="Parabolica"></div>
     <div class="f2"><span>Staccata asciutto</span><input type="text" id="bD" value="${esc(cur.dry)}" placeholder="Scrivi o tocca un pulsante"></div>
     <div class="chips" style="margin:-4px 0 12px">${chips('bD')}</div>
     <div class="f2"><span>Staccata bagnato (facoltativa)</span><input type="text" id="bW" value="${esc(cur.wet || '')}" placeholder="Vuoto = uguale all'asciutto"></div>
     <div class="chips" style="margin:-4px 0 12px">${chips('bW')}</div>
     <div class="f2"><span>Nota breve</span><input type="text" id="bN" value="${esc(cur.note || '')}"></div>
-    <div class="btns"><button class="pri" data-act="brakesave">Salva</button><button class="sec2" data-act="close">Annulla</button><button class="sec2" data-act="braketdel">Elimina curva</button></div>`,
+    <div class="btns"><button class="pri" data-act="brakesave">Salva</button><button class="sec2" data-act="close">Annulla</button></div>
+    <div class="btns"><button class="sec2" data-act="brakefull">In piena: nessuna staccata</button><button class="sec2" data-act="braketdel">Elimina curva</button></div>`,
     G.name + ' · ' + varName());
 }
 function saveBrake() {
   const dry = $('bD').value.trim(), wet = $('bW').value.trim(), note = $('bN').value.trim(), nm = $('bTn').value.trim(), tid = UI.sh.tid;
   const t0 = turnsOf().find(x => x.id === tid), nameChanged = !!t0 && (t0.n || '') !== nm, had = ((DB.brakes[kk(V.id, G.id)] || {})[tid]);
-  if (!dry && (had || (!nameChanged && !wet && !note))) return toast('Scrivi almeno la staccata asciutto');
+  const num = parseInt($('bNum') ? $('bNum').value : '', 10), tl = turnsOf(), at = tl.findIndex(x => x.id === tid), moved = num > 0 && at >= 0 && Math.min(num, tl.length) - 1 !== at;
+  if (!dry && wet) return toast('Scrivi la staccata asciutto, oppure svuota anche il bagnato (curva in piena)');
+  if (!dry && !wet && !note && !had && !nameChanged && !moved) return toast('Scrivi la staccata, oppure tocca "In piena"');
+  if (moved) { ownVariant(); const arr = V.shape.turns, i0 = arr.findIndex(x => x.id === tid), [mv] = arr.splice(i0, 1); arr.splice(Math.min(num, arr.length + 1) - 1, 0, mv); }
   if (nameChanged) { if (ownVariant()) { render(); } const t = turnsOf().find(x => x.id === tid); if (t) { t.n = nm; t.u = now(); } }
-  if (dry || wet || note) { const key = kk(V.id, G.id); (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry, wet: wet || null, note, u: now()}; }
-  save(); closeSheet(); render(); toast(dry ? 'Staccata salvata' : 'Curva salvata');
+  { const key = kk(V.id, G.id); if (dry || wet || note) (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry, wet: wet || null, note, full: !dry, u: now()}; else if (DB.brakes[key]) delete DB.brakes[key][tid]; }
+  save(); closeSheet(); render(); toast(dry ? 'Staccata salvata' : note ? 'Curva in piena salvata' : 'Curva salvata');
 }
 
 /* --- Dettatura delle staccate --- */
@@ -1039,8 +1044,8 @@ function editTurns() {
   UI.tu = clone(turnsOf()); drawTurns();
 }
 function drawTurns() {
-  const rows = UI.tu.map((t, i) => `<div class="row2" data-tid="${t.id}"><div class="snum" style="flex:none;align-self:center">${i + 1}</div><input class="tnm" value="${esc(t.n)}" placeholder="Nome (facoltativo)" aria-label="Nome curva ${i + 1}"><button class="x" data-act="turndel" data-i="${i}" aria-label="Elimina curva ${i + 1}">✕</button></div>`).join('');
-  sheet('Curve', `<p class="meta">Il numero segue l'ordine dell'elenco. Il nome è facoltativo (per esempio Parabolica). Le posizioni si danno sulla mappa.</p>
+  const rows = UI.tu.map((t, i) => `<div class="row2" data-tid="${t.id}"><div class="snum" style="flex:none;align-self:center">${i + 1}</div><input class="tnm" value="${esc(t.n)}" placeholder="Nome (facoltativo)" aria-label="Nome curva ${i + 1}"><button class="x" data-act="turnup" data-i="${i}" aria-label="Sposta su">▲</button><button class="x" data-act="turndn" data-i="${i}" aria-label="Sposta giù">▼</button><button class="x" data-act="turndel" data-i="${i}" aria-label="Elimina curva ${i + 1}">✕</button></div>`).join('');
+  sheet('Curve', `<p class="meta">Il numero segue l'ordine dell'elenco: usa ▲ ▼ per spostare una curva. Il nome è facoltativo (per esempio Parabolica). Le posizioni si danno sulla mappa.</p>
     <div id="tlist" style="display:flex;flex-direction:column;gap:8px;margin:10px 0">${rows || '<div class="empty">Nessuna curva.</div>'}</div>
     <div class="btns"><button class="sec2" data-act="turnadd">+ Curva</button><button class="sec2" data-act="turnpaste">Incolla elenco di nomi</button></div>
     <div id="tpaste" hidden style="margin-top:10px"><textarea id="tpTx" placeholder="Una riga per curva&#10;Prima variante&#10;Curva Grande"></textarea><button class="sec2" data-act="turnpasteadd" style="margin-top:6px">Aggiungi all'elenco</button></div>
@@ -1782,7 +1787,7 @@ const pathSt = () => { const e = engState(); e.path = e.path || {done: {}}; e.pa
 function pathCtx() {
   const pf = DB.perf[engKey()] || {}, hs = (DB.hist || []).filter(h => h.c === A.id && h.v === V.id);
   const gen = c => !!((DB.setupGen[gk()] || {})[c]), spec = c => !!((DB.setupSpec[kk(A.id, V.id)] || {})[c]);
-  const tn = turnsOf().length, bk = (G && V ? DB.brakes[kk(V.id, G.id)] : null) || {}, nb = Object.keys(bk).filter(k => bk[k] && bk[k].dry).length;
+  const tn = turnsOf().length, bk = (G && V ? DB.brakes[kk(V.id, G.id)] : null) || {}, nb = Object.keys(bk).filter(k => bk[k] && (bk[k].dry || bk[k].full)).length;
   const dev = hs.filter(h => /sviluppo auto/.test(h.note || '') && /dopo giro/.test(h.note || '')).length;
   return {pf, gen, spec, tn, nb, dev, saved: k => hs.some(h => h.k === k) && !!pf[k]};
 }
@@ -2134,8 +2139,8 @@ function vzReadBrake(p) {
   else if (p.name) { const tk = p.name.split(' ').filter(x => x.length > 2); i = turns.findIndex(t => tk.length && tk.every(w => vzNorm(t.n || '').includes(w))); }
   if (i < 0) return {say: 'Quale curva? Dimmi il numero, per esempio staccata curva uno.', line: 'curva non trovata', bad: true};
   const t = turns[i], b = data && data[t.id], nm = t.n ? t.n : 'curva ' + (i + 1);
-  if (!b || !(b.dry || b.wet)) return {say: 'Curva ' + (i + 1) + (t.n ? ', ' + t.n : '') + ': nessuna staccata inserita.', line: 'curva ' + (i + 1) + ' senza staccata', bad: true};
-  const txt = p.wet ? (b.wet || b.dry) : b.dry;
+  if (!b || !(b.dry || b.wet || b.full)) return {say: 'Curva ' + (i + 1) + (t.n ? ', ' + t.n : '') + ': nessuna staccata inserita.', line: 'curva ' + (i + 1) + ' senza staccata', bad: true};
+  const txt = (p.wet ? (b.wet || b.dry) : b.dry) || 'in piena';
   return {say: 'Curva ' + (i + 1) + (t.n ? ', ' + t.n : '') + '. Staccata ' + (p.wet ? 'bagnato: ' : 'asciutto: ') + txt + '.' + (b.note ? ' Nota: ' + b.note + '.' : ''), line: 'curva ' + (i + 1) + ' · ' + txt};
 }
 function vzNotesFor() { return (DB.notes || []).filter(n => (n.lvl === 'car' && A && n.key === A.id) || (n.lvl === 'both' && A && V && n.key === kk(A.id, V.id)) || (n.lvl === 'var' && V && n.key === V.id) || (n.lvl === 'game' && GAME && n.key === GAME.id)); }
@@ -3479,6 +3484,7 @@ const ACT = {
   secjump: b => { const t = document.getElementById('sec' + b.dataset.i), sh = document.querySelector('.sheet'), bar = document.querySelector('.sbar'); if (t && sh && bar) sh.scrollTo({top: sh.scrollTop + t.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 4, behavior: 'smooth'}); },
   openall: b => { const open = b.getAttribute('aria-pressed') !== 'true'; document.querySelectorAll('.sheet details').forEach(d => { d.open = open; }); b.setAttribute('aria-pressed', open); b.textContent = open ? 'Chiudi tutto' : 'Apri tutto'; },
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
+  brakefull: () => { if ($('bD')) $('bD').value = ''; if ($('bW')) $('bW').value = ''; saveBrake(); const key = kk(V.id, G.id), tid = UI.sh && UI.sh.tid; if (tid) { (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry: '', wet: null, note: ($('bN') ? $('bN').value.trim() : ''), full: true, u: now()}; save(); render(); } },
   quick: b => { $(b.dataset.to).value = b.dataset.v; },
   menu: () => sheet('Menu', `<div class="btns" style="flex-direction:column;align-items:stretch"><button class="sec2" data-act="catalog">Catalogo piste (disegni già pronti)</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Aggiungi una pista da un altro gioco</button>' : ''}<button class="sec2" data-act="quickedit">Pulsanti rapidi delle staccate</button></div>`, 'Gioco: ' + GAME.name),
   turnq: () => {
@@ -3491,6 +3497,8 @@ const ACT = {
     const tid = UI.sh.tid; ownVariant(); removeTurnData(V.id, tid); V.shape.turns = V.shape.turns.filter(x => x.id !== tid); save(); closeSheet(); render(); toast('Curva eliminata');
   },
   turnadd: () => { collectTurns(); UI.tu.push({id: uid(), n: '', u: now()}); drawTurns(); },
+  turnup: b => { collectTurns(); const i = +b.dataset.i; if (i > 0) { [UI.tu[i - 1], UI.tu[i]] = [UI.tu[i], UI.tu[i - 1]]; drawTurns(); } },
+  turndn: b => { collectTurns(); const i = +b.dataset.i; if (i < UI.tu.length - 1) { [UI.tu[i + 1], UI.tu[i]] = [UI.tu[i], UI.tu[i + 1]]; drawTurns(); } },
   turndel: b => { collectTurns(); UI.tu.splice(+b.dataset.i, 1); drawTurns(); },
   turnpaste: () => { $('tpaste').hidden = !$('tpaste').hidden; },
   turnpasteadd: () => { collectTurns(); $('tpTx').value.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => UI.tu.push({id: uid(), n: l, u: now()})); drawTurns(); },
