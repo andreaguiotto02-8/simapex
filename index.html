@@ -5,32 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simapex</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0f1624">
+<meta name="theme-color" content="#101216">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-maskable-192.png">
 <style>
 /* Simapex - Colori e dimensioni sono tutti qui sotto, in :root. */
 :root{
-  --bg:#0f1624; --surface:#18223a; --surface2:#202c48; --line:#2f3d5e; --fg:#eef2fa; --muted:#9fb0cf;
-  --accent:#ffb84a; --on-accent:#15110a; --hl:#3d3213; --good:#4fd1a1; --bad:#ff8a7a;
-  --track-edge:#4d6190; --track-fill:#1f2b47; --map-bg:#121b2f;
+  --bg:#101216; --surface:#1b1e25; --surface2:#262a33; --line:#363b47; --fg:#f1f2f5; --muted:#a3a9b6;
+  --accent:#f23d2f; --on-accent:#ffffff; --hl:#3a1714; --good:#4fd1a1; --bad:#ff8a7a;
+  --track-edge:#586074; --track-fill:#2a2e38; --map-bg:#15171c;
   --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: light){
   :root{
-    --bg:#eef2f9; --surface:#ffffff; --surface2:#e6ecf7; --line:#c9d3e6; --fg:#14203a; --muted:#52627f;
-    --accent:#b86a00; --on-accent:#ffffff; --hl:#fff0cc; --good:#1b7d5c; --bad:#b3261e;
-    --track-edge:#8a9bbd; --track-fill:#dbe4f3; --map-bg:#e6ecf7; color-scheme:light;
+    --bg:#f1f2f4; --surface:#ffffff; --surface2:#e8eaee; --line:#cdd1d9; --fg:#16181d; --muted:#565d6b;
+    --accent:#d3241a; --on-accent:#ffffff; --hl:#fde3e0; --good:#1b7d5c; --bad:#b3261e;
+    --track-edge:#8b93a3; --track-fill:#dfe2e8; --map-bg:#e8eaee; color-scheme:light;
   }
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg) radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%) no-repeat fixed;color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.4;
+body{background:var(--bg) radial-gradient(120% 50% at 50% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%) no-repeat fixed;color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.4;
   padding:max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(86px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
 .wrap{max-width:1000px;margin:0 auto}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
-h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.01em;background:linear-gradient(90deg, var(--fg), var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h1{font-size:25px;margin:0;font-weight:900;font-style:italic;letter-spacing:.02em;text-transform:uppercase;background:linear-gradient(90deg, var(--fg) 45%, var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.top{padding-bottom:10px;border-bottom:2px solid transparent;border-image:linear-gradient(90deg, var(--accent), var(--line) 55%, transparent) 1}
+h2,h3{font-style:italic;letter-spacing:.02em}
+.card{border-left:3px solid var(--accent)}
 h2{font-size:18px;margin:0 0 8px;font-weight:700}
 h3{font-size:16px;margin:14px 0 6px}
 .ver{font-size:12px;color:var(--muted)}
@@ -220,7 +223,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.43';   // versione dell'app
+const APP_V = '0.44';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
