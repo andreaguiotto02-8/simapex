@@ -169,6 +169,8 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:
 .vzsum{display:flex;flex-direction:column;gap:8px;margin:8px 0}.vzsr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}
 .vzsl{width:100%;font-size:12.5px;opacity:.8}.vzsr b{font-size:21px;font-variant-numeric:tabular-nums}.vzdf{font-weight:800;margin-left:auto}.vzdf.up{color:var(--good)}.vzdf.dn{color:var(--bad)}
 .vzmeta{grid-column:2/-1;font-size:12.5px;opacity:.7}.vzbt{display:flex;gap:6px;justify-content:flex-end;padding:0 10px 10px}
+.pbar{height:8px;border-radius:6px;background:var(--surface2);overflow:hidden}.pbar i{display:block;height:100%;background:var(--accent)}
+.pth{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;display:flex;gap:10px;align-items:center}.pth.done{opacity:.7}.pth.done span{color:var(--good);font-weight:900}.pth.lock{opacity:.45}.pth.cur{display:block;border-color:var(--accent);background:var(--hl)}.pth.cur p{margin:6px 0 0}
 .vzsw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}.vzsw.tp{background:#22c55e}.vzsw.best{background:#d946ef}.vzsw.bad{background:#ef4444}
 .vzm{font-size:26px;font-weight:800;line-height:1.15;min-height:60px}.vzs{font-size:15px;opacity:.85}.vze{color:#c0392b;font-weight:700}.vzl{display:flex;flex-direction:column;gap:6px;margin:4px 0}
 .vzr{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface)}.vzr span{font-size:12px;opacity:.65}.vzr.bad{border-color:#c0392b}
@@ -225,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.48';   // versione dell'app
+const APP_V = '0.49';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -916,6 +918,7 @@ function btnsHtml() {
     <button class="bigb" data-act="setup" data-cond="wet">Setup bagnato<small class="${b.cls}">${b.t}</small></button>
     <button class="bigb" data-act="notes">Note<small>${nc} ${nc === 1 ? 'nota' : 'note'}</small></button>
     <button class="bigb wide" data-act="strat">Strategia gara<small>dati dell'auto già inseriti</small></button>
+    <button class="bigb wide" data-act="path">Percorso della pista<small>${pathSub()}</small></button>
     <button class="bigb wide" data-act="eng">Ingegnere di pista<small>${A && V && DB.eng && DB.eng[kk(A.id, V.id)] && DB.eng[kk(A.id, V.id)].pend ? 'prova in corso' : 'cosa provare e come confrontare'}</small></button>`;
 }
 function rowsHtml() {
@@ -1771,6 +1774,66 @@ function engSummary(f) {   // "−0,1 → −0,3" oppure "un passo più morbide"
 }
 const engKey = () => kk(A.id, V.id);
 const engState = () => ((DB.eng = DB.eng || {})[engKey()] = DB.eng[engKey()] || {});
+/* ===================================================================
+   PERCORSO DELLA PISTA: dalla prima uscita al setup specifico, un passo alla volta.
+   Un passo si apre solo quando il precedente è finito (controllato dai dati, o confermato da te).
+   =================================================================== */
+const pathSt = () => { const e = engState(); e.path = e.path || {done: {}}; e.path.done = e.path.done || {}; return e.path; };
+function pathCtx() {
+  const pf = DB.perf[engKey()] || {}, hs = (DB.hist || []).filter(h => h.c === A.id && h.v === V.id);
+  const gen = c => !!((DB.setupGen[gk()] || {})[c]), spec = c => !!((DB.setupSpec[kk(A.id, V.id)] || {})[c]);
+  const tn = turnsOf().length, bk = (G && V ? DB.brakes[kk(V.id, G.id)] : null) || {}, nb = Object.keys(bk).filter(k => bk[k] && bk[k].dry).length;
+  const dev = hs.filter(h => /sviluppo auto/.test(h.note || '') && /dopo giro/.test(h.note || '')).length;
+  return {pf, gen, spec, tn, nb, dev, saved: k => hs.some(h => h.k === k) && !!pf[k]};
+}
+function pathSteps() {
+  const c = pathCtx();
+  return [
+    {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Inserisci il setup standard del gioco per questa pista.', ok: c.gen('dry'), go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'learn', ph: 'dry', t: 'Impara la pista', d: '10 giri puliti, senza toccare niente. Obiettivo: ricordare la traiettoria, non il tempo.', man: 'Ho fatto 10 giri puliti', go: []},
+    {id: 'brk', ph: 'dry', t: 'Punti di staccata', d: 'Segna la staccata di almeno ' + Math.max(3, Math.ceil(c.tn * 0.6)) + ' curve (ora ' + c.nb + '). Tocca una curva sulla mappa.', ok: c.tn > 0 && c.nb >= Math.max(3, Math.ceil(c.tn * 0.6)), go: [['Vai alla mappa', 'map']]},
+    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento', d: 'Stint di 6 giri puliti senza modifiche. Salva giro veloce e media.', ok: c.saved('lapD') && c.saved('avgD'), go: [['Parti con la voce', 'vzDev']]},
+    {id: 'press', ph: 'dry', t: 'Pressioni a 27,0 a caldo', d: 'Dopo 5 giri puliti leggi le pressioni a caldo e correggi a freddo. Ripeti finché sono a ±0,3.', man: 'Pressioni a posto', go: [['Calcola la correzione', 'press']]},
+    {id: 'cons', ph: 'dry', t: 'Consumo', d: 'Stint con la benzina detta a ogni giro. Salva il consumo della mappa.', ok: ((c.pf.cons) || []).length > 0, go: [['Parti con la voce', 'vzPasso']]},
+    {id: 'dev', ph: 'dry', t: 'Sviluppo del setup', d: 'Una modifica per stint, detta a voce. Servono 3 prove salvate (ora ' + c.dev + ').', ok: c.dev >= 3, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
+    {id: 'pace', ph: 'dry', t: 'Passo gara', d: 'Stint di almeno 10 giri puliti con il setup scelto. Salva il passo.', ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]},
+    {id: 'lock', ph: 'dry', t: 'Blocca il setup asciutto', d: 'Metti nel setup specifico i valori finali (solo quelli diversi dal generale).', ok: c.spec('dry'), go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'wbase', ph: 'wet', t: 'Bagnato: setup di partenza', d: 'Inserisci il setup bagnato standard del gioco per questa pista.', ok: c.gen('wet'), go: [['Apri setup bagnato', 'setupW']]},
+    {id: 'wbrk', ph: 'wet', t: 'Bagnato: staccate', d: 'Controlla le staccate nel bagnato e correggile dove servono (campo Bagnato).', man: 'Staccate bagnato fatte', go: [['Vai alla mappa', 'map']]},
+    {id: 'wref', ph: 'wet', t: 'Bagnato: tempo di riferimento', d: 'Stint di 6 giri puliti sul bagnato. Salva giro veloce e media.', ok: c.saved('lapW') && c.saved('avgW'), go: [['Parti con la voce', 'vzWet']]},
+    {id: 'wpace', ph: 'wet', t: 'Bagnato: passo gara', d: 'Stint di almeno 10 giri puliti. Salva il passo.', ok: !!c.pf.paceW, go: [['Parti con la voce', 'vzWetPasso']]},
+    {id: 'wlock', ph: 'wet', t: 'Blocca il setup bagnato', d: 'Metti nel setup specifico bagnato i valori finali.', ok: c.spec('wet'), go: [['Apri setup bagnato', 'setupW']]}
+  ];
+}
+function pathState() {
+  const steps = pathSteps(), done = pathSt().done; let cur = -1;
+  let run = true; steps.forEach(x => { x.done = run && !!(x.ok || done[x.id]); run = x.done; });
+  cur = steps.findIndex(x => !x.done);
+  return {steps, cur};
+}
+function pathSub() {
+  if (!A || !V) return 'scegli auto e pista';
+  const p = pathState(); return p.cur < 0 ? 'completato' : 'passo ' + (p.cur + 1) + ' di ' + p.steps.length + ': ' + p.steps[p.cur].t.toLowerCase();
+}
+function openPath() {
+  if (!needCtx('av')) return;
+  const p = pathState(), n = p.steps.filter(x => x.done).length;
+  const row = (x, i) => {
+    if (x.done) return `<div class="pth done"><span>✓</span><b>${esc(x.t)}</b></div>`;
+    if (i !== p.cur) return `<div class="pth lock"><span>🔒</span><b>${esc(x.t)}</b></div>`;
+    return `<div class="pth cur"><div><b>${i + 1}. ${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="btns">${x.go.map(g => `<button class="${x.man ? 'sec2' : 'pri'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}</div>`;
+  };
+  let html = `<div class="pbar"><i style="width:${Math.round(n / p.steps.length * 100)}%"></i></div><p class="meta">${n} di ${p.steps.length} passi · prima l'asciutto, poi il bagnato</p>`;
+  html += p.steps.map((x, i) => (i === 0 || x.ph !== p.steps[i - 1].ph ? `<h3>${x.ph === 'dry' ? 'Asciutto' : 'Bagnato'}</h3>` : '') + row(x, i)).join('');
+  if (p.cur < 0) html += '<div class="gi"><p><b>Percorso finito.</b> Setup specifico asciutto e bagnato pronti per questa pista.</p></div>';
+  html += `<div class="btns"><button class="sec2" data-act="close">Chiudi</button></div>`;
+  sheet('Percorso della pista', html, carNameFull());
+}
+function pathGo(g) {
+  const st = () => vzSt(), go = (mode, wet) => { const s = st(); s.mode = mode; s.wet = !!wet; vzPersist(); vzStart(); };
+  ({setupD: () => openSetup('dry'), setupW: () => openSetup('wet'), map: () => { closeSheet(); toast('Tocca una curva sulla mappa'); }, press: engPress, eng: engOpen,
+    vzDev: () => go('sviluppo', false), vzPasso: () => go('passo', false), vzWet: () => go('sviluppo', true), vzWetPasso: () => go('passo', true)}[g] || (() => {}))();
+}
 function engOpen() {
   if (!needCtx('av')) return;
   const cond = engCond(), st = engState(), pend = st.pend;
@@ -3332,6 +3395,9 @@ const ACT = {
   setupcopy: () => { const dry = ((DB.setupGen[gk()] || {}).dry || {vals: {}}).vals; document.querySelectorAll('.sheet input[data-pid]').forEach(i => { if (!i.value && dry[i.dataset.pid] != null) i.value = dry[i.dataset.pid]; }); },
   ctltoggle: () => { UI.ctlHide = !UI.ctlHide; drawMap(); },
   eng: engOpen,
+  path: openPath,
+  pathgo: b => pathGo(b.dataset.g),
+  pathdone: b => { pathSt().done[b.dataset.id] = now(); save(); openPath(); },
   engcond: b => { UI.engCond = b.dataset.c; engOpen(); },
   engph: b => engPhase(b.dataset.p),
   engsym: b => engSymptom(b.dataset.s),
