@@ -227,7 +227,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.50';   // versione dell'app
+const APP_V = '0.51';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1795,14 +1795,15 @@ function pathSteps() {
   const c = pathCtx();
   return [
     {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Inserisci il setup standard del gioco per questa pista.', ok: c.gen('dry'), go: [['Apri setup asciutto', 'setupD']]},
-    {id: 'learn', ph: 'dry', t: 'Impara la pista', d: '10 giri puliti, senza toccare niente. Obiettivo: ricordare la traiettoria, non il tempo.', man: 'Ho fatto 10 giri puliti', go: []},
+    {id: 'learn', ph: 'dry', t: 'Impara la pista e le pressioni', d: '10 giri puliti, senza toccare niente. Durante i giri leggi le pressioni a caldo; tornato ai box correggile subito nel setup specifico (obiettivo 27,0 a caldo).', man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
     {id: 'brk', ph: 'dry', t: 'Punti di staccata', d: 'Segna la staccata di almeno ' + Math.max(3, Math.ceil(c.tn * 0.6)) + ' curve (ora ' + c.nb + '). Tocca una curva sulla mappa.', ok: c.tn > 0 && c.nb >= Math.max(3, Math.ceil(c.tn * 0.6)), go: [['Vai alla mappa', 'map']]},
-    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento', d: 'Stint di 6 giri puliti senza modifiche. Salva giro veloce e media.', ok: c.saved('lapD') && c.saved('avgD'), go: [['Parti con la voce', 'vzDev']]},
-    {id: 'press', ph: 'dry', t: 'Pressioni a 27,0 a caldo', d: 'Dopo 5 giri puliti leggi le pressioni a caldo e correggi a freddo. Ripeti finché sono a ±0,3.', man: 'Pressioni a posto', go: [['Calcola la correzione', 'press']]},
+    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento', d: 'Stint di 6 giri puliti senza modifiche. Salva giro veloce e media (servono anche alla strategia).', ok: c.saved('lapD') && c.saved('avgD'), go: [['Parti con la voce', 'vzDev']]},
     {id: 'cons', ph: 'dry', t: 'Consumo', d: 'Stint con la benzina detta a ogni giro. Salva il consumo della mappa.', ok: ((c.pf.cons) || []).length > 0, go: [['Parti con la voce', 'vzPasso']]},
+    {id: 'pit', ph: 'dry', t: 'Tempo perso ai box', d: 'Fai un giro normale, poi un giro passando nella corsia box senza fermarti (dì “giro box” prima del tempo). L\'app calcola la differenza.', ok: !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzPasso']]},
     {id: 'dev', ph: 'dry', t: 'Sviluppo del setup', d: 'Una modifica per stint, detta a voce. Servono 3 prove salvate (ora ' + c.dev + ').', ok: c.dev >= 3, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
     {id: 'pace', ph: 'dry', t: 'Passo gara', d: 'Stint di almeno 10 giri puliti con il setup scelto. Salva il passo.', ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]},
     {id: 'lock', ph: 'dry', t: 'Blocca il setup asciutto', d: 'Metti nel setup specifico i valori finali (solo quelli diversi dal generale).', ok: c.spec('dry'), go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'strat', ph: 'dry', t: 'Controlla la strategia gara', d: 'Giro veloce, media, passo, consumo e tempo ai box sono già inseriti. Apri la strategia e controlla che i numeri tornino.', man: 'Strategia controllata', go: [['Apri la strategia', 'strat']]},
     {id: 'wbase', ph: 'wet', t: 'Bagnato: setup di partenza', d: 'Inserisci il setup bagnato standard del gioco per questa pista.', ok: c.gen('wet'), go: [['Apri setup bagnato', 'setupW']]},
     {id: 'wbrk', ph: 'wet', t: 'Bagnato: staccate', d: 'Controlla le staccate nel bagnato e correggile dove servono (campo Bagnato).', man: 'Staccate bagnato fatte', go: [['Vai alla mappa', 'map']]},
     {id: 'wref', ph: 'wet', t: 'Bagnato: tempo di riferimento', d: 'Stint di 6 giri puliti sul bagnato. Salva giro veloce e media.', ok: c.saved('lapW') && c.saved('avgW'), go: [['Parti con la voce', 'vzWet']]},
@@ -1837,7 +1838,7 @@ function openPath() {
 function pathGo(g) {
   const st = () => vzSt(), go = (mode, wet) => { const s = st(); s.mode = mode; s.wet = !!wet; vzPersist(); vzStart(); };
   ({setupD: () => openSetup('dry'), setupW: () => openSetup('wet'), map: () => { closeSheet(); toast('Tocca una curva sulla mappa'); }, press: engPress, eng: engOpen,
-    vzDev: () => go('sviluppo', false), vzPasso: () => go('passo', false), vzWet: () => go('sviluppo', true), vzWetPasso: () => go('passo', true)}[g] || (() => {}))();
+    vzDev: () => go('sviluppo', false), vzPasso: () => go('passo', false), vzWet: () => go('sviluppo', true), vzWetPasso: () => go('passo', true), strat: openStrat}[g] || (() => {}))();
 }
 function engOpen() {
   if (!needCtx('av')) return;
@@ -2005,6 +2006,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/semaforo verde/.test(t)) return Object.assign(r, {k: 'race_start'});
   if (/fine (stint|test)/.test(t)) return Object.assign(r, {k: 'stint_end'});
   let dm;
+  if (/\b(giro box|giro (nella|in) corsia|passaggio (ai |nei |in )?box|corsia (dei )?box)\b/.test(t) && !/\d/.test(t)) return Object.assign(r, {k: 'lap_pit'});
   if ((dm = t.match(/\bgiro (\d+) sporco\b/))) return Object.assign(r, {k: 'lap_dirty', n: +dm[1]});
   if (/\b(ultimo|precedente) giro sporco\b|\bgiro (precedente|prima) sporco\b/.test(t)) return Object.assign(r, {k: 'lap_dirty', last: true});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
@@ -2273,7 +2275,7 @@ function vzSt() {   // i dati della sessione restano anche se chiudi l'ingegnere
 }
 function vzPersist() {
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, u: now()};
   save();
 }
 function vzHelp() {
@@ -2311,6 +2313,20 @@ const vzDf = d => d == null ? '' : Math.abs(d) < 0.0005 ? '<span class="vzdf">ug
 function vzConsHtml(st) { return (() => { const cm = vzConsMaps(st), ks = Object.keys(cm); if (!ks.length) return ''; const pf = DB.perf[engKey()] || {};
       return '<h3>Consumo per mappa</h3><p class="meta">Dalle letture della benzina: litri persi in ogni giro pulito. Non salvo finché non tocchi il pulsante: il nuovo valore si unisce a quello già salvato, pesato sul numero di giri.</p>' + ks.map(m => { const v = cm[m], avg = v.reduce((t, x) => t + x.d, 0) / v.length, o = (pf.cons || []).find(x => String(x.map).split(' ')[0] === m);
         return `<div class="gi"><b>Mappa ${esc(m)}: ${avg.toFixed(2).replace('.', ',')} ${esc(fuelU())}/giro</b><p class="meta">su ${v.length} giri (${v.map(x => x.n).join(', ')})${o ? ' · salvato ora: ' + esc(String(o.v).replace('.', ',')) : ' · non ancora salvato'}</p><div class="btns"><button class="sec2" data-act="vzbcons" data-m="${esc(m)}">${o ? 'Aggiorna' : 'Salva'} consumo mappa ${esc(m)}</button></div></div>`; }).join(''); })(); }
+function vzPitLoss(st) {   // giro con passaggio ai box meno la media dei due giri puliti più vicini
+  const slow = vzSlow(st), ok = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x) && paceP(x.t) != null);
+  return st.laps.filter(x => x.pit && paceP(x.t) != null).map(l => {
+    const b = ok.filter(x => x.n < l.n).slice(-1)[0], a = ok.filter(x => x.n > l.n)[0], refs = [b, a].filter(Boolean);
+    if (!refs.length) return {lap: l, loss: null};
+    const ref = refs.reduce((m, x) => m + paceP(x.t), 0) / refs.length;
+    return {lap: l, ref, loss: paceP(l.t) - ref, nref: refs.length};
+  });
+}
+function vzPitHtml(st) {
+  const pl = vzPitLoss(st); if (!pl.length) return '';
+  const pk = V && G ? kk(V.id, G.id) : '', cur = (DB.pits[pk] || {}).lane;
+  return '<h3>Tempo perso ai box</h3><p class="meta">Giro con passaggio nella corsia box, senza fermarti, meno i giri normali vicini. Non salvo finché non tocchi il pulsante.</p>' + pl.map(x => x.loss == null ? `<div class="gi"><b>Giro ${esc(x.lap.n)}</b><p class="meta">Mi servono giri puliti vicini per il confronto.</p></div>` : `<div class="gi"><b>Giro ${esc(x.lap.n)}: ${x.loss.toFixed(1).replace('.', ',')} s persi</b><p class="meta">${esc(x.lap.t)} contro ${esc(vzFmt(x.ref))} dei giri normali vicini (${x.nref})${cur ? ' · salvato ora: ' + String(cur).replace('.', ',') + ' s' : ''}</p><div class="btns"><button class="sec2" data-act="vzbpit" data-s="${x.loss.toFixed(2)}">Salva ${x.loss.toFixed(1).replace('.', ',')} s come tempo corsia box</button></div></div>`).join('');
+}
 function vzTop(st) {
   const w = !!st.wet, m = vzSummary(st, w), md = st.mode || 'libera';
   const MD = [['libera', 'Libera'], ['sviluppo', 'Sviluppo auto'], ['passo', 'Passo gara'], ['qualifica', 'Qualifica']];
@@ -2322,7 +2338,7 @@ function vzTop(st) {
   const hint = {libera: 'Libera: tutto a disposizione, niente di guidato.', sviluppo: 'Sviluppo auto: cambia una cosa per stint e dillo (“ho cambiato…”). Confronta giro veloce e media con i salvati.', passo: 'Passo gara: stint lungo, meno giri veloci e più costanza. Contano passo e consumo.', qualifica: 'Qualifica: conta solo il giro veloce.'}[md];
   return `<div class="seg" style="margin-top:8px;flex-wrap:wrap">${MD.map(x => `<button class="sec2" data-act="vzbmode" data-m="${x[0]}" aria-pressed="${md === x[0]}">${x[1]}</button>`).join('')}</div><p class="meta" style="margin:6px 0 0">${hint}</p>
     <div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
-    <div class="vzsum">${cards}</div>
+    <div class="vzsum">${cards}</div>${vzPitHtml(st)}
     ${md === 'sviluppo' ? `<h3>Modifiche fatte</h3>${chg || '<div class="empty">Nessuna. Dì: “ho cambiato l\'ala da 5 a 4”.</div>'}<div class="zg"><label class="f full">Aggiungi a mano<input id="bxCh" placeholder="es. ala 5 → 4" autocomplete="off"></label></div><div class="btns"><button class="sec2" data-act="vzbchadd">Aggiungi modifica</button></div>` : ''}`;
 }
 function vzBox() {
@@ -2332,7 +2348,7 @@ function vzBox() {
   const rowOf = (l, i) => {
     const sp = !!l.dirty, lt = !sp && (l.odd || slow.includes(l)), isBest = best === l, d = best && paceP(l.t) != null ? paceP(l.t) - paceP(best.t) : null;
     const fl = (st.fuelLog || []).find(x => x.lap === l.n), cls = sp || lt ? ' bad' : isBest ? ' best' : rk.indexOf(l) === 1 || rk.indexOf(l) === 2 ? ' tp' : '';
-    const chip = sp ? '<span class="vzchip">sporco</span>' : lt ? '<span class="vzchip">' + (l.odd ? 'anomalo' : 'lento') + '</span>' : l.ok && !isBest ? '<span class="vzchip soft">conta</span>' : '';
+    const chip = sp ? '<span class="vzchip">' + (l.pit ? 'box' : 'sporco') + '</span>' : lt ? '<span class="vzchip">' + (l.odd ? 'anomalo' : 'lento') + '</span>' : l.ok && !isBest ? '<span class="vzchip soft">conta</span>' : '';
     const meta = [l.map ? 'mappa ' + l.map : '', l.road ? 'pista ' + l.road + '°' : '', fl ? fl.fuel + ' ' + fuelU() : ''].filter(Boolean).join(' · ');
     const b2 = lt ? `<button class="sec2" data-act="vzbok" data-i="${i}">Conta lo stesso</button>` : l.ok && !sp ? `<button class="sec2" data-act="vzbok" data-i="${i}">Escludi</button>` : '';
     return `<details class="vzlap${cls}" data-n="${esc(l.n)}"><summary><span class="vzn1">${esc(l.n)}</span><span class="vzt1">${esc(l.t)}</span><span class="vzd">${d == null ? '' : isBest ? '★' : '+' + d.toFixed(3)}</span>${chip || '<span></span>'}<span class="vzmeta">${esc(meta)}</span></summary><div class="vzbt"><button class="sec2" data-act="vzbdirty" data-i="${i}">${sp ? 'Segna pulito' : 'Segna sporco'}</button>${b2}<button class="sec2" data-act="vzbdel" data-i="${i}">Elimina</button></div></details>`;
@@ -2415,6 +2431,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'no': if (st.confirm) { st.confirm = null; return {say: 'Ok, non salvo niente.', line: 'no · non salvato'}; } return {say: 'Ok.', line: 'no'};
     case 'race_start': st.raceT0 = Date.now(); return {say: 'Semaforo verde. Il cronometro parte. In questa prova non fa altro.', line: 'semaforo verde → cronometro partito'};
     case 'stint_end': if (st.test) return vzTestEnd(st); return {say: 'Fine stint. Giri contati: ' + st.laps.length + '.', line: 'fine stint · giri: ' + st.laps.length};
+    case 'lap_pit': st.pitNext = true; return {say: 'Giro con passaggio ai box, senza fermarti. Lo segno sul prossimo tempo.', line: 'giro box (sul prossimo giro)'};
     case 'lap_dirty': {   // "giro sporco" lo dici mentre guidi: vale per il giro in corso; "ultimo giro sporco" o "giro 5 sporco" per uno già registrato
       const L = st.laps, tgt = p.n ? L.find(x => x.n === p.n) : p.last ? L[L.length - 1] : null;
       if (tgt) { tgt.dirty = true; return {say: 'Giro ' + tgt.n + ' sporco.', line: 'giro ' + tgt.n + ' sporco'}; }
@@ -2443,7 +2460,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_brake': return vzReadBrake(p);
     case 'read_note': return vzReadNote(p);
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
-    case 'sess_reset': st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
+    case 'sess_reset': st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pitNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
     case 'fuel': {
       if (p.start) { st.fuelStart = p.v; return {say: 'Carburante di partenza ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
@@ -2468,7 +2485,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'lap_time': {
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
       st.lapNo = n; st.pendLap = null;
-      const lp = {n, t: p.time, air: st.air, road: st.road, map: st.map}; if (st.dirtyNext) { lp.dirty = true; st.dirtyNext = false; } st.gaps = (st.gaps || []).filter(g => g.n !== n); st.laps.push(lp); st.lastLapAt = Date.now();   // ogni giro ricorda mappa e temperature valide in quel momento
+      const lp = {n, t: p.time, air: st.air, road: st.road, map: st.map}; if (st.dirtyNext) { lp.dirty = true; st.dirtyNext = false; } if (st.pitNext) { lp.dirty = true; lp.pit = true; st.pitNext = false; } st.gaps = (st.gaps || []).filter(g => g.n !== n); st.laps.push(lp); st.lastLapAt = Date.now();   // ogni giro ricorda mappa e temperature valide in quel momento
       if (st.test) return vzLapTest(lp, st);
       return {say: 'Giro ' + n + ', ' + vzSay.time(p.time) + '.', line: 'giro ' + n + ' · ' + p.time};
     }
@@ -2796,7 +2813,7 @@ function openStrat() {
   const main = perf ? (perf.cons.find(c => c.main) || perf.cons[0]) : null;
   const tank = A.tank || '';
   const info = perf && main
-    ? `Precompilato dai dati di questa auto: passo gara asciutto ${perf.paceD || 'mancante'}, consumo ${main.v} ${G.unit}, tempo di sosta ${pt.s} s (${pt.st}), serbatoio ${tank || 'mancante'}${tank ? ' L' : ''}.`
+    ? `Precompilato dai dati di questa auto: passo gara asciutto ${perf.paceD || 'mancante'}, consumo ${main.v} ${G.unit}, tempo di sosta ${pt.s} s (${pt.st})${pt.lane ? ', corsia box misurata ' + String(pt.lane).replace('.', ',') + ' s (tempo perso senza fermarsi)' : ''}, serbatoio ${tank || 'mancante'}${tank ? ' L' : ''}.`
     : 'Per questa auto su questo circuito mancano passo e consumo. Inseriscili qui sotto o salvali in Dati rapidi.';
   const pstText = dirty => '<b>' + (dirty ? 'Non salvato' : pt.st.charAt(0).toUpperCase() + pt.st.slice(1)) + '</b> · ' + esc(G.name) + ' · ' + esc(varName()) + (!dirty && pt.st === 'copiato' && pt.from ? ' (da ' + esc(pt.from) + ')' : '');
   sheet('Strategia gara', `<p class="meta">${esc(info)}</p><div class="zg">
@@ -3419,7 +3436,7 @@ const ACT = {
   vzcopy: vzCopy,
   vzhelp: vzHelp,
   vzbox: () => { if (needCtx('av')) vzBox(); },
-  vzbdirty: b => { const l = vzSt().laps[+b.dataset.i]; if (l) { l.dirty = !l.dirty; vzPersist(); vzBoxRead(); vzBox(); } },
+  vzbdirty: b => { const l = vzSt().laps[+b.dataset.i]; if (l) { l.dirty = !l.dirty; if (!l.dirty) delete l.pit; vzPersist(); vzBoxRead(); vzBox(); } },
   vzbwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBoxRead(); vzBox(); },
   vzbok: b => { const l = vzSt().laps[+b.dataset.i]; if (l) { l.ok = !l.ok; l.odd = false; vzPersist(); vzBoxRead(); vzBox(); } },
   vzbdel: b => { vzBoxRead(); vzSt().laps.splice(+b.dataset.i, 1); vzPersist(); vzBox(); },
@@ -3428,6 +3445,7 @@ const ACT = {
     let range; if (t === 'pace') { const a = parseInt($('bxA').value, 10), z = parseInt($('bxB').value, 10); range = a > 0 && z >= a ? {a, b: z} : 'all'; }
     const r = vzTestEnd(st, t, b.dataset.w === '1', range); vzPersist(); vzBoxShow(r);
   },
+  vzbpit: b => { const v = parseFloat(b.dataset.s); if (!(v > 0) || !V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(v * 10) / 10, laneU: now(), u: now()}); save(); vzBox(); toast('Tempo corsia box salvato: ' + v.toFixed(1) + ' s'); },
   vzbmode: b => { vzBoxRead(); vzSt().mode = b.dataset.m; vzPersist(); vzBox(); },
   vzbchdel: b => { vzBoxRead(); vzSt().changes.splice(+b.dataset.i, 1); vzPersist(); vzBox(); },
   vzbchadd: () => { vzBoxRead(); const st = vzSt(), v = ($('bxCh').value || '').trim(); if (!v) return; st.changes = st.changes || []; st.changes.push({lap: st.lapNo || 0, text: v}); vzPersist(); vzBox(); },
