@@ -178,6 +178,8 @@ nav{align-items:flex-end}
 .vzlap.tp{border-left-color:#22c55e}.vzlap.tp .vzt1{color:#4ade80}.vzlap.best{border-left-color:#d946ef}.vzlap.best .vzt1{color:#e879f9}.vzlap.bad{border-left-color:#ef4444;background:rgba(239,68,68,.07)}.vzlap.bad .vzt1{opacity:.65}.vzlap.gap{border-left-color:var(--muted);border-style:dashed}
 .vzn1{font-size:15px;opacity:.7;font-weight:600}.vzt1{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}.vzd{font-variant-numeric:tabular-nums;font-size:14px;opacity:.75}
 .vzchip{font-size:11.5px;font-weight:700;border-radius:99px;padding:1px 8px;background:rgba(239,68,68,.18);color:var(--bad)}.vzchip.soft{background:rgba(160,160,160,.2);color:var(--muted)}
+.vzw{position:relative}.vzw.hasbtn summary{padding-right:92px}.vzsv{position:absolute;right:8px;top:8px;border:0;border-radius:99px;padding:7px 14px;font-weight:800;font-size:14px;background:#d946ef;color:#fff;cursor:pointer}.vzsv.ok{background:rgba(160,160,160,.25);color:var(--muted)}
+.vzavg{display:flex;align-items:center;gap:10px;padding:10px;margin:6px 0;border-radius:10px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid #22c55e}.vzavg>div{flex:1}.vzavg .vzsl{display:block;width:auto;margin-bottom:2px}.vzavg b{font-size:19px;font-variant-numeric:tabular-nums;margin-right:6px}.vzavg .vzsv{position:static;background:#22c55e;color:#04210e}.vzavg .vzsv.ok{background:rgba(160,160,160,.25);color:var(--muted)}
 .vzsum{display:flex;flex-direction:column;gap:8px;margin:8px 0}.vzsr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}
 .vzsl{width:100%;font-size:12.5px;opacity:.8}.vzsr b{font-size:21px;font-variant-numeric:tabular-nums}.vzdf{font-weight:800;margin-left:auto}.vzdf.up{color:var(--good)}.vzdf.dn{color:var(--bad)}
 .vzmeta{grid-column:2/-1;font-size:12.5px;opacity:.7}.vzbt{display:flex;gap:6px;justify-content:flex-end;padding:0 10px 10px}
@@ -2031,7 +2033,7 @@ function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
     }
     res.push(typeof x === 'object' ? {n: x.n} : x);
   });
-  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2');
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ');
 }
 function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
   let m, ss, ms;
@@ -2072,7 +2074,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\b(ultimo|precedente) giro sporco\b|\bgiro (precedente|prima) sporco\b/.test(t)) return Object.assign(r, {k: 'lap_dirty', last: true});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
   if (/\bpression\w*\b/.test(t) && !/\b(qual|quale|dimmi|leggi|leggimi)\b/.test(t)) {
-    const nn = (t.match(/\b\d+(?:\.\d+)?\b/g) || []).map(Number);
+    const nn = (t.replace(/\b(\d{2}) e (\d)\b/g, '$1.$2').match(/\b\d+(?:\.\d+)?\b/g) || []).map(x => /^\d{3}$/.test(x) ? +x / 10 : +x);   // "268" = 26,8 · "26 e 9" = 26,9
     if (nn.length === 4) return Object.assign(r, {k: 'press', vals: {FL: nn[0], FR: nn[1], RL: nn[2], RR: nn[3]}});
     const f = /\banterior\w*|\bdavanti\b/.test(t), rr = /\bposterior\w*|\bdietro\b/.test(t), l = /\bsinistr\w*|\bsx\b/.test(t), d = /\bdestr\w*|\bdx\b/.test(t);
     if (nn.length === 1 && (f || rr) && (l || d)) return Object.assign(r, {k: 'press', vals: {[(f ? 'F' : 'R') + (l ? 'L' : 'R')]: nn[0]}});
@@ -2245,6 +2247,7 @@ function vzFuelEst(n, st) {   // litri a inizio del giro n (= fine del giro prim
   return v > 0 ? Math.round(v) : null;
 }
 function vzTestStart(p, st) {
+  vzArchive('inizio test');
   const e = vzNeed(); if (e) return {say: e, line: e, bad: true};
   if (!p.what) return {say: 'Quale test? Giro veloce, media, passo gara o consumo.', line: 'test: quale?', bad: true};
   st.test = {type: p.what, wet: p.wet}; st.laps = []; st.lapNo = 0; st.pendLap = null; st.fuelLog = []; st.confirm = null; st.fuelStart = 0; st.map = null; st.air = st.air; st.road = st.road;
@@ -2335,9 +2338,38 @@ function vzSt() {   // i dati della sessione restano anche se chiudi l'ingegnere
   if (!UI.vzst) UI.vzst = Object.assign({laps: [], fuelLog: [], feel: [], junk: [], last: ''}, JSON.parse(JSON.stringify(DB.settings.vzSess || {})));
   return UI.vzst;
 }
+function vzArchive(why) {   // prima di azzerare o cambiare sessione la metto da parte: niente si perde
+  try {
+    if (UI.vzst) vzPersist();
+    const ss = DB.settings.vzSess; if (!ss || !((ss.laps || []).length || (ss.fuelLog || []).length || (ss.press || []).length)) return;
+    const a = DB.settings.vzArch = DB.settings.vzArch || [], j = JSON.stringify(Object.assign({}, ss, {u: 0}));
+    if (a.length && JSON.stringify(Object.assign({}, a[0].s, {u: 0})) === j) return;
+    a.unshift({at: now(), why: why || '', name: carNameFull(), s: JSON.parse(JSON.stringify(ss))}); DB.settings.vzArch = a.slice(0, 15); save();
+  } catch (_) {}
+}
+function vzAutoCons(st) {   // consumo per mappa sempre aggiornato dalle letture della benzina, senza chiedere (un contributo per sessione: non si raddoppia)
+  const cm = vzConsMaps(st), ks = Object.keys(cm); if (!ks.length) return;
+  const key = engKey(); let p = DB.perf[key], ch = false; st.consApplied = st.consApplied || {}; st.consHist = st.consHist || {};
+  ks.forEach(m => {
+    const v = cm[m], n = v.length, avg = v.reduce((t, x) => t + x.d, 0) / n, prev = st.consApplied[m];
+    if (prev && Math.abs(prev.avg - avg) < 0.005 && prev.n === n) return;
+    if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now()};
+    p.cons = p.cons || []; const o = p.cons.find(x => String(x.map).split(' ')[0] === m);
+    if (o) {
+      const ov = parseFloat(String(o.v).replace(',', '.')), w = o.n || 3; let bv = ov, bw = w;
+      if (prev) { if (w > prev.n) { bv = (ov * w - prev.avg * prev.n) / (w - prev.n); bw = w - prev.n; } else { bv = 0; bw = 0; } }
+      const nv = bw > 0 && bv > 0 ? (bv * bw + avg * n) / (bw + n) : avg; o.v = nv.toFixed(2); o.n = (bw > 0 && bv > 0 ? bw : 0) + n;
+    } else p.cons.push({map: m, v: avg.toFixed(2), n, main: !p.cons.length});
+    st.consApplied[m] = {avg, n}; ch = true;
+    const val = (p.cons.find(x => String(x.map).split(' ')[0] === m) || {}).v, hid = st.consHist[m], he = hid && (DB.hist || []).find(x => x.id === hid);
+    if (he) he.val = val; else { histAdd('cons', val, (p.cons.find(x => String(x.map).split(' ')[0] === m) || {}).map || m, 'Calcolato in automatico dalla sessione'); st.consHist[m] = DB.hist[DB.hist.length - 1].id; }
+  });
+  if (ch) { p.u = now(); }
+}
 function vzPersist() {
+  try { if (UI.vzst) vzAutoCons(UI.vzst); } catch (_) {}
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, saved: s.saved, consApplied: s.consApplied, consHist: s.consHist, u: now()};
   save();
 }
 function vzHelp() {
@@ -2372,9 +2404,12 @@ function vzSummary(st, wet) {   // giro veloce e media dei 3 migliori di questa 
   return {pace: pv == null ? null : vzFmt(pv), nPace: good.length, sp, dPace: pv == null ? null : cmp(pv, sp), fPace: fp.length ? Math.round(fp.reduce((m, x) => m + x, 0) / fp.length) : null, lap, avg: avg == null ? null : vzFmt(avg), top: good.slice(0, 3), valid: good.length, sl, sa, dLap: lap ? cmp(paceP(lap.t), sl) : null, dAvg: avg == null ? null : cmp(avg, sa)};
 }
 const vzDf = d => d == null ? '' : Math.abs(d) < 0.0005 ? '<span class="vzdf">uguale</span>' : d < 0 ? `<span class="vzdf up">▲ ${Math.abs(d).toFixed(3).replace('.', ',')} s meglio</span>` : `<span class="vzdf dn">▼ ${d.toFixed(3).replace('.', ',')} s peggio</span>`;
-function vzConsHtml(st) { return (() => { const cm = vzConsMaps(st), ks = Object.keys(cm); if (!ks.length) return ''; const pf = DB.perf[engKey()] || {};
-      return '<h3>Consumo per mappa</h3><p class="meta">Dalle letture della benzina: litri persi in ogni giro pulito. Non salvo finché non tocchi il pulsante: il nuovo valore si unisce a quello già salvato, pesato sul numero di giri.</p>' + ks.map(m => { const v = cm[m], avg = v.reduce((t, x) => t + x.d, 0) / v.length, o = (pf.cons || []).find(x => String(x.map).split(' ')[0] === m);
-        return `<div class="gi"><b>Mappa ${esc(m)}: ${avg.toFixed(2).replace('.', ',')} ${esc(fuelU())}/giro</b><p class="meta">su ${v.length} giri (${v.map(x => x.n).join(', ')})${o ? ' · salvato ora: ' + esc(String(o.v).replace('.', ',')) : ' · non ancora salvato'}</p><div class="btns"><button class="sec2" data-act="vzbcons" data-m="${esc(m)}">${o ? 'Aggiorna' : 'Salva'} consumo mappa ${esc(m)}</button></div></div>`; }).join(''); })(); }
+function vzConsHtml(st) {   // consumo: si calcola e si salva da solo a ogni lettura della benzina
+  const cm = vzConsMaps(st), ks = Object.keys(cm), pf = DB.perf[engKey()] || {};
+  if (!ks.length) { const c = vzCons(st); return `<div class="vzsr"><span class="vzsl">Consumo</span><span class="meta">${c > 0 ? 'Uso quello salvato: ' + esc(String(c).replace('.', ',')) + ' ' + esc(fuelU()) + '/giro. ' : ''}Si aggiorna da solo quando mi dici la benzina su giri puliti.</span></div>`; }
+  return '<div class="vzsr" style="flex-direction:column;align-items:stretch"><span class="vzsl">Consumo · si aggiorna da solo a ogni lettura</span>' + ks.map(m => { const v = cm[m], avg = v.reduce((t, x) => t + x.d, 0) / v.length, o = (pf.cons || []).find(x => String(x.map).split(' ')[0] === m);
+    return `<div class="row2" style="align-items:baseline"><b>Mappa ${esc(m)}: ${avg.toFixed(2).replace('.', ',')} ${esc(fuelU())}/giro</b><span class="meta" style="margin-left:auto">${v.length} giri · salvato ${o ? '<b>' + esc(String(o.v).replace('.', ',')) + '</b> ✓' : '—'}</span></div>`; }).join('') + '</div>';
+}
 function vzPitLoss(st) {   // giro con passaggio ai box meno la media dei due giri puliti più vicini
   const slow = vzSlow(st), ok = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x) && paceP(x.t) != null);
   return st.laps.filter(x => x.pit && paceP(x.t) != null).map(l => {
@@ -2396,7 +2431,7 @@ function vzTop(st) {
   const cardAvg = `<div class="vzsr"><span class="vzsl">Media dei 3 giri migliori</span><b>${m.avg ? esc(m.avg) : '—'}</b>${m.top.length >= 3 ? '<span class="meta">giri ' + m.top.map(x => esc(x.n)).join(', ') + '</span>' : '<span class="meta">servono 3 giri validi (ne ho ' + m.valid + ')</span>'}<span class="meta">salvata: ${m.sa ? esc(m.sa) : 'nessuna'}</span>${vzDf(m.dAvg)}${m.top.length >= 3 ? `<button class="sec2" data-act="vzbcalc" data-t="avg" data-w="${w ? 1 : 0}">Salva media 3 giri</button>` : ''}</div>`;
   const cardPace = `<div class="vzsr"><span class="vzsl">Passo gara (media dei giri puliti)</span><b>${m.pace ? esc(m.pace) : '—'}</b>${m.pace ? '<span class="meta">su ' + m.nPace + ' giri' + (m.fPace ? ' · circa ' + m.fPace + ' ' + esc(fuelU()) + ' in media' : '') + '</span>' : '<span class="meta">servono almeno 2 giri puliti</span>'}<span class="meta">salvato: ${m.sp ? esc(m.sp) : 'nessuno'}</span>${vzDf(m.dPace)}${m.pace ? `<button class="sec2" data-act="vzbcalc" data-t="pace" data-w="${w ? 1 : 0}">Salva passo gara</button>` : ''}</div>`;
   const chg = (st.changes || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: ${esc(x.text)}</span><button class="x" data-act="vzbchdel" data-i="${i}" aria-label="Elimina">✕</button></div>`).join('');
-  const cards = md === 'qualifica' ? cardLap + vzConsHtml(st) : md === 'passo' ? cardPace + vzConsHtml(st) + cardLap : (md === 'sviluppo' ? cardLap + cardAvg : cardLap + cardAvg) + vzConsHtml(st);
+  const cards = md === 'qualifica' ? '' : md === 'passo' ? cardPace + vzConsHtml(st) : vzConsHtml(st);
   const hint = {libera: 'Libera: tutto a disposizione, niente di guidato.', sviluppo: 'Sviluppo auto: cambia una cosa per stint e dillo (“ho cambiato…”). Confronta giro veloce e media con i salvati.', passo: 'Passo gara: stint lungo, meno giri veloci e più costanza. Contano passo e consumo.', qualifica: 'Qualifica: conta solo il giro veloce.'}[md];
   return `<div class="seg" style="margin-top:8px;flex-wrap:wrap">${MD.map(x => `<button class="sec2" data-act="vzbmode" data-m="${x[0]}" aria-pressed="${md === x[0]}">${x[1]}</button>`).join('')}</div><p class="meta" style="margin:6px 0 0">${hint}</p>
     <div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
@@ -2411,20 +2446,22 @@ function vzBox() {
     const sp = !!l.dirty, lt = !sp && (l.odd || slow.includes(l)), isBest = best === l, d = best && paceP(l.t) != null ? paceP(l.t) - paceP(best.t) : null;
     const fl = (st.fuelLog || []).find(x => x.lap === l.n), cls = sp || lt ? ' bad' : isBest ? ' best' : rk.indexOf(l) === 1 || rk.indexOf(l) === 2 ? ' tp' : '';
     const chip = sp ? '<span class="vzchip">' + (l.pit ? 'box' : 'sporco') + '</span>' : lt ? '<span class="vzchip">' + (l.odd ? 'anomalo' : 'lento') + '</span>' : l.ok && !isBest ? '<span class="vzchip soft">conta</span>' : '';
-    const meta = [l.map ? 'mappa ' + l.map : '', l.road ? 'pista ' + l.road + '°' : '', fl ? fl.fuel + ' ' + fuelU() : ''].filter(Boolean).join(' · ');
+    const est = !fl && !sp ? vzFuelEst(l.n + 1, st) : null, meta = [l.map ? 'mappa ' + l.map : '', l.road ? 'pista ' + l.road + '°' : '', fl ? fl.fuel + ' ' + fuelU() : est ? '≈' + est + ' ' + fuelU() : ''].filter(Boolean).join(' · ');
+    const sv = isBest ? (() => { const pf0 = DB.perf[engKey()] || {}, k0 = st.wet ? 'lapW' : 'lapD', done = (st.saved || {})[k0] === l.t; return `<button class="vzsv${done ? ' ok' : ''}" data-act="vzbcalc" data-t="lap" data-w="${st.wet ? 1 : 0}">${done ? '✓ Salvato' : 'Salva'}</button>`; })() : '';
     const b2 = lt ? `<button class="sec2" data-act="vzbok" data-i="${i}">Conta lo stesso</button>` : l.ok && !sp ? `<button class="sec2" data-act="vzbok" data-i="${i}">Escludi</button>` : '';
-    return `<details class="vzlap${cls}" data-n="${esc(l.n)}"><summary><span class="vzn1">${esc(l.n)}</span><span class="vzt1">${esc(l.t)}</span><span class="vzd">${d == null ? '' : isBest ? '★' : '+' + d.toFixed(3)}</span>${chip || '<span></span>'}<span class="vzmeta">${esc(meta)}</span></summary><div class="vzbt"><button class="sec2" data-act="vzbdirty" data-i="${i}">${sp ? 'Segna pulito' : 'Segna sporco'}</button>${b2}<button class="sec2" data-act="vzbdel" data-i="${i}">Elimina</button></div></details>`;
+    return `<div class="vzw${isBest ? ' hasbtn' : ''}"><details class="vzlap${cls}" data-n="${esc(l.n)}"><summary><span class="vzn1">${esc(l.n)}</span><span class="vzt1">${esc(l.t)}</span><span class="vzd">${d == null ? '' : isBest ? '★' : '+' + d.toFixed(3)}</span>${chip || '<span></span>'}<span class="vzmeta">${esc(meta)}</span></summary><div class="vzbt"><button class="sec2" data-act="vzbdirty" data-i="${i}">${sp ? 'Segna pulito' : 'Segna sporco'}</button>${b2}<button class="sec2" data-act="vzbdel" data-i="${i}">Elimina</button></div></details>${sv}</div>`;
   };
   const gapRow = g => `<details class="vzlap gap"><summary><span class="vzn1">${esc(g.n)}</span><span class="vzt1">—</span><span class="vzd"></span><span class="vzchip soft">tempo non capito</span></summary><div class="vzbt"><button class="sec2" data-act="vzbgfill" data-n="${esc(g.n)}">Scrivi il tempo</button><button class="sec2" data-act="vzbgdel" data-n="${esc(g.n)}">Elimina</button></div></details>`;
   const items = L.map((l, i) => ({n: l.n, h: rowOf(l, i)})).concat((st.gaps || []).filter(g => !L.some(l => l.n === g.n)).map(g => ({n: g.n, h: gapRow(g)}))).sort((a, b) => a.n - b.n);
   const rows = items.map(x => x.h).join('');
+  const avgStrip = (() => { const m = vzSummary(st, !!st.wet); if (!m.avg) return L.length ? '<p class="meta">La media dei 3 giri migliori compare con 3 giri validi.</p>' : ''; const pf0 = DB.perf[engKey()] || {}, done = (st.saved || {})[st.wet ? 'avgW' : 'avgD'] === m.avg; return `<div class="vzavg"><div><span class="vzsl">Media dei 3 migliori · giri ${m.top.map(x => esc(x.n)).join(', ')}</span><b>${esc(m.avg)}</b> ${vzDf(m.dAvg)}</div><button class="vzsv${done ? ' ok' : ''}" data-act="vzbcalc" data-t="avg" data-w="${st.wet ? 1 : 0}">${done ? '✓ Salvata' : 'Salva'}</button></div>`; })();
   const fl = (st.fuelLog || []).map(x => 'giro ' + x.lap + ': ' + x.fuel + ' ' + fuelU()).join(' · ');
   const fe = (st.feel || []).map(x => `<div class="gi"><b>${x.lap ? 'Giro ' + esc(x.lap) : 'Sensazione'}</b><p>${esc(x.text)}</p></div>`).join('');
   const b = (t, w, l) => `<button class="sec2" data-act="vzbcalc" data-t="${t}" data-w="${w}">${l}</button>`;
   sheet('Dati della sessione', `<p class="meta">Tutto quello che hai detto durante la guida. Qui controlli, correggi e scegli cosa calcolare e salvare. Non salva niente finché non lo confermi.</p>
     ${vzTop(st)}
     <div id="vzbRes" style="margin:8px 0"></div>
-    <h3>Giri (${L.length})</h3><p class="meta"><span class="vzsw best"></span> il più veloce · <span class="vzsw tp"></span> 2° e 3° · <span class="vzsw bad"></span> sporco o lento: non contano in media e passo. Tocca un giro per cambiarlo.</p><div style="display:flex;flex-direction:column;gap:6px;margin:6px 0">${rows || '<div class="empty">Nessun giro registrato.</div>'}</div>
+    <h3>Giri (${L.length})</h3><p class="meta"><span class="vzsw best"></span> il più veloce · <span class="vzsw tp"></span> 2° e 3° · <span class="vzsw bad"></span> sporco o lento: non contano in media e passo. Tocca un giro per cambiarlo.</p><div style="display:flex;flex-direction:column;gap:6px;margin:6px 0">${rows || '<div class="empty">Nessun giro registrato.</div>'}</div>${avgStrip}
     <div class="zg"><label class="f">Benzina di partenza (${esc(fuelU())})<input id="bxFuel" inputmode="decimal" value="${esc(st.fuelStart || '')}" autocomplete="off"></label>
       <label class="f">Mappa motore${st.map ? '' : ' (non detta)'}<input id="bxMap" inputmode="numeric" value="${esc(st.map || '')}" autocomplete="off"></label>
       <label class="f">Temp. aria (°C)<input id="bxAir" inputmode="decimal" value="${esc(st.air || '')}" autocomplete="off"></label>
@@ -2439,10 +2476,11 @@ function vzBox() {
     <div class="zg"><label class="f">Dopo il giro n°<input id="bxFN" inputmode="numeric" autocomplete="off"></label><label class="f">Benzina rimasta<input id="bxFV" inputmode="decimal" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbfadd">Aggiungi lettura</button></div>
     ${fe ? `<h3>Sensazioni</h3>${fe}` : ''}
-    <details class="calc"><summary>Passo gara e consumo</summary><p class="meta">Giro veloce e media si salvano dai pulsanti in alto. Qui passo gara e consumo: calcola e poi confermi in alto. Valgono per asciutto o bagnato come scelto in alto.</p><div class="btns">${b('cons', 0, 'Calcola il consumo')}</div>
+    <details class="calc"><summary>Passo gara e consumo</summary><p class="meta">Giro veloce e media si salvano con il tasto Salva sui giri; il consumo si aggiorna da solo. Qui il passo gara: calcola e poi confermi in alto. Valgono per asciutto o bagnato come scelto in alto.</p><div class="btns">${b('cons', 0, 'Calcola il consumo')}</div>
     <div class="zg" style="margin-top:8px"><label class="f">Passo: dal giro<input id="bxA" inputmode="numeric" autocomplete="off"></label><label class="f">al giro<input id="bxB" inputmode="numeric" autocomplete="off"></label></div>
     <div class="btns">${b('pace', st.wet ? 1 : 0, 'Calcola il passo gara')}</div>
     </details>
+    ${(DB.settings.vzArch || []).length ? `<h3>Sessioni precedenti</h3><p class="meta">Quando azzeri o svuoti, la sessione viene messa qui da sola. Ripristina per riaverla.</p>${DB.settings.vzArch.map((e, i) => `<div class="row2" style="align-items:center"><span style="flex:1">${esc(new Date(e.at).toLocaleString('it', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}))} · ${(e.s.laps || []).length} giri${e.name ? ' · ' + esc(e.name) : ''}</span><button class="sec2" data-act="vzbrest" data-i="${i}">Ripristina</button><button class="x" data-act="vzbadel" data-i="${i}" aria-label="Elimina">✕</button></div>`).join('')}` : ''}
     <div class="btns" style="margin-top:16px"><button class="sec2" data-act="vzbcopy">Copia per Claude</button><button class="sec2" data-act="vzbclear">Svuota sessione</button><button class="sec2" data-act="close">Chiudi</button></div>`, carNameFull());
 }
 function vzBoxShow(r) {
@@ -2473,6 +2511,7 @@ function vzTestSave(st) {
     p.u = now(); save(); render(); toast('Consumo salvato');
     return {say: 'Salvato. Consumo ' + vzNumSay(c.val) + ' litri al giro.', line: 'salvato · consumo ' + c.val};
   }
+  (st.saved = st.saved || {})[c.k] = c.val;
   histAdd(c.k, c.val, '', note, c.wet ? 'wet' : 'dry', undefined, undefined, c.fuel ? String(c.fuel) : '', env);
   perfSync(A.id, V.id); p.u = now(); save(); render(); toast('Salvato nello storico');
   const kept = p[c.k] !== c.val ? ' Dati rapidi restano sul tuo migliore, ' + vzSay.time(p[c.k]) + '.' : ' Ora è il tuo migliore.';
@@ -2521,7 +2560,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_brake': return vzReadBrake(p);
     case 'read_note': return vzReadNote(p);
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
-    case 'sess_reset': st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pitNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
+    case 'sess_reset': vzArchive('nuova sessione'); st.consApplied = {}; st.consHist = {}; st.saved = {}; st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pitNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
     case 'fuel': {
       if (p.start) { st.fuelStart = p.v; return {say: 'Carburante di partenza ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
@@ -2544,6 +2583,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     }
     case 'temp': st[p.kind === 'aria' ? 'air' : 'road'] = p.v; if (st.confirm) return {say: 'Ok, ' + p.kind + ' ' + String(p.v).replace('.', ',') + '. ' + vzConfirmSay(st), line: 'temp. ' + p.kind + ' ' + p.v + ' °C'}; return {say: 'Temperatura ' + p.kind + ' ' + String(p.v).replace('.', ',') + ' gradi.', line: 'temp. ' + p.kind + ' ' + p.v + ' °C'};
     case 'lap_time': {
+      { const last = st.laps[st.laps.length - 1]; if (last && last.t === p.time && !p.lap && Date.now() - (st.lastLapAt || 0) < 120000) return {say: 'Questo tempo l\'avevo già registrato. Lo ignoro.', line: 'tempo già registrato (giro ' + last.n + ') · ignorato'}; }   // ripetuto per sicurezza
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
       st.lapNo = n; st.pendLap = null;
       const lp = {n, t: p.time, air: st.air, road: st.road, map: st.map}; if (st.dirtyNext) { lp.dirty = true; st.dirtyNext = false; } if (st.pitNext) { lp.dirty = true; lp.pit = true; st.pitNext = false; } st.gaps = (st.gaps || []).filter(g => g.n !== n); st.laps.push(lp); st.lastLapAt = Date.now();   // ogni giro ricorda mappa e temperature valide in quel momento
@@ -2644,6 +2684,9 @@ function vzHandle0(raw) {
   if (/\btemperatura\b/.test(tn) && !/\btemperatura\b.*\btemperatura\b/.test(tn)) tn = tn.replace(/(\d)(\D*?)\b(aria|pista)\b/, (m, d, g, w) => /\b(aria|pista)\b/.test(tn.slice(0, tn.indexOf(m))) ? d + g + ' temperatura ' + w : m);   // "temperatura aria 30 pista 38"
   const parts = tn.split(/(?=\btemperatura\b)/).filter(x => x.trim());
   if (parts.length > 1 && parts.every(x => /\btemperatura\b/.test(x))) { parts.forEach(x => vzHandle0(x)); return; }   // "temperatura aria 30 temperatura pista 39" in una frase
+  if (vz.st.halfT && Date.now() - vz.st.halfT.at > 25000) vz.st.halfT = null;
+  { const hf = tn.match(/^(\d{3}) e$/); if (hf) { vz.st.halfT = {v: hf[1], at: Date.now()}; vz.heard = raw; vz.log.unshift({heard: raw, norm: tn, k: 'half', line: 'tempo a metà · aspetto i millesimi'}); vzTalk('Ok.'); return; } }
+  if (vz.st.halfT && /^\d{1,3}$/.test(tn)) { const h = vz.st.halfT.v; vz.st.halfT = null; return vzHandle0(h + ' e ' + tn.padStart(3, '0')); }   // "231 e" ... "59" = 2:31.059
   const kw = tn.split(/(?=\b(?:mappa|carburante|benzina)\b)/).filter(x => x.trim());   // "carburante 50 litri mappa 1" = due frasi
   if (kw.length > 1 && kw.every(x => /\d/.test(x))) { kw.forEach(x => vzHandle0(x)); return; }
   { const ns = tn.split(' '); if (ns.length === 4 && ns.every(x => /^\d+(\.\d+)?$/.test(x))) { const v = ns.map(x => { let n = parseFloat(x); if (/^\d{3}$/.test(x)) n /= 10; return n; }); if (v.every(n => n >= 20 && n <= 37)) return vzHandle0('pressioni ' + v.join(' ')); } }   // quattro pressioni dette senza la parola
@@ -2682,7 +2725,8 @@ function vzDraw() {
     ${vz.st.confirm ? '<div class="vzb"><button class="pri" data-act="vzyes">Sì, salva</button><button class="sec2" data-act="vzno">No</button></div>' : ''}${vz.err ? '<div class="vze">' + esc(vz.err) + '</div>' : ''}
     <div class="vzl">${vz.log.slice(0, 8).map(l => `<div class="vzr${l.bad ? ' bad' : ''}"><b>${esc(l.line || '')}</b><span>${esc(l.heard)}</span></div>`).join('')}</div>
     <div class="vzb"><input id="vzIn" placeholder="…oppure scrivi una frase" autocomplete="off"><button class="sec2" data-act="vzsend">Invia</button></div>
-    <div class="vzb">${vz.status === 'err' ? '<button class="pri" data-act="vzgo">Riprendi</button>' : ''}<button class="sec2" data-act="vzreset">🆕 Nuova sessione</button><button class="sec2" data-act="vzmute">${DB.settings.vzMute ? '🔇 Muto' : '🔊 Voce'}</button><button class="sec2" data-act="vzcopy">Copia i risultati</button><button class="sec2" data-act="vzstop">Chiudi</button></div>`;
+    <div class="vzb">${vz.status === 'err' ? '<button class="pri" data-act="vzgo">Riprendi</button>' : ''}<button class="sec2" data-act="vzmute">${DB.settings.vzMute ? '🔇 Muto' : '🔊 Voce'}</button><button class="sec2" data-act="vzcopy">Copia i risultati</button><button class="sec2" data-act="vzstop">Chiudi</button></div>
+    <div class="vzb" style="margin-top:14px;opacity:.85">${!vz.st.laps.length && (DB.settings.vzArch || []).length ? '<button class="sec2" data-act="vzvrest">↩ Ripristina sessione precedente</button>' : ''}<button class="sec2" data-act="vzreset">🆕 Nuova sessione</button></div>`;
 }
 function vzCopy() {
   const vz = UI.vz; if (!vz) return;
@@ -3575,8 +3619,11 @@ const ACT = {
     const gp = (st.gaps || []).find(g => g.n === n); st.laps = st.laps.filter(l => l.n !== n); st.laps.push(Object.assign({n, t, air: st.air, road: st.road, map: st.map}, gp && gp.dirty ? {dirty: true} : {}, gp && gp.pit ? {pit: true} : {})); st.laps.sort((a, b) => a.n - b.n); st.lapNo = Math.max(st.lapNo || 0, n);
     st.gaps = (st.gaps || []).filter(g => g.n !== n); vzPersist(); vzBox(); toast('Giro ' + n + ' aggiunto');
   },
-  vzbclear: b => { if (b.dataset.armed) { UI.vzst = null; DB.settings.vzSess = null; save(); vzBox(); toast('Sessione svuotata'); } else { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per svuotare'; } },
-  vzreset: () => { vzHandle('nuova sessione'); toast('Sessione azzerata'); },
+  vzbclear: b => { if (b.dataset.armed) { vzArchive('svuota'); UI.vzst = null; DB.settings.vzSess = null; save(); vzBox(); toast('Sessione svuotata'); } else { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per svuotare'; } },
+  vzreset: b => { if (b && b.dataset.armed) { vzHandle('nuova sessione'); toast('Sessione azzerata · la trovi in Sessioni precedenti'); } else if (b) { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per azzerare'; setTimeout(() => { try { b.dataset.armed = ''; b.textContent = '🆕 Nuova sessione'; } catch (_) {} }, 4000); } },
+  vzbrest: b => { const e = (DB.settings.vzArch || [])[+b.dataset.i]; if (!e) return; vzArchive('prima del ripristino'); const k = (DB.settings.vzArch || []).findIndex(x => x === e); UI.vzst = null; DB.settings.vzSess = JSON.parse(JSON.stringify(e.s)); save(); vzSt(); vzBox(); toast('Sessione ripristinata'); },
+  vzvrest: () => { const e = (DB.settings.vzArch || [])[0]; if (!e) return; UI.vzst = null; DB.settings.vzSess = JSON.parse(JSON.stringify(e.s)); save(); const sst = vzSt(); if (UI.vz) UI.vz.st = sst; vzDraw(); toast('Sessione ripristinata'); },
+  vzbadel: b => { (DB.settings.vzArch || []).splice(+b.dataset.i, 1); save(); vzBox(); },
   vzyes: () => vzHandle('sì'),
   vzno: () => vzHandle('no'),
   vzmute: () => { DB.settings.vzMute = !DB.settings.vzMute; save(); try { speechSynthesis.cancel(); } catch (_) {} vzDraw(); toast(DB.settings.vzMute ? 'Muto: ti risponde solo lo schermo' : 'Voce attiva'); },
