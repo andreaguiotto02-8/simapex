@@ -245,7 +245,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.58';   // versione dell'app
+const APP_V = '0.59';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1866,7 +1866,7 @@ function pathSteps() {
     {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Apri il setup asciutto e controlla che i valori siano quelli standard del gioco per questa pista' + (c.gen('dry') ? ' (ora c\'è già un setup generale: potrebbe essere una copia di un\'altra pista).' : ': ancora vuoto.'), ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
     {id: 'learn', ph: 'dry', t: 'Impara la pista e le pressioni', d: '10 giri puliti, senza toccare niente. Durante i giri leggi le pressioni a caldo; tornato ai box correggile subito nel setup specifico (obiettivo 27,0 a caldo).', man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
     {id: 'brk', ph: 'dry', t: 'Punti di staccata', d: 'Metodo che funziona: fai un giro pulito con le staccate giuste, poi guarda il replay e inserisci con calma le staccate a mano, curva per curva. Segna almeno ' + Math.max(3, Math.ceil(c.tn * 0.6)) + ' curve (ora ' + c.nb + '). Le curve in piena le segni con "In piena".', ok: c.tn > 0 && c.nb >= Math.max(3, Math.ceil(c.tn * 0.6)), go: [['Vai alla mappa', 'map']]},
-    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento, consumo e box', d: 'Un solo stint con la voce, senza toccare il setup: 6 giri puliti con la benzina detta a ogni giro (il consumo si salva da solo). Alla fine un giro passando nella corsia box senza fermarti (dì “giro box” prima del tempo), poi un giro veloce. In “Dati della sessione” tocca Salva su giro veloce e media.', ok: c.saved('lapD') && c.saved('avgD') && !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzDev']]},
+    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento, consumo e box', d: 'Un solo stint con la voce, senza toccare il setup: 6 giri puliti con la benzina detta a ogni giro (il consumo si salva da solo). Alla fine un passaggio nella corsia box senza fermarti: dì “giro box” prima del tempo del giro in cui entri e di nuovo prima del tempo del giro in cui esci. Poi un giro veloce. In “Dati della sessione” tocca Salva su giro veloce e media.', ok: c.saved('lapD') && c.saved('avgD') && !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzDev']]},
     {id: 'dev', ph: 'dry', t: 'Sviluppo del setup', d: 'Una modifica per stint, detta a voce. Servono 3 prove salvate (ora ' + c.dev + ').', ok: c.dev >= 3, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
     {id: 'pace', ph: 'dry', t: 'Passo gara', d: 'Stint di almeno 10 giri puliti con il setup scelto. Salva il passo.', ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]},
     {id: 'lock', ph: 'dry', t: 'Blocca il setup asciutto', d: 'Metti nel setup specifico i valori finali (solo quelli diversi dal generale).', ok: c.spec('dry'), go: [['Apri setup asciutto', 'setupD']]},
@@ -2365,9 +2365,9 @@ function vzAutoCons(st) {   // consumo per mappa sempre aggiornato dalle letture
   if (ch) { p.u = now(); }
 }
 function vzAutoPit(st) {   // tempo perso ai box: se non ne hai ancora uno salvato, lo registro da solo
-  if (!V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; if (pt.lane) return;
+  if (!V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; if (pt.manual) return;
   const x = vzPitLoss(st).find(q => q.loss != null && q.loss > 0.5 && q.loss < 60); if (!x) return;
-  DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(x.loss * 10) / 10, laneU: now(), u: now()});
+  if (pt.lane === Math.round(x.loss * 10) / 10) return; DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(x.loss * 10) / 10, laneU: now(), u: now(), auto: true});
 }
 function vzPersist() {
   try { if (UI.vzst) { vzAutoCons(UI.vzst); vzAutoPit(UI.vzst); } } catch (_) {}
@@ -2413,19 +2413,21 @@ function vzConsHtml(st) {   // consumo: si calcola e si salva da solo a ogni let
   return '<div class="vzsr" style="flex-direction:column;align-items:stretch"><span class="vzsl">Consumo · si aggiorna da solo a ogni lettura</span>' + ks.map(m => { const v = cm[m], avg = v.reduce((t, x) => t + x.d, 0) / v.length, o = (pf.cons || []).find(x => String(x.map).split(' ')[0] === m);
     return `<div class="row2" style="align-items:baseline"><b>Mappa ${esc(m)}: ${avg.toFixed(2).replace('.', ',')} ${esc(fuelU())}/giro</b><span class="meta" style="margin-left:auto">${v.length} giri · salvato ${o ? '<b>' + esc(String(o.v).replace('.', ',')) + '</b> ✓' : '—'}</span></div>`; }).join('') + '</div>';
 }
-function vzPitLoss(st) {   // giro con passaggio ai box meno la media dei due giri puliti più vicini
+function vzPitLoss(st) {   // giri col passaggio ai box (anche due di fila: arrivo e uscita) meno i giri normali più vicini
   const slow = vzSlow(st), ok = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x) && paceP(x.t) != null);
-  return st.laps.filter(x => x.pit && paceP(x.t) != null).map(l => {
-    const b = ok.filter(x => x.n < l.n).slice(-1)[0], a = ok.filter(x => x.n > l.n)[0], refs = [b, a].filter(Boolean);
-    if (!refs.length) return {lap: l, loss: null};
+  const pl = st.laps.filter(x => x.pit && paceP(x.t) != null).sort((x, y) => x.n - y.n), groups = [];
+  pl.forEach(l => { const g = groups[groups.length - 1]; if (g && l.n === g[g.length - 1].n + 1) g.push(l); else groups.push([l]); });
+  return groups.map(g => {
+    const b = ok.filter(x => x.n < g[0].n).slice(-1)[0], a = ok.filter(x => x.n > g[g.length - 1].n)[0], refs = [b, a].filter(Boolean);
+    if (!refs.length) return {lap: g[0], laps: g, loss: null};
     const ref = refs.reduce((m, x) => m + paceP(x.t), 0) / refs.length;
-    return {lap: l, ref, loss: paceP(l.t) - ref, nref: refs.length};
+    return {lap: g[0], laps: g, ref, loss: g.reduce((m, l) => m + paceP(l.t), 0) - g.length * ref, nref: refs.length};
   });
 }
 function vzPitHtml(st) {
   const pl = vzPitLoss(st); if (!pl.length) return '';
   const pk = V && G ? kk(V.id, G.id) : '', cur = (DB.pits[pk] || {}).lane;
-  return '<h3>Tempo perso ai box</h3><p class="meta">Giro con passaggio nella corsia box, senza fermarti, meno i giri normali vicini. Se non ne avevi uno salvato lo registro da solo; se già c\'è, lo aggiorni col pulsante.</p>' + pl.map(x => x.loss == null ? `<div class="gi"><b>Giro ${esc(x.lap.n)}</b><p class="meta">Mi servono giri puliti vicini per il confronto.</p></div>` : `<div class="gi"><b>Giro ${esc(x.lap.n)}: ${x.loss.toFixed(1).replace('.', ',')} s persi</b><p class="meta">${esc(x.lap.t)} contro ${esc(vzFmt(x.ref))} dei giri normali vicini (${x.nref})${cur ? ' · salvato ora: ' + String(cur).replace('.', ',') + ' s' : ''}</p><div class="btns"><button class="sec2" data-act="vzbpit" data-s="${x.loss.toFixed(2)}">Salva ${x.loss.toFixed(1).replace('.', ',')} s come tempo corsia box</button></div></div>`).join('');
+  return '<h3>Tempo perso ai box</h3><p class="meta">Giro con passaggio nella corsia box, senza fermarti, meno i giri normali vicini. Dì “giro box” prima del tempo sia del giro in cui entri sia di quello in cui esci (il traguardo è in corsia): sommo le perdite dei due. Lo registro da solo; se lo salvi tu col pulsante non lo tocco più.</p>' + pl.map(x => x.loss == null ? `<div class="gi"><b>Giro ${esc(x.lap.n)}</b><p class="meta">Mi servono giri puliti vicini per il confronto.</p></div>` : `<div class="gi"><b>${x.laps.length > 1 ? 'Giri ' + esc(x.laps.map(q => q.n).join(' + ')) : 'Giro ' + esc(x.lap.n)}: ${x.loss.toFixed(1).replace('.', ',')} s persi</b><p class="meta">${esc(x.laps.map(q => q.t).join(' + '))} contro ${esc(vzFmt(x.ref))} a giro dei giri normali vicini (${x.nref})${cur ? ' · salvato ora: ' + String(cur).replace('.', ',') + ' s' : ''}</p><div class="btns"><button class="sec2" data-act="vzbpit" data-s="${x.loss.toFixed(2)}">Salva ${x.loss.toFixed(1).replace('.', ',')} s come tempo corsia box</button></div></div>`).join('');
 }
 function vzTop(st) {
   const w = !!st.wet, m = vzSummary(st, w), md = st.mode || 'libera';
@@ -3586,7 +3588,7 @@ const ACT = {
     if ((t === 'lap' || t === 'avg') && st.confirm) { const r2 = vzTestSave(st); vzPersist(); const el = $('vzbRes'); if (el) el.innerHTML = `<div class="gi"><p><b>${esc(r2.say)}</b></p></div>`; vzBox(); const e2 = $('vzbRes'); if (e2) e2.innerHTML = `<div class="gi"><p><b>${esc(r2.say)}</b></p></div>`; return; }   // un solo tocco: giro veloce e media si salvano subito
     vzPersist(); vzBoxShow(r);
   },
-  vzbpit: b => { const v = parseFloat(b.dataset.s); if (!(v > 0) || !V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(v * 10) / 10, laneU: now(), u: now()}); save(); vzBox(); toast('Tempo corsia box salvato: ' + v.toFixed(1) + ' s'); },
+  vzbpit: b => { const v = parseFloat(b.dataset.s); if (!(v > 0) || !V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(v * 10) / 10, laneU: now(), u: now(), manual: true}); save(); vzBox(); toast('Tempo corsia box salvato: ' + v.toFixed(1) + ' s'); },
   vzbmode: b => { vzBoxRead(); vzSt().mode = b.dataset.m; vzPersist(); vzBox(); },
   vzbchdel: b => { vzBoxRead(); vzSt().changes.splice(+b.dataset.i, 1); vzPersist(); vzBox(); },
   vzbchadd: () => { vzBoxRead(); const st = vzSt(), v = ($('bxCh').value || '').trim(); if (!v) return; st.changes = st.changes || []; st.changes.push({lap: st.lapNo || 0, text: v}); vzPersist(); vzBox(); },
