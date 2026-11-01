@@ -261,7 +261,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.61';   // versione dell'app
+const APP_V = '0.62';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -954,7 +954,7 @@ function viewPath() {
   const p = pathState();
   let h = pathHero(p) + pathList(p);
   if (p.cur < 0) h += '<div class="gi"><p><b>Percorso finito.</b> Riferimento, consumo, box, setup e passo gara sono pronti per questa pista.</p></div>';
-  h += `<p class="meta" style="margin:10px 2px 0">Il bagnato sarà un percorso a parte.</p><div style="margin-top:14px"><div class="head"><h2>Dati rapidi</h2></div><div class="tiles">${tilesHtml()}</div></div>`;
+  h += `<p class="meta" style="margin:10px 2px 0">Il bagnato sarà un percorso a parte.</p><div class="btns" style="margin-top:10px"><button class="sec2" data-act="pathreset">↺ Ricomincia il percorso di questa pista</button></div><p class="meta" style="margin:4px 2px 0">Toglie tempi, consumo, box, storico e avanzamento di questa auto su questa pista. Restano layout, setup generale e staccate, da ricontrollare nei passi 1 e 3. Prima salvo una copia interna.</p><div style="margin-top:14px"><div class="head"><h2>Dati rapidi</h2></div><div class="tiles">${tilesHtml()}</div></div>`;
   return h;
 }
 function viewPista() {
@@ -1892,9 +1892,9 @@ const PATH_PRI = {base: 10, learn: 30, brk: 35, ref: 30, dev: 60, pace: 30};   /
 function pathSteps() {
   const c = pathCtx(), nbk = Math.max(3, Math.ceil(c.tn * 0.6));
   const S = [
-    {id: 'base', ph: 'dry', ic: '📋', tag: 'A tavolino', t: 'Setup di partenza', why: 'Il punto zero: il setup standard del gioco, identico, dentro l\'app.', how: ['Nel gioco apri il setup standard di questa pista.', 'Ricopialo uguale nel setup generale dell\'app' + (c.gen('dry') ? ' (ce n\'è già uno: controlla che non sia la copia di un\'altra pista).' : ' (ora è ancora vuoto).')], diag: [], ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'base', ph: 'dry', ic: '📋', tag: 'A tavolino', t: 'Setup di partenza', why: 'Il punto zero: il setup standard del gioco, identico, dentro l\'app.', how: ['Nel gioco apri il setup standard di questa pista.', 'Ricopialo uguale nel setup generale dell\'app, parametro per parametro' + (c.gen('dry') ? ' (ce n\'è già uno: ricontrolla che coincida con quello del gioco per questa pista).' : ' (ora è ancora vuoto).')], diag: [], ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
     {id: 'learn', ph: 'dry', ic: '🏁', tag: 'In pista', t: 'Impara la pista e le pressioni', why: 'Prima di misurare qualsiasi tempo devi conoscere il tracciato e avere le gomme a posto.', how: ['8-10 giri senza toccare il setup e senza ingegnere di pista: pensa solo a guidare.', 'In un giro pulito leggi le pressioni a caldo (obiettivo 27,0).', 'Rientra ai box e correggile nel setup specifico di questa pista, non nel generale.', 'Torna in pista e continua a imparare.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: 'giri'}, {c: 'note', l: 'pressioni → box → setup specifico'}, {c: 'ok', l: 'ancora giri'}], man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
-    {id: 'brk', ph: 'dry', ic: '🎯', tag: 'A tavolino', t: 'Punti di staccata', why: 'Le staccate guidano ogni giro dopo: meglio farle con la pista ancora fresca in testa.', how: ['Subito dopo lo stint, guarda il replay di un giro pulito.', 'Inserisci le staccate a mano, curva per curva: almeno ' + nbk + ' curve (ora ' + c.nb + ').', 'Le curve in piena le segni con "In piena".'], diag: [], ok: c.tn > 0 && c.nb >= nbk, go: [['Vai alla mappa', 'map']]},
+    {id: 'brk', ph: 'dry', ic: '🎯', tag: 'A tavolino', t: 'Punti di staccata', why: 'Le staccate guidano ogni giro dopo: meglio farle con la pista ancora fresca in testa.', how: ['Subito dopo lo stint, guarda il replay di un giro pulito.', 'Inserisci le staccate a mano, curva per curva, o controlla quelle già presenti: almeno ' + nbk + ' curve (ora ' + c.nb + ').', 'Le curve in piena le segni con "In piena".', 'Quando le hai controllate, conferma.'], diag: [], ok: false, man: 'Staccate controllate', go: [['Vai alla mappa', 'map']]},
     {id: 'ref', ph: 'dry', ic: '⏱', tag: 'In pista · ingegnere', t: 'Riferimento, consumo e box', why: 'Il metro per tutto il resto: ogni modifica si confronta con questi tempi.', how: ['Setup fermo, pressioni già corrette. Parti con la voce.', 'Benzina detta a ogni giro: il consumo si salva da solo.', 'Per il box dì “giro box” prima del tempo del giro in cui entri e di nuovo prima del tempo di quello in cui esci.', 'Un giro sporco? Dì “giro sporco” e allunga di un giro: contano i giri puliti, non serve che siano di fila (il giro prima e quello dopo il box sì).', 'Alla fine, in “Dati della sessione”, tocca Salva su giro veloce e media.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: '6 puliti'}, {c: 'box', l: 'Box: entrata'}, {c: 'box', l: 'Box: uscita'}, {c: 'ok', l: '2 puliti'}], ok: c.saved('lapD') && c.saved('avgD') && !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzDev']]},
     {id: 'dev', ph: 'dry', ic: '🔧', tag: 'In pista · ingegnere', t: 'Sviluppo del setup', why: 'Si cambia poco per volta e si confronta con il riferimento. Servono 2 prove salvate (ora ' + c.dev + ').', how: ['Fino a 2 modifiche per stint, di zone diverse (es. sottosterzo a metà curva + velocità di punta, o frenata + uscita). Mai due sulla stessa zona.', 'Dille a voce (“ho cambiato…”), con la stessa benzina e le stesse pressioni del riferimento.', 'Tempo migliore: tieni tutto. Peggiore o uguale: nello stint dopo annulla una sola delle due per capire quale era.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'note', l: '≤2 modifiche'}, {c: 'ok', l: '4-5 giri'}, {c: 'note', l: 'confronto → tieni / annulla'}], ok: c.dev >= 2, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
     {id: 'pace', ph: 'dry', ic: '🔥', tag: 'In pista · ingegnere', t: 'Passo gara', why: 'Con il setup scelto: il ritmo reale da tenere in gara.', how: ['10 giri puliti, benzina detta a ogni giro.', 'Un giro sporco non fa rifare lo stint: ne aggiungi uno pulito.', 'Fino a 2 sporchi su 10 va bene; di più, meglio rifarlo.', 'Salva il passo.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: '10 puliti'}, {c: 'dirty', l: 'sporco → +1 giro'}], ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]}
@@ -1911,7 +1911,7 @@ function pathState() {
 }
 function pathTick() {   // segna che stai lavorando su questo percorso: blocchi di attività (pausa oltre 20 minuti = nuovo blocco)
   try {
-    if (!A || !V) return; const ps = pathSt(), t = Date.now(), p = pathState(), id = p.cur >= 0 ? p.steps[p.cur].id : 'fine', bl = ps.blocks = ps.blocks || [], l = bl[bl.length - 1], iso = new Date(t).toISOString();
+    if (!A || !V) return; const t = Date.now(); if (t - (pathTick.last || 0) < 4000) return; pathTick.last = t; const ps = pathSt(), p = pathState(), id = p.cur >= 0 ? p.steps[p.cur].id : 'fine', bl = ps.blocks = ps.blocks || [], l = bl[bl.length - 1], iso = new Date(t).toISOString();
     if (l && l.id === id && t - Date.parse(l.e) < 20 * 60000) l.e = iso; else { bl.push({s: iso, e: iso, id}); if (bl.length > 300) bl.splice(0, bl.length - 300); }
     if (t - (pathTick.sv || 0) > 60000) { pathTick.sv = t; save(); }
   } catch (_) {}
@@ -2738,6 +2738,7 @@ function vzListen() {
 }
 function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
+document.addEventListener('input', () => pathTick(), true);   // anche mentre scrivi i valori del setup
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
   let tn = vzNorm(raw);
@@ -3541,8 +3542,8 @@ function viewBackup() {
       <div id="copies"><p class="meta">Carico...</p></div></div>
     <div class="card"><h2>Cancella dati</h2>
       <p class="meta">Vale solo per questo dispositivo: su ogni telefono o tablet va fatto a parte. Prima di cancellare salvo una copia interna, che trovi qui sopra e puoi ripristinare.</p>
-      <div class="btns"><button class="sec2" data-bk="wipetest">Azzera le prove: tieni auto, piste e staccate</button><button class="sec2" data-bk="wipedata">Cancella i dati, tieni piste e curve</button><button class="sec2" data-bk="wipeall">Cancella tutto</button></div>
-      <p class="meta" style="margin-top:8px">La prima toglie setup, dati rapidi, storico, tempi box, sessioni vocali e percorso, e tiene giochi, auto, circuiti, curve, staccate e note. La seconda toglie gruppi, auto, staccate, setup, dati rapidi, strategie e note, e lascia circuiti, disegni e curve. La seconda riporta l'app com'era appena installata.</p></div>
+      <div class="btns"><button class="sec2" data-bk="wipedata">Cancella i dati, tieni piste e curve</button><button class="sec2" data-bk="wipeall">Cancella tutto</button></div>
+      <p class="meta" style="margin-top:8px">La prima toglie gruppi, auto, staccate, setup, dati rapidi, strategie e note, e lascia circuiti, disegni e curve. La seconda riporta l'app com'era appena installata.</p></div>
     <div class="card"><h2>Archivio</h2>
       <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
       <p class="meta">Dati: ${esc(summary(DB))}</p>
@@ -3612,6 +3613,15 @@ const ACT = {
   selopen: openSel,
   gobackup: () => { closeSheet(); UI.tab = 'backup'; UI.pending = null; render(); window.scrollTo(0, 0); },
   pathgo: b => pathGo(b.dataset.g),
+  pathreset: b => {
+    if (!A || !V) return;
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per ricominciare'; setTimeout(() => { try { b.dataset.armed = ''; b.textContent = '↺ Ricomincia il percorso di questa pista'; } catch (_) {} }, 4000); return; }
+    const ek = engKey(), ak = A.id, vk = V.id, pk = G ? kk(V.id, G.id) : null;
+    addCopy('prima di ricominciare il percorso').then(() => {
+      delete DB.perf[ek]; delete DB.eng[ek]; delete DB.setupSpec[kk(ak, vk)]; if (pk) delete DB.pits[pk];
+      DB.hist = (DB.hist || []).filter(h => !(h.c === ak && h.v === vk)); delete DB.settings.vzSess; UI.vzst = null; UI.vz = null; return flush();
+    }).then(() => { render(); toast('Percorso azzerato: layout, setup generale e staccate restano'); });
+  },
   pathdone: b => { pathSt().done[b.dataset.id] = now(); save(); if (UI.tab === 'path') render(); else openPath(); },
   engcond: b => { UI.engCond = b.dataset.c; engOpen(); },
   engph: b => engPhase(b.dataset.p),
