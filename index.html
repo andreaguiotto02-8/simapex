@@ -245,7 +245,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.59';   // versione dell'app
+const APP_V = '0.60';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2031,7 +2031,7 @@ function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
     }
     res.push(typeof x === 'object' ? {n: x.n} : x);
   });
-  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ');
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ').replace(/\bazioni(?= .*\d)/g, 'pressioni').replace(/\bgiro (?:di )?(?:entrata|uscita|ingresso)(?: (?:ai |nei |dai |dei |in |nella )?(?:box|corsia))?\b/g, 'giro box');
 }
 function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
   let m, ss, ms;
@@ -2278,7 +2278,7 @@ function vzConfirmSay(st) {
 }
 function vzSlow(st) {   // giri oltre il 107% del migliore (uscita dai box, rallentati): non entrano in media e passo
   const ok = st.laps.filter(x => !x.dirty && !x.odd && paceP(x.t) != null); if (!ok.length) return [];
-  const b = Math.min(...ok.map(x => paceP(x.t))); return ok.filter(x => paceP(x.t) > b * 1.07 && !x.ok);
+  const b = Math.min(...ok.map(x => paceP(x.t))); return ok.filter(x => (paceP(x.t) > b * 1.07 || x.n === 1) && !x.ok);   // il giro 1 è l'uscita dai box: fuori da media e passo (con "Conta lo stesso" lo rimetti)
 }
 function vzConsMaps(st) {   // consumo per mappa dalle letture: benzina tra due letture / giri in mezzo (solo se tutti i giri in mezzo sono puliti)
   const rd = {}; if (st.fuelStart > 0) rd[0] = st.fuelStart; (st.fuelLog || []).forEach(x => { rd[x.lap] = x.fuel; });
@@ -2450,7 +2450,7 @@ function vzBox() {
   const rowOf = (l, i) => {
     const sp = !!l.dirty, lt = !sp && (l.odd || slow.includes(l)), isBest = best === l, d = best && paceP(l.t) != null ? paceP(l.t) - paceP(best.t) : null;
     const fl = (st.fuelLog || []).find(x => x.lap === l.n), cls = sp || lt ? ' bad' : isBest ? ' best' : rk.indexOf(l) === 1 || rk.indexOf(l) === 2 ? ' tp' : '';
-    const chip = sp ? '<span class="vzchip">' + (l.pit ? 'box' : 'sporco') + '</span>' : lt ? '<span class="vzchip">' + (l.odd ? 'anomalo' : 'lento') + '</span>' : l.ok && !isBest ? '<span class="vzchip soft">conta</span>' : '';
+    const chip = sp ? '<span class="vzchip">' + (l.pit ? 'box' : 'sporco') + '</span>' : lt ? '<span class="vzchip">' + (l.odd ? 'anomalo' : l.n === 1 ? 'uscita' : 'lento') + '</span>' : l.ok && !isBest ? '<span class="vzchip soft">conta</span>' : '';
     const est = !fl && !sp ? vzFuelEst(l.n + 1, st) : null, meta = [l.map ? 'mappa ' + l.map : '', l.road ? 'pista ' + l.road + '°' : '', fl ? fl.fuel + ' ' + fuelU() : est ? '≈' + est + ' ' + fuelU() : ''].filter(Boolean).join(' · ');
     const sv = isBest ? (() => { const pf0 = DB.perf[engKey()] || {}, k0 = st.wet ? 'lapW' : 'lapD', done = (st.saved || {})[k0] === l.t; return `<button class="vzsv${done ? ' ok' : ''}" data-act="vzbcalc" data-t="lap" data-w="${st.wet ? 1 : 0}">${done ? '✓ Salvato' : 'Salva'}</button>`; })() : '';
     const b2 = lt ? `<button class="sec2" data-act="vzbok" data-i="${i}">Conta lo stesso</button>` : l.ok && !sp ? `<button class="sec2" data-act="vzbok" data-i="${i}">Escludi</button>` : '';
@@ -2530,6 +2530,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'repeat': return {say: st.last || 'Non ho niente da ripetere.', line: 'ripeti', keep: true};
     case 'cancel':
       if (st.confirm) { st.confirm = null; return {say: 'Ok, non salvo niente.', line: 'annulla · non salvato'}; }
+      if (st.pitNext || st.dirtyNext) { st.pitNext = false; st.dirtyNext = false; return {say: 'Tolgo il segno sul prossimo giro.', line: 'annullato giro sporco/box in attesa'}; }
       if (st.test && st.laps.length) { const l = st.laps.pop(); st.lapNo = st.laps.length ? st.laps[st.laps.length - 1].n : 0; return {say: 'Tolgo il giro ' + l.n + '.', line: 'tolto giro ' + l.n}; }
       return {say: 'Annullato.', line: 'annulla'};
     case 'yes': return st.confirm ? vzTestSave(st) : {say: 'Ok.', line: 'sì'};
