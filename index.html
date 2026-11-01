@@ -243,7 +243,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.56';   // versione dell'app
+const APP_V = '0.57';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2644,8 +2644,12 @@ function vzHandle0(raw) {
   if (/\btemperatura\b/.test(tn) && !/\btemperatura\b.*\btemperatura\b/.test(tn)) tn = tn.replace(/(\d)(\D*?)\b(aria|pista)\b/, (m, d, g, w) => /\b(aria|pista)\b/.test(tn.slice(0, tn.indexOf(m))) ? d + g + ' temperatura ' + w : m);   // "temperatura aria 30 pista 38"
   const parts = tn.split(/(?=\btemperatura\b)/).filter(x => x.trim());
   if (parts.length > 1 && parts.every(x => /\btemperatura\b/.test(x))) { parts.forEach(x => vzHandle0(x)); return; }   // "temperatura aria 30 temperatura pista 39" in una frase
+  const kw = tn.split(/(?=\b(?:mappa|carburante|benzina)\b)/).filter(x => x.trim());   // "carburante 50 litri mappa 1" = due frasi
+  if (kw.length > 1 && kw.every(x => /\d/.test(x))) { kw.forEach(x => vzHandle0(x)); return; }
+  { const ns = tn.split(' '); if (ns.length === 4 && ns.every(x => /^\d+(\.\d+)?$/.test(x))) { const v = ns.map(x => { let n = parseFloat(x); if (/^\d{3}$/.test(x)) n /= 10; return n; }); if (v.every(n => n >= 20 && n <= 37)) return vzHandle0('pressioni ' + v.join(' ')); } }   // quattro pressioni dette senza la parola
+  { const bf = tn.match(/^(\d{1,2}\.\d)$/); if (bf) { const fl = (vz.st.fuelLog || []).slice(-1)[0], ref = fl ? fl.fuel : vz.st.fuelStart; const v = parseFloat(bf[1]); if (ref && v < ref && v > ref - 8) return vzHandle0(bf[1] + ' litri'); } }   // "36,2" da solo = benzina
   const two = vzNorm(raw).match(/^(.*\d.*?)\s+(?:benzina |carburante )?(\d+(?:\.\d+)?) ?(?:l|litri)$/);   // "152 e 509 35,2 l" = tempo + benzina
-  if (two && !/\b(partenza|iniziale|inizio)\b/.test(two[1]) && ['lap_time', 'tpart', 'lap_only'].includes(vzParse(two[1], {pendLap: vz.st.pendLap, pendT: !!vz.st.pendT}).k)) { vzHandle0(two[1]); return vzHandle0(two[2] + ' litri'); }
+  if (two && !/\b(partenza|iniziale|inizio)\b/.test(two[1]) && (['lap_time', 'tpart', 'lap_only'].includes(vzParse(two[1], {pendLap: vz.st.pendLap, pendT: !!vz.st.pendT}).k) || /^\d\.\d{2}\.\d{2,3}$|^\d+ e \d+$/.test(two[1].trim()))) { vzHandle0(two[1]); return vzHandle0(two[2] + ' litri'); }
   let p = vzParse(raw, {pendLap: vz.st.pendLap, pendT: !!(vz.st.pendT && vz.st.pendT.m != null && vz.st.pendT.s != null && Date.now() - vz.st.pendT.at < 60000)}), rep;
   const ask = vz.st.ask, nums = vzNorm(raw).match(/\b\d+(?:\.\d+)?\b/g);
   if (ask && ask.fn) {
@@ -2656,8 +2660,8 @@ function vzHandle0(raw) {
     vz.st.ask = null; vz.st[ask.need] = parseFloat(nums[0]);
     p = {k: 'answer', norm: vzNorm(raw)}; rep = vzFuelAt(ask.lap, vz.st);
   } else { if (ask && (p.k === 'cancel' || p.k === 'no')) vz.st.ask = null; rep = vzReply(p, vz.st); }
-  if (rep && rep.bad && p.k === 'unknown' && !vz.st.pendT && /\d+ ?e ?\d|(\d+\D+){3}\d/.test(vzNorm(raw)) && !/\b(benzina|carburante|litri|gradi|pression\w*|mappa|temperatura)\b/.test(vzNorm(raw))) {   // sembra un tempo non capito: tengo il posto del giro, così i numeri non si sfalsano
-    vz.st.lapNo = (vz.st.lapNo || 0) + 1; vz.st.pendLap = null; (vz.st.gaps = vz.st.gaps || []).push({n: vz.st.lapNo, text: raw});
+  if (rep && rep.bad && p.k === 'unknown' && !vz.st.pendT && /\d+ ?e ?\d|(\d+\D+){3}\d|\d\.\d{2}\.\d/.test(vzNorm(raw)) && !/\b(benzina|carburante|litri|gradi|pression\w*|mappa|temperatura)\b/.test(vzNorm(raw))) {   // sembra un tempo non capito: tengo il posto del giro, così i numeri non si sfalsano
+    vz.st.lapNo = (vz.st.lapNo || 0) + 1; vz.st.pendLap = null; (vz.st.gaps = vz.st.gaps || []).push(Object.assign({n: vz.st.lapNo, text: raw}, vz.st.dirtyNext || vz.st.pitNext ? {dirty: true, pit: !!vz.st.pitNext} : {})); vz.st.dirtyNext = false; vz.st.pitNext = false;
     rep = {say: 'Tempo non capito. Segno il giro ' + vz.st.lapNo + ' come mancante.', line: 'giro ' + vz.st.lapNo + ' non capito · posto tenuto', bad: true};
   }
   if (rep && rep.bad && ['unknown', 'lap_bad', 'partial'].includes(p.k)) { vz.st.junk = vz.st.junk || []; vz.st.junk.push({text: raw, lap: vz.st.lapNo || null}); vz.st.junk = vz.st.junk.slice(-30); }   // quello che non ho capito resta in lista per i box
@@ -3566,7 +3570,7 @@ const ACT = {
   vzbadd: () => {
     vzBoxRead(); const st = vzSt(), n = parseInt($('bxN').value, 10), t = normTime($('bxT').value);
     if (!(n > 0)) return toast('Scrivi il numero del giro'); if (!TIME_RE.test(t)) return toast('Il tempo va scritto come 1:52.485');
-    st.laps = st.laps.filter(l => l.n !== n); st.laps.push({n, t, air: st.air, road: st.road, map: st.map}); st.laps.sort((a, b) => a.n - b.n); st.lapNo = Math.max(st.lapNo || 0, n);
+    const gp = (st.gaps || []).find(g => g.n === n); st.laps = st.laps.filter(l => l.n !== n); st.laps.push(Object.assign({n, t, air: st.air, road: st.road, map: st.map}, gp && gp.dirty ? {dirty: true} : {}, gp && gp.pit ? {pit: true} : {})); st.laps.sort((a, b) => a.n - b.n); st.lapNo = Math.max(st.lapNo || 0, n);
     st.gaps = (st.gaps || []).filter(g => g.n !== n); vzPersist(); vzBox(); toast('Giro ' + n + ' aggiunto');
   },
   vzbclear: b => { if (b.dataset.armed) { UI.vzst = null; DB.settings.vzSess = null; save(); vzBox(); toast('Sessione svuotata'); } else { b.dataset.armed = '1'; b.textContent = 'Tocca ancora per svuotare'; } },
