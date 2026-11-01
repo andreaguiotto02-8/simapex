@@ -2288,8 +2288,9 @@ function vzConsMaps(st) {   // consumo per mappa dalle letture: benzina tra due 
     if (!ok) continue;
     const d = (rd[a] - rd[b]) / (b - a); if (!(d > 0.3 && d < 8)) continue;
     const m = String(ls[0].map != null ? ls[0].map : (st.map != null ? st.map : '')); if (!m || ls.some(l => String(l.map != null ? l.map : st.map) !== m)) continue;
-    ls.forEach(l => (out[m] = out[m] || []).push({n: l.n, d}));
+    ls.forEach(l => (out[m] = out[m] || []).push({n: l.n, d, a}));
   }
+  Object.keys(out).forEach(m => { const o = out[m], rest = o.filter(x => x.a !== 0).map(x => x.d).sort((x, y) => x - y); if (rest.length) { const med = rest[Math.floor(rest.length / 2)]; out[m] = o.filter(x => x.a !== 0 || x.d <= med * 1.25); if (!out[m].length) delete out[m]; } });   // il tratto dalla benzina di partenza include l'uscita dai box: lo scarto se è fuori scala
   return out;
 }
 function vzTestEnd(st, type, wet, range) {
@@ -2395,7 +2396,7 @@ function vzTop(st) {
   const cardAvg = `<div class="vzsr"><span class="vzsl">Media dei 3 giri migliori</span><b>${m.avg ? esc(m.avg) : '—'}</b>${m.top.length >= 3 ? '<span class="meta">giri ' + m.top.map(x => esc(x.n)).join(', ') + '</span>' : '<span class="meta">servono 3 giri validi (ne ho ' + m.valid + ')</span>'}<span class="meta">salvata: ${m.sa ? esc(m.sa) : 'nessuna'}</span>${vzDf(m.dAvg)}${m.top.length >= 3 ? `<button class="sec2" data-act="vzbcalc" data-t="avg" data-w="${w ? 1 : 0}">Salva media 3 giri</button>` : ''}</div>`;
   const cardPace = `<div class="vzsr"><span class="vzsl">Passo gara (media dei giri puliti)</span><b>${m.pace ? esc(m.pace) : '—'}</b>${m.pace ? '<span class="meta">su ' + m.nPace + ' giri' + (m.fPace ? ' · circa ' + m.fPace + ' ' + esc(fuelU()) + ' in media' : '') + '</span>' : '<span class="meta">servono almeno 2 giri puliti</span>'}<span class="meta">salvato: ${m.sp ? esc(m.sp) : 'nessuno'}</span>${vzDf(m.dPace)}${m.pace ? `<button class="sec2" data-act="vzbcalc" data-t="pace" data-w="${w ? 1 : 0}">Salva passo gara</button>` : ''}</div>`;
   const chg = (st.changes || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: ${esc(x.text)}</span><button class="x" data-act="vzbchdel" data-i="${i}" aria-label="Elimina">✕</button></div>`).join('');
-  const cards = md === 'qualifica' ? cardLap : md === 'passo' ? cardPace + vzConsHtml(st) + cardLap : md === 'sviluppo' ? cardLap + cardAvg : cardLap + cardAvg;
+  const cards = md === 'qualifica' ? cardLap + vzConsHtml(st) : md === 'passo' ? cardPace + vzConsHtml(st) + cardLap : (md === 'sviluppo' ? cardLap + cardAvg : cardLap + cardAvg) + vzConsHtml(st);
   const hint = {libera: 'Libera: tutto a disposizione, niente di guidato.', sviluppo: 'Sviluppo auto: cambia una cosa per stint e dillo (“ho cambiato…”). Confronta giro veloce e media con i salvati.', passo: 'Passo gara: stint lungo, meno giri veloci e più costanza. Contano passo e consumo.', qualifica: 'Qualifica: conta solo il giro veloce.'}[md];
   return `<div class="seg" style="margin-top:8px;flex-wrap:wrap">${MD.map(x => `<button class="sec2" data-act="vzbmode" data-m="${x[0]}" aria-pressed="${md === x[0]}">${x[1]}</button>`).join('')}</div><p class="meta" style="margin:6px 0 0">${hint}</p>
     <div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
@@ -2428,7 +2429,6 @@ function vzBox() {
       <label class="f">Mappa motore${st.map ? '' : ' (non detta)'}<input id="bxMap" inputmode="numeric" value="${esc(st.map || '')}" autocomplete="off"></label>
       <label class="f">Temp. aria (°C)<input id="bxAir" inputmode="decimal" value="${esc(st.air || '')}" autocomplete="off"></label>
       <label class="f">Temp. pista (°C)<input id="bxRoad" inputmode="decimal" value="${esc(st.road || '')}" autocomplete="off"></label></div>
-    ${st.mode === 'passo' ? '' : vzConsHtml(st)}
     <h3>Aggiungi un giro a mano</h3>
     <div class="zg"><label class="f">Giro n°<input id="bxN" inputmode="numeric" autocomplete="off"></label><label class="f">Tempo<input id="bxT" placeholder="1:52.485" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
@@ -3535,7 +3535,9 @@ const ACT = {
   vzbcalc: b => {
     vzBoxRead(); const st = vzSt(), t = b.dataset.t; st.confirm = null;
     let range; if (t === 'pace') { const a = parseInt($('bxA').value, 10), z = parseInt($('bxB').value, 10); range = a > 0 && z >= a ? {a, b: z} : 'all'; }
-    const r = vzTestEnd(st, t, b.dataset.w === '1', range); vzPersist(); vzBoxShow(r);
+    const r = vzTestEnd(st, t, b.dataset.w === '1', range);
+    if ((t === 'lap' || t === 'avg') && st.confirm) { const r2 = vzTestSave(st); vzPersist(); const el = $('vzbRes'); if (el) el.innerHTML = `<div class="gi"><p><b>${esc(r2.say)}</b></p></div>`; vzBox(); const e2 = $('vzbRes'); if (e2) e2.innerHTML = `<div class="gi"><p><b>${esc(r2.say)}</b></p></div>`; return; }   // un solo tocco: giro veloce e media si salvano subito
+    vzPersist(); vzBoxShow(r);
   },
   vzbpit: b => { const v = parseFloat(b.dataset.s); if (!(v > 0) || !V || !G) return; const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}; DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(v * 10) / 10, laneU: now(), u: now()}); save(); vzBox(); toast('Tempo corsia box salvato: ' + v.toFixed(1) + ' s'); },
   vzbmode: b => { vzBoxRead(); vzSt().mode = b.dataset.m; vzPersist(); vzBox(); },
