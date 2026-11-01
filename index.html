@@ -183,6 +183,22 @@ nav{align-items:flex-end}
 .vzsum{display:flex;flex-direction:column;gap:8px;margin:8px 0}.vzsr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}
 .vzsl{width:100%;font-size:12.5px;opacity:.8}.vzsr b{font-size:21px;font-variant-numeric:tabular-nums}.vzdf{font-weight:800;margin-left:auto}.vzdf.up{color:var(--good)}.vzdf.dn{color:var(--bad)}
 .vzmeta{grid-column:2/-1;font-size:12.5px;opacity:.7}.vzbt{display:flex;gap:6px;justify-content:flex-end;padding:0 10px 10px}
+.phero{display:flex;gap:14px;align-items:center;padding:14px;border-radius:18px;background:linear-gradient(135deg,var(--hl),var(--surface));border:1px solid var(--line);border-left:4px solid var(--accent)}
+.ring{width:84px;height:84px;flex:none}.pht .kick{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}.pht h2{font-size:19px;margin:2px 0 2px}
+.ptime{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}.ptime>div{background:var(--surface2);border-radius:12px;padding:9px 6px;text-align:center}.ptime span{display:block;font-size:11.5px;opacity:.75}.ptime b{font-size:18px;font-variant-numeric:tabular-nums}
+.ptn{margin:2px 2px 12px;font-size:12.5px}
+.plist{position:relative;display:flex;flex-direction:column;gap:10px;margin-top:6px}.plist:before{content:'';position:absolute;left:21px;top:20px;bottom:20px;width:3px;background:var(--line);border-radius:3px}
+.pst{position:relative;display:flex;gap:12px;align-items:flex-start}.tn{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--surface2);border:3px solid var(--line);z-index:1}
+.tb{flex:1;min-width:0;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.pst.done .tn{background:var(--good);border-color:var(--good);color:#fff;font-weight:800}.pst.done .tb{opacity:.75}
+.pst.cur .tn{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 22%,transparent)}.pst.cur .tb{border-color:var(--accent);box-shadow:0 8px 22px rgba(0,0,0,.22);background:linear-gradient(180deg,var(--hl),var(--surface))}
+.pst.lock .tb{opacity:.6}.pst.lock .tn{font-size:16px}
+.th b{font-size:16.5px}.pst.cur .th b{font-size:19px}.tmeta{display:flex;gap:8px;align-items:center;margin-top:3px}.ttag{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2)}.tmin{font-size:12px;opacity:.7}
+.twhy{font-size:15px;font-weight:600;margin:8px 0 6px}.plw{margin:6px 0 0;font-size:13px}
+.thow{margin:8px 0;padding-left:18px;font-size:14.5px}.thow li{margin:4px 0}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:6px 0}.strip i{opacity:.4;font-style:normal}.sc{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--surface2)}
+.sc.out{background:rgba(160,160,160,.25)}.sc.ok{background:rgba(34,197,94,.22);color:var(--good)}.sc.box{background:rgba(59,130,246,.22);color:#3b82f6}.sc.note{background:rgba(245,158,11,.22);color:#d98a00}.sc.dirty{background:rgba(239,68,68,.2);color:var(--bad)}
+.pps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}.pp{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2)}.pp.ok{background:rgba(34,197,94,.22);color:var(--good)}.pp.bad{background:rgba(239,68,68,.22);color:var(--bad)}
 .pbar{height:8px;border-radius:6px;background:var(--surface2);overflow:hidden}.pbar i{display:block;height:100%;background:var(--accent)}
 .pth{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;display:flex;gap:10px;align-items:center}.pth.done{opacity:.7}.pth.done span{color:var(--good);font-weight:900}.pth.lock{opacity:.45}.pth.cur{display:block;border-color:var(--accent);background:var(--hl)}.pth.cur p{margin:6px 0 0}
 .vzsw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}.vzsw.tp{background:#22c55e}.vzsw.best{background:#d946ef}.vzsw.bad{background:#ef4444}
@@ -245,7 +261,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.60';   // versione dell'app
+const APP_V = '0.61';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -910,23 +926,35 @@ function openSel() {
       </div><div class="btns" style="margin-top:14px"><button class="pri" data-act="close">Fatto</button></div>`, 'Le scelte valgono per tutta l\'app');
   UI.selOpen = true;
 }
-function pathRow(p, x, i) {
-  if (x.done) return `<div class="pth done"><span>✓</span><b>${esc(x.t)}</b></div>`;
-  if (i !== p.cur) return `<div class="pth lock"><span>🔒</span><b>${esc(x.t)}</b></div>`;
-  return `<div class="pth cur"><div><b>${i + 1}. ${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="btns">${x.go.map(g => `<button class="${x.man ? 'sec2' : 'pri'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false && !x.man ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}</div>`;
+function pathDiag(x) {
+  if (!x.diag || !x.diag.length) return '';
+  return '<div class="strip">' + x.diag.map(d => `<span class="sc ${d.c}">${esc(d.l)}</span>`).join('<i>›</i>') + '</div>';
 }
-function pathList(p) {
-  return p.steps.map((x, i) => (i === 0 || x.ph !== p.steps[i - 1].ph ? `<h3>${x.ph === 'dry' ? 'Asciutto' : 'Bagnato'}</h3>` : '') + pathRow(p, x, i)).join('');
+function pathHero(p) {
+  const n = p.steps.filter(x => x.done).length, tot = p.steps.length, pct = n / tot, T = pathTime(p), x = p.cur >= 0 ? p.steps[p.cur] : null;
+  const ring = `<svg viewBox="0 0 80 80" class="ring" aria-hidden="true"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--surface2)" stroke-width="8"/><circle cx="40" cy="40" r="34" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(pct * 213.6).toFixed(1)} 213.6" transform="rotate(-90 40 40)"/><text x="40" y="46" text-anchor="middle" font-size="20" font-weight="800" fill="var(--fg)">${n}/${tot}</text></svg>`;
+  return `<div class="phero">${ring}<div class="pht"><div class="kick">${x ? 'Passo ' + (p.cur + 1) + ' di ' + tot : 'Percorso finito'}</div><h2>${esc(carNameFull())}</h2><p class="meta">${x ? esc(x.t) : 'Tutto pronto per questa pista'}</p></div></div>
+    <div class="ptime"><div><span>Totale stimato</span><b>${fmtMin(T.total)}</b></div><div><span>Fatto</span><b>${fmtMin(T.fatto)}</b></div><div><span>Mancano</span><b>${p.cur < 0 ? '0 min' : '~' + fmtMin(T.left)}</b></div></div>
+    <p class="meta ptn">${T.hasData ? 'Calcolato da come lavori davvero' + (T.nc ? ' (' + T.nc + (T.nc === 1 ? ' pista completata' : ' piste completate') + ')' : '') + ': diventa più preciso a ogni passo.' : 'Stima iniziale: da adesso l\'app misura il tempo in cui lavori e la affina.'}</p>`;
 }
+function pathCard(p, x, i, T) {
+  const st = x.done ? 'done' : i === p.cur ? 'cur' : 'lock', mn = T ? fmtMin(T.est[x.id]) : '';
+  const head = `<div class="th"><b>${i + 1}. ${esc(x.t)}</b></div><div class="tmeta"><span class="ttag">${esc(x.tag)}</span><span class="tmin">~${mn}</span></div>`;
+  let body = '';
+  if (st === 'cur') {
+    let pr = ''; try { if (x.id === 'ref' || x.id === 'pace') { const ss = vzSt(); if (ss.laps && ss.laps.length) pr = vzProg(ss); } } catch (_) {}
+    body = `<p class="twhy">${esc(x.why)}</p>${pathDiag(x)}<ul class="thow">${x.how.map(h => `<li>${esc(h)}</li>`).join('')}</ul>${pr}<div class="btns">${x.go.map((g, k) => `<button class="${k === 0 && !x.man ? 'pri' : 'sec2'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false && !x.man ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}`;
+  } else if (st === 'lock') body = `<p class="meta plw">${esc(x.why)}</p>`;
+  return `<div class="pst ${st}"><div class="tn">${st === 'done' ? '✓' : st === 'lock' ? '🔒' : x.ic}</div><div class="tb">${head}${body}</div></div>`;
+}
+function pathList(p) { const T = pathTime(p); return '<div class="plist">' + p.steps.map((x, i) => pathCard(p, x, i, T)).join('') + '</div>'; }
 function viewPath() {
   const st = viewStart(); if (st) return st;
   if (!A || !V) return `<div class="card"><h2>Scegli auto e pista</h2><p class="meta">Il percorso è legato a un'auto su una pista.</p><div class="btns"><button class="pri" data-act="selopen">Scegli</button></div></div>`;
-  const p = pathState(), n = p.steps.filter(x => x.done).length, x = p.cur >= 0 ? p.steps[p.cur] : null;
-  let h = `<div class="pbar"><i style="width:${Math.round(n / p.steps.length * 100)}%"></i></div><p class="meta" style="margin:6px 2px 12px">${n} di ${p.steps.length} passi · il bagnato sarà un percorso a parte</p>`;
-  if (x) h += `<div class="stepcard"><div class="kick">Passo ${p.cur + 1} di ${p.steps.length} · ${x.ph === 'dry' ? 'asciutto' : 'bagnato'}</div><h2>${esc(x.t)}</h2><p>${esc(x.d)}</p><div class="btns">${x.go.map((g, k) => `<button class="${k === 0 && !x.man ? 'pri' : 'sec2'}" data-act="pathgo" data-g="${g[1]}">${esc(g[0])}</button>`).join('')}${x.man ? `<button class="pri" data-act="pathdone" data-id="${x.id}">${esc(x.man)}</button>` : ''}</div>${x.ok === false && !x.man ? '<p class="meta">Si completa da solo quando i dati sono salvati.</p>' : ''}</div>`;
-  else h += '<div class="gi"><p><b>Percorso finito.</b> Riferimento, consumo, box, setup e passo gara sono pronti per questa pista.</p></div>';
-  h += `<details class="calc" style="margin-top:14px"><summary>Tutti i passi</summary>${pathList(p)}</details>`;
-  h += `<div style="margin-top:14px"><div class="head"><h2>Dati rapidi</h2></div><div class="tiles">${tilesHtml()}</div></div>`;
+  const p = pathState();
+  let h = pathHero(p) + pathList(p);
+  if (p.cur < 0) h += '<div class="gi"><p><b>Percorso finito.</b> Riferimento, consumo, box, setup e passo gara sono pronti per questa pista.</p></div>';
+  h += `<p class="meta" style="margin:10px 2px 0">Il bagnato sarà un percorso a parte.</p><div style="margin-top:14px"><div class="head"><h2>Dati rapidi</h2></div><div class="tiles">${tilesHtml()}</div></div>`;
   return h;
 }
 function viewPista() {
@@ -1860,22 +1888,43 @@ function pathCtx() {
   const dev = hs.filter(h => /sviluppo auto/.test(h.note || '') && /dopo giro/.test(h.note || '')).length;
   return {pf, gen, spec, tn, nb, dev, saved: k => hs.some(h => h.k === k) && !!pf[k]};
 }
+const PATH_PRI = {base: 10, learn: 30, brk: 35, ref: 30, dev: 60, pace: 30};   // minuti di partenza: poi si affinano con i percorsi completati
 function pathSteps() {
-  const c = pathCtx();
-  return [
-    {id: 'base', ph: 'dry', t: 'Setup di partenza', d: 'Nel gioco apri il setup standard (quello sicuro) di questa pista e ricopialo identico nel setup generale dell\'app' + (c.gen('dry') ? ' (ora c\'è già un setup generale: potrebbe essere una copia di un\'altra pista).' : ' (ora è ancora vuoto).') + ' Poi conferma qui.', ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
-    {id: 'learn', ph: 'dry', t: 'Impara la pista e le pressioni', d: '8-10 giri per imparare il tracciato, senza toccare il setup e senza ingegnere di pista: pensa solo a guidare. Quando fai un giro pulito leggi le pressioni a caldo (obiettivo 27,0), rientra ai box e correggile nel setup specifico di questa pista (il generale resta uguale al gioco). Poi torna in pista e continua a imparare.', man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
-    {id: 'brk', ph: 'dry', t: 'Punti di staccata', d: 'Fai un giro pulito con le staccate giuste, poi guarda il replay e inserisci con calma le staccate a mano, curva per curva. Conviene subito dopo lo stint, con la pista fresca in testa, e prima del riferimento. Segna almeno ' + Math.max(3, Math.ceil(c.tn * 0.6)) + ' curve (ora ' + c.nb + '). Le curve in piena le segni con "In piena".', ok: c.tn > 0 && c.nb >= Math.max(3, Math.ceil(c.tn * 0.6)), go: [['Vai alla mappa', 'map']]},
-    {id: 'ref', ph: 'dry', t: 'Tempo di riferimento, consumo e box', d: 'Un solo stint con la voce, setup fermo (pressioni già corrette): giro di uscita (non conta) + 6 giri puliti con la benzina detta a ogni giro (il consumo si salva da solo) + passaggio nella corsia box senza fermarti + 2 giri puliti dopo. Per il box dì “giro box” prima del tempo del giro in cui entri e di nuovo prima del tempo del giro in cui esci. Se fai un giro sporco dì “giro sporco” e allunga lo stint di un giro: contano i giri puliti, non serve che siano di fila (solo il giro prima e quello dopo il box devono essere puliti). In “Dati della sessione” tocca Salva su giro veloce e media.', ok: c.saved('lapD') && c.saved('avgD') && !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzDev']]},
-    {id: 'dev', ph: 'dry', t: 'Sviluppo del setup', d: 'Fino a 2 modifiche per stint, di zone diverse (per esempio sottosterzo a metà curva + velocità di punta, oppure frenata + uscita di curva), mai due sulla stessa zona. Dille a voce (“ho cambiato…”), con la stessa benzina e le stesse pressioni del riferimento. Se il tempo migliora tieni tutto; se peggiora o resta uguale, nello stint dopo annulla una sola delle due per capire quale era. Servono 2 prove salvate (ora ' + c.dev + ').', ok: c.dev >= 2, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
-    {id: 'pace', ph: 'dry', t: 'Passo gara', d: '10 giri puliti con il setup scelto, benzina detta a ogni giro. Un giro sporco non ti fa rifare lo stint: ne aggiungi uno pulito. Fino a 2 sporchi su 10 va bene; con di più è meglio rifarlo. Salva il passo.', ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]}
+  const c = pathCtx(), nbk = Math.max(3, Math.ceil(c.tn * 0.6));
+  const S = [
+    {id: 'base', ph: 'dry', ic: '📋', tag: 'A tavolino', t: 'Setup di partenza', why: 'Il punto zero: il setup standard del gioco, identico, dentro l\'app.', how: ['Nel gioco apri il setup standard di questa pista.', 'Ricopialo uguale nel setup generale dell\'app' + (c.gen('dry') ? ' (ce n\'è già uno: controlla che non sia la copia di un\'altra pista).' : ' (ora è ancora vuoto).')], diag: [], ok: false, man: 'Setup standard inserito', go: [['Apri setup asciutto', 'setupD']]},
+    {id: 'learn', ph: 'dry', ic: '🏁', tag: 'In pista', t: 'Impara la pista e le pressioni', why: 'Prima di misurare qualsiasi tempo devi conoscere il tracciato e avere le gomme a posto.', how: ['8-10 giri senza toccare il setup e senza ingegnere di pista: pensa solo a guidare.', 'In un giro pulito leggi le pressioni a caldo (obiettivo 27,0).', 'Rientra ai box e correggile nel setup specifico di questa pista, non nel generale.', 'Torna in pista e continua a imparare.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: 'giri'}, {c: 'note', l: 'pressioni → box → setup specifico'}, {c: 'ok', l: 'ancora giri'}], man: 'Giri fatti e pressioni sistemate', go: [['Calcola la correzione', 'press']]},
+    {id: 'brk', ph: 'dry', ic: '🎯', tag: 'A tavolino', t: 'Punti di staccata', why: 'Le staccate guidano ogni giro dopo: meglio farle con la pista ancora fresca in testa.', how: ['Subito dopo lo stint, guarda il replay di un giro pulito.', 'Inserisci le staccate a mano, curva per curva: almeno ' + nbk + ' curve (ora ' + c.nb + ').', 'Le curve in piena le segni con "In piena".'], diag: [], ok: c.tn > 0 && c.nb >= nbk, go: [['Vai alla mappa', 'map']]},
+    {id: 'ref', ph: 'dry', ic: '⏱', tag: 'In pista · ingegnere', t: 'Riferimento, consumo e box', why: 'Il metro per tutto il resto: ogni modifica si confronta con questi tempi.', how: ['Setup fermo, pressioni già corrette. Parti con la voce.', 'Benzina detta a ogni giro: il consumo si salva da solo.', 'Per il box dì “giro box” prima del tempo del giro in cui entri e di nuovo prima del tempo di quello in cui esci.', 'Un giro sporco? Dì “giro sporco” e allunga di un giro: contano i giri puliti, non serve che siano di fila (il giro prima e quello dopo il box sì).', 'Alla fine, in “Dati della sessione”, tocca Salva su giro veloce e media.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: '6 puliti'}, {c: 'box', l: 'Box: entrata'}, {c: 'box', l: 'Box: uscita'}, {c: 'ok', l: '2 puliti'}], ok: c.saved('lapD') && c.saved('avgD') && !!((DB.pits[kk(V.id, G.id)] || {}).lane), go: [['Parti con la voce', 'vzDev']]},
+    {id: 'dev', ph: 'dry', ic: '🔧', tag: 'In pista · ingegnere', t: 'Sviluppo del setup', why: 'Si cambia poco per volta e si confronta con il riferimento. Servono 2 prove salvate (ora ' + c.dev + ').', how: ['Fino a 2 modifiche per stint, di zone diverse (es. sottosterzo a metà curva + velocità di punta, o frenata + uscita). Mai due sulla stessa zona.', 'Dille a voce (“ho cambiato…”), con la stessa benzina e le stesse pressioni del riferimento.', 'Tempo migliore: tieni tutto. Peggiore o uguale: nello stint dopo annulla una sola delle due per capire quale era.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'note', l: '≤2 modifiche'}, {c: 'ok', l: '4-5 giri'}, {c: 'note', l: 'confronto → tieni / annulla'}], ok: c.dev >= 2, go: [['Parti con la voce', 'vzDev'], ['Cosa provare', 'eng']]},
+    {id: 'pace', ph: 'dry', ic: '🔥', tag: 'In pista · ingegnere', t: 'Passo gara', why: 'Con il setup scelto: il ritmo reale da tenere in gara.', how: ['10 giri puliti, benzina detta a ogni giro.', 'Un giro sporco non fa rifare lo stint: ne aggiungi uno pulito.', 'Fino a 2 sporchi su 10 va bene; di più, meglio rifarlo.', 'Salva il passo.'], diag: [{c: 'out', l: 'Uscita'}, {c: 'ok', l: '10 puliti'}, {c: 'dirty', l: 'sporco → +1 giro'}], ok: !!c.pf.paceD, go: [['Parti con la voce', 'vzPasso']]}
   ];
+  S.forEach(x => { x.d = x.how.join(' '); x.min = PATH_PRI[x.id]; });
+  return S;
 }
 function pathState() {
   const steps = pathSteps(), done = pathSt().done; let cur = -1;
   let run = true; steps.forEach(x => { x.done = run && !!(x.ok || done[x.id]); run = x.done; });
   cur = steps.findIndex(x => !x.done);
+  try { const ps = pathSt(); ps.fin = ps.fin || {}; let ch = false; steps.forEach(x => { if (x.done && !ps.fin[x.id]) { ps.fin[x.id] = now(); ch = true; } }); if (ch) save(); } catch (_) {}
   return {steps, cur};
+}
+function pathTick() {   // segna che stai lavorando su questo percorso: blocchi di attività (pausa oltre 20 minuti = nuovo blocco)
+  try {
+    if (!A || !V) return; const ps = pathSt(), t = Date.now(), p = pathState(), id = p.cur >= 0 ? p.steps[p.cur].id : 'fine', bl = ps.blocks = ps.blocks || [], l = bl[bl.length - 1], iso = new Date(t).toISOString();
+    if (l && l.id === id && t - Date.parse(l.e) < 20 * 60000) l.e = iso; else { bl.push({s: iso, e: iso, id}); if (bl.length > 300) bl.splice(0, bl.length - 300); }
+    if (t - (pathTick.sv || 0) > 60000) { pathTick.sv = t; save(); }
+  } catch (_) {}
+}
+function pathMinutes(ps) { const m = {}; ((ps && ps.blocks) || []).forEach(b => { m[b.id] = (m[b.id] || 0) + (Date.parse(b.e) - Date.parse(b.s)) / 60000 + 1; }); return m; }
+function fmtMin(m) { m = Math.max(0, Math.round(m / 5) * 5); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''); }
+function pathTime(p) {   // stima: minuti di partenza, poi la media dei passi che hai davvero completato (anche su altre piste)
+  const learn = {}; let nc = 0;
+  Object.keys(DB.eng || {}).forEach(k => { const ps = DB.eng[k] && DB.eng[k].path; if (!ps || !ps.fin) return; const m = pathMinutes(ps); let any = false; Object.keys(ps.fin).forEach(id => { if (m[id] >= 3) { (learn[id] = learn[id] || []).push(m[id]); any = true; } }); if (any) nc++; });
+  const cur = pathMinutes(pathSt()), est = {}; let fatto = 0, left = 0, hasData = false;
+  p.steps.forEach((x, i) => { const L = learn[x.id] || [], pri = PATH_PRI[x.id] || 20, e = (2 * pri + L.reduce((a, b) => a + b, 0)) / (2 + L.length), sp = cur[x.id] || 0; est[x.id] = e; if (sp >= 3) hasData = true;
+    if (x.done) fatto += sp >= 3 ? sp : e; else { fatto += sp; left += i === p.cur ? Math.max(e - sp, e * 0.25) : e; } });
+  return {est, fatto, left, total: fatto + left, nc, hasData};
 }
 function pathSub() {
   if (!A || !V) return 'scegli auto e pista';
@@ -1883,9 +1932,9 @@ function pathSub() {
 }
 function openPath() {
   if (!needCtx('av')) return;
-  const p = pathState(), n = p.steps.filter(x => x.done).length;
-  let html = `<div class="pbar"><i style="width:${Math.round(n / p.steps.length * 100)}%"></i></div><p class="meta">${n} di ${p.steps.length} passi · prima l'asciutto, poi il bagnato</p>` + pathList(p);
-  if (p.cur < 0) html += '<div class="gi"><p><b>Percorso finito.</b> Setup specifico asciutto e bagnato pronti per questa pista.</p></div>';
+  const p = pathState();
+  let html = pathHero(p) + pathList(p);
+  if (p.cur < 0) html += '<div class="gi"><p><b>Percorso finito.</b> Riferimento, consumo, box, setup e passo gara sono pronti per questa pista.</p></div>';
   html += `<div class="btns"><button class="sec2" data-act="close">Chiudi</button></div>`;
   sheet('Percorso della pista', html, carNameFull());
 }
@@ -2422,6 +2471,16 @@ function vzPitHtml(st) {
   const pk = V && G ? kk(V.id, G.id) : '', cur = (DB.pits[pk] || {}).lane;
   return '<h3>Tempo perso ai box</h3><p class="meta">Giro con passaggio nella corsia box, senza fermarti, meno i giri normali vicini. Dì “giro box” prima del tempo sia del giro in cui entri sia di quello in cui esci (il traguardo è in corsia): sommo le perdite dei due. Lo registro da solo; se lo salvi tu col pulsante non lo tocco più.</p>' + pl.map(x => x.loss == null ? `<div class="gi"><b>Giro ${esc(x.lap.n)}</b><p class="meta">Mi servono giri puliti vicini per il confronto.</p></div>` : `<div class="gi"><b>${x.laps.length > 1 ? 'Giri ' + esc(x.laps.map(q => q.n).join(' + ')) : 'Giro ' + esc(x.lap.n)}: ${x.loss.toFixed(1).replace('.', ',')} s persi</b><p class="meta">${esc(x.laps.map(q => q.t).join(' + '))} contro ${esc(vzFmt(x.ref))} a giro dei giri normali vicini (${x.nref})${cur ? ' · salvato ora: ' + String(cur).replace('.', ',') + ' s' : ''}</p><div class="btns"><button class="sec2" data-act="vzbpit" data-s="${x.loss.toFixed(2)}">Salva ${x.loss.toFixed(1).replace('.', ',')} s come tempo corsia box</button></div></div>`).join('');
 }
+function vzProg(st) {   // contatori giri puliti / sporchi per il passo in corso
+  try {
+    const p = pathState(), cur = p.cur >= 0 ? p.steps[p.cur].id : ''; if (cur !== 'ref' && cur !== 'pace') return '';
+    const slow = vzSlow(st), cl = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x) && paceP(x.t) != null), pit = st.laps.filter(x => x.pit).map(x => x.n), dirty = st.laps.filter(x => x.dirty && !x.pit).length;
+    const pp = (t, ok, bad) => `<span class="pp${bad ? ' bad' : ok ? ' ok' : ''}">${t}</span>`, dp = pp('sporchi ' + dirty + '/2', false, dirty > 2);
+    if (cur === 'pace') return `<div class="pps"><b>Passo gara</b>${pp('puliti ' + cl.length + '/10', cl.length >= 10)}${dp}</div>`;
+    const f = pit.length ? Math.min(...pit) : 1e9, l = pit.length ? Math.max(...pit) : -1, b = cl.filter(x => x.n < f).length, a = pit.length ? cl.filter(x => x.n > l).length : 0;
+    return `<div class="pps"><b>Passo 4</b>${pp('puliti prima del box ' + b + '/6', b >= 6)}${pp('box ' + (pit.length ? '✓' : '—'), !!pit.length)}${pp('puliti dopo ' + a + '/2', a >= 2)}${dp}</div>`;
+  } catch (_) { return ''; }
+}
 function vzTop(st) {
   const w = !!st.wet, m = vzSummary(st, w), md = st.mode || 'libera';
   const MD = [['libera', 'Libera'], ['sviluppo', 'Sviluppo auto'], ['passo', 'Passo gara'], ['qualifica', 'Qualifica']];
@@ -2430,11 +2489,7 @@ function vzTop(st) {
   const cardPace = `<div class="vzsr"><span class="vzsl">Passo gara (media dei giri puliti)</span><b>${m.pace ? esc(m.pace) : '—'}</b>${m.pace ? '<span class="meta">su ' + m.nPace + ' giri' + (m.fPace ? ' · circa ' + m.fPace + ' ' + esc(fuelU()) + ' in media' : '') + '</span>' : '<span class="meta">servono almeno 2 giri puliti</span>'}<span class="meta">salvato: ${m.sp ? esc(m.sp) : 'nessuno'}</span>${vzDf(m.dPace)}${m.pace ? `<button class="sec2" data-act="vzbcalc" data-t="pace" data-w="${w ? 1 : 0}">Salva passo gara</button>` : ''}</div>`;
   const chg = (st.changes || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: ${esc(x.text)}</span><button class="x" data-act="vzbchdel" data-i="${i}" aria-label="Elimina">✕</button></div>`).join('');
   const cards = md === 'qualifica' ? '' : md === 'passo' ? cardPace + vzConsHtml(st) : vzConsHtml(st);
-  const prog = (() => { try {
-    const p = pathState(), cur = p.cur >= 0 ? p.steps[p.cur].id : '', slow = vzSlow(st), cl = st.laps.filter(x => !x.dirty && !x.odd && !slow.includes(x) && paceP(x.t) != null), pit = st.laps.filter(x => x.pit).map(x => x.n);
-    if (cur === 'ref') { const f = pit.length ? Math.min(...pit) : 1e9, l = pit.length ? Math.max(...pit) : -1, b = cl.filter(x => x.n < f).length, a = pit.length ? cl.filter(x => x.n > l).length : 0; return `<p class="meta" style="margin:6px 0 0"><b>Passo 4</b> · giri puliti prima del box ${b}/6 · box ${pit.length ? '✓' : '—'} · puliti dopo ${a}/2</p>`; }
-    if (cur === 'pace') return `<p class="meta" style="margin:6px 0 0"><b>Passo gara</b> · giri puliti ${cl.length}/10${cl.length >= 10 ? ' ✓' : ' · ne mancano ' + (10 - cl.length)}</p>`;
-  } catch (_) {} return ''; })();
+  const prog = vzProg(st);
   const hint = {libera: 'Libera: tutto a disposizione, niente di guidato.', sviluppo: 'Sviluppo auto: cambia una cosa per stint e dillo (“ho cambiato…”). Confronta giro veloce e media con i salvati.', passo: 'Passo gara: stint lungo, meno giri veloci e più costanza. Contano passo e consumo.', qualifica: 'Qualifica: conta solo il giro veloce.'}[md];
   return `<div class="seg" style="margin-top:8px;flex-wrap:wrap">${MD.map(x => `<button class="sec2" data-act="vzbmode" data-m="${x[0]}" aria-pressed="${md === x[0]}">${x[1]}</button>`).join('')}</div><p class="meta" style="margin:6px 0 0">${hint}</p>${prog}
     <div class="seg" style="margin-top:8px"><button class="sec2" data-act="vzbwet" data-w="0" aria-pressed="${!w}">Asciutto</button><button class="sec2" data-act="vzbwet" data-w="1" aria-pressed="${w}">Bagnato</button></div>
@@ -2472,7 +2527,7 @@ function vzBox() {
     <h3>Aggiungi un giro a mano</h3>
     <div class="zg"><label class="f">Giro n°<input id="bxN" inputmode="numeric" autocomplete="off"></label><label class="f">Tempo<input id="bxT" placeholder="1:52.485" autocomplete="off"></label></div>
     <div class="btns"><button class="sec2" data-act="vzbadd">Aggiungi giro</button></div>
-    ${(st.press || []).length ? `<h3>Pressioni a caldo</h3>${st.press.map(x => `<div class="gi"><b>${x.lap ? 'Dopo il giro ' + esc(x.lap) : 'Prima dei giri'}</b><p>Ant. sx ${esc(x.FL ?? '—')} · Ant. dx ${esc(x.FR ?? '—')} · Post. sx ${esc(x.RL ?? '—')} · Post. dx ${esc(x.RR ?? '—')}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbpress">Calcola la correzione a freddo</button></div>` : ''}
+    ${(st.press || []).length ? `<h3>Pressioni a caldo</h3><p class="meta">📌 Poi correggi le pressioni a freddo nel setup <b>specifico</b>, non nel generale.</p>${st.press.map(x => `<div class="gi"><b>${x.lap ? 'Dopo il giro ' + esc(x.lap) : 'Prima dei giri'}</b><p>Ant. sx ${esc(x.FL ?? '—')} · Ant. dx ${esc(x.FR ?? '—')} · Post. sx ${esc(x.RL ?? '—')} · Post. dx ${esc(x.RR ?? '—')}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbpress">Calcola la correzione a freddo</button></div>` : ''}
     ${(st.junk || []).length ? `<h3>Frasi non capite (${st.junk.length})</h3>${st.junk.map(j => `<div class="gi"><b>«${esc(j.text)}»</b><p class="meta">${j.lap ? 'dopo il giro ' + esc(j.lap) : 'prima del primo giro'}</p></div>`).join('')}<div class="btns"><button class="sec2" data-act="vzbjclr">Cancella l'elenco</button></div>` : ''}
     <h3>Benzina rimasta</h3>
     ${(st.fuelLog || []).map((x, i) => `<div class="row2" style="align-items:center"><span style="flex:1">Dopo il giro <b>${esc(x.lap)}</b>: <b>${esc(x.fuel)}</b> ${esc(fuelU())}${x.was ? ' <span class="meta">(detto ' + esc(x.was) + ', corretto)</span>' : ''}${x.map ? ' <span class="meta">mappa ' + esc(x.map) + '</span>' : ''}</span><button class="x" data-act="vzbfdel" data-i="${i}" aria-label="Elimina lettura">✕</button></div>`).join('') || '<div class="empty">Nessuna lettura.</div>'}
@@ -2681,7 +2736,8 @@ function vzListen() {
   vz.rec = r; vz.status = 'listen'; vz.err = ''; vzDraw();
   try { r.start(); } catch (_) { vz.rec = null; setTimeout(vzListen, 500); }
 }
-function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} }
+function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} pathTick(); }
+setInterval(() => { if (UI.vz) pathTick(); }, 60000);
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
   let tn = vzNorm(raw);
@@ -2755,7 +2811,7 @@ function engPress() {
   if (Object.keys(ids).length < 4) return sheet('Pressioni a caldo', '<div class="empty">Non trovo le 4 pressioni nel setup (servono Ant. sx, Ant. dx, Post. sx, Post. dx).</div><div class="btns"><button class="sec2" data-act="eng">◀ Indietro</button></div>', carNameFull());
   const names = {FL: 'Ant. sx', FR: 'Ant. dx', RL: 'Post. sx', RR: 'Post. dx'};
   const inp = c => `<label class="f">${names[c]} a caldo<input id="hp${c}" inputmode="decimal" placeholder="${esc(tg)}" autocomplete="off"><span class="meta">a freddo ora ${esc(snap[ids[c]] ?? '—')}</span></label>`;
-  sheet('Pressioni a caldo', `<p class="meta">Dopo 5 giri puliti scrivi le pressioni a caldo che leggi nel gioco. Ti dico di quanto correggere quelle a freddo per arrivare al valore voluto. È una stima: la variazione a freddo si riflette quasi uno a uno a caldo.</p>
+  sheet('Pressioni a caldo', `<div class="gi hot"><p>📌 Le pressioni a freddo corrette vanno scritte nel <b>setup specifico</b> di questa pista, non nel generale (che resta uguale al gioco).</p></div><p class="meta">Dopo 5 giri puliti scrivi le pressioni a caldo che leggi nel gioco. Ti dico di quanto correggere quelle a freddo per arrivare al valore voluto. È una stima: la variazione a freddo si riflette quasi uno a uno a caldo.</p>
     <label class="f">Valore voluto a caldo<input id="hpT" value="${esc(tg)}" inputmode="decimal" style="max-width:140px"></label>
     <div class="zg">${['FL', 'FR', 'RL', 'RR'].map(inp).join('')}</div><div id="hpOut"></div>
     <div class="btns" style="margin-top:12px"><button class="pri" data-act="engpcalc">Calcola</button><button class="sec2" data-act="eng">◀ Indietro</button></div>`, carNameFull());
@@ -3485,8 +3541,8 @@ function viewBackup() {
       <div id="copies"><p class="meta">Carico...</p></div></div>
     <div class="card"><h2>Cancella dati</h2>
       <p class="meta">Vale solo per questo dispositivo: su ogni telefono o tablet va fatto a parte. Prima di cancellare salvo una copia interna, che trovi qui sopra e puoi ripristinare.</p>
-      <div class="btns"><button class="sec2" data-bk="wipedata">Cancella i dati, tieni piste e curve</button><button class="sec2" data-bk="wipeall">Cancella tutto</button></div>
-      <p class="meta" style="margin-top:8px">La prima toglie gruppi, auto, staccate, setup, dati rapidi, strategie e note, e lascia circuiti, disegni e curve. La seconda riporta l'app com'era appena installata.</p></div>
+      <div class="btns"><button class="sec2" data-bk="wipetest">Azzera le prove: tieni auto, piste e staccate</button><button class="sec2" data-bk="wipedata">Cancella i dati, tieni piste e curve</button><button class="sec2" data-bk="wipeall">Cancella tutto</button></div>
+      <p class="meta" style="margin-top:8px">La prima toglie setup, dati rapidi, storico, tempi box, sessioni vocali e percorso, e tiene giochi, auto, circuiti, curve, staccate e note. La seconda toglie gruppi, auto, staccate, setup, dati rapidi, strategie e note, e lascia circuiti, disegni e curve. La seconda riporta l'app com'era appena installata.</p></div>
     <div class="card"><h2>Archivio</h2>
       <p class="meta">Salvataggio nel browser: ${memOnly ? '<b>non disponibile</b>' : 'attivo'}${UI.persisted === true ? ' · protetto dalla pulizia automatica' : UI.persisted === false ? ' · non protetto dalla pulizia automatica' : ''}</p>
       <p class="meta">Dati: ${esc(summary(DB))}</p>
@@ -3719,7 +3775,7 @@ document.addEventListener('click', e => {
     return;
   }
   const mk = t.closest('[data-turn]'); if (mk) { pickTurn(mk.dataset.turn); return; }
-  const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) return ACT[ac.dataset.act](ac);
+  const ac = t.closest('[data-act]'); if (ac && ACT[ac.dataset.act]) { pathTick(); return ACT[ac.dataset.act](ac); }
   const row = t.closest('[data-row]'); if (row) { pickTurn(row.dataset.row); return; }
   const ed = t.closest('[data-edit]');
   if (ed) { const k = ed.dataset.edit; return k === 'group' ? editGroup(ed.dataset.id) : k === 'car' ? editCar(ed.dataset.id) : k === 'game' ? editGame(ed.dataset.id) : editCircuit(ed.dataset.id); }
@@ -3740,6 +3796,10 @@ document.addEventListener('click', e => {
       .then(h => h.createWritable()).then(w => w.write(backupText()).then(() => w.close()))
       .then(() => { DB.settings.lastExport = now(); save(); render(); toast('Backup salvato'); })
       .catch(err => { if (err && err.name !== 'AbortError') toast('Salvataggio non riuscito: usa Scarica file.'); });
+    if (a === 'wipetest') {
+      if (!armed(bk, 'Tocca ancora per azzerare')) return;
+      return addCopy('prima di azzerare le prove').then(() => { Object.assign(DB, {pits: {}, perf: {}, setupGen: {}, setupSpec: {}, hist: [], eng: {}}); delete DB.settings.vzSess; delete DB.settings.vzArch; UI.vzst = null; UI.vz = null; return flush(); }).then(() => { render(); toast('Prove azzerate: auto, piste e staccate restano'); });
+    }
     if (a === 'wipedata' || a === 'wipeall') {
       if (!armed(bk, a === 'wipeall' ? 'Tocca ancora: cancello TUTTO' : 'Tocca ancora per cancellare')) return;
       return addCopy('prima della cancellazione').then(() => {
