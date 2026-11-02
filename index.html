@@ -2826,7 +2826,8 @@ function rcCalc(st, now) {
     const stintAfter = Math.min(Math.ceil(lapsAfter / (pitsAfter + 1)), capLaps), atBox = Math.max(0, fuel.v - boxIn * c);
     litri = Math.ceil(Math.min(Math.max(0, (stintAfter + cfg.mg) * c - atBox), Math.max(0, (cfg.tank || 999) - atBox)));
   }
-  return {pace, c, remaining, lapsLeft, done, pitsLeft, fuel, fuelLaps, margin, boxIn, litri, stintEl, stintLeftLaps, forced, planned};
+  const atBoxL = boxIn != null && fuel ? Math.max(0, fuel.v - boxIn * c) : null;
+  return {pace, c, remaining, lapsLeft, done, pitsLeft, fuel, fuelLaps, margin, boxIn, litri, atBoxL, stintEl, stintLeftLaps, forced, planned};
 }
 function rcFill(st, n, now, estLast) {   // giri non detti: li segno stimati
   const R = st.race; let last = R.laps.length ? R.laps[R.laps.length - 1] : null; const pace = rcPace(st) * 1000;
@@ -2918,6 +2919,7 @@ function rcAfter(st, lapNo0, nLaps0) {   // dopo una frase normale: se ha regist
 }
 function rcEnd(st, now) {
   const R = st.race; if (R.phase === 'done') return; R.phase = 'done'; R.tEnd = now;
+  try { if (UI.vz && UI.vz.st === st) R.cmds = UI.vz.log.slice(0, 60).map(l => ({h: l.heard, l: l.line, b: !!l.bad})); } catch (_) {}
   if (R.sim) return;
   try {   // consumo e perdita sulla corsia box si aggiornano dai dati veri della gara
     const c = rcCons(st, true), key = engKey();   // rcCons scarta già i valori assurdi
@@ -2951,6 +2953,8 @@ function rcReport(st) {
   const stints = []; let s0 = R.t0; R.pits.forEach(p => { stints.push((p.inAt - s0) / 1000); s0 = p.outAt; }); stints.push((now - s0) / 1000);
   L.push('Stint: ' + stints.map((x, i) => (i + 1) + ') ' + rcMS(x)).join(' · '));
   if ((st.feel || []).length) L.push('Sensazioni:'), (st.feel || []).forEach(x => L.push('  ' + (x.tyre ? '[gomme] ' : '') + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text));
+  if (R.sim) L.splice(1, 0, 'SIMULAZIONE x' + ((UI.sim && UI.sim.speed) || '?') + ' · eventi simulati: ' + ((R.simlog || []).join(' · ') || 'nessuno'));
+  if ((R.cmds || []).length) L.push('Comandi (dal più recente): ' + R.cmds.map(x => '"' + x.h + '" → ' + x.l + (x.b ? ' [NON CAPITO]' : '')).join(' | '));
   if ((st.junk || []).length) L.push('Non capito: ' + st.junk.map(x => '"' + x.text + '"' + (x.lap ? ' (giro ' + x.lap + ')' : '')).join(' · '));
   return L.join('\n');
 }
@@ -2978,18 +2982,18 @@ function rcDraw(el, vz) {
   }
   const c = rcCalc(st, now), reqs = rcReqs(st, now), q = reqs[0], S = {giro: ['⏱', 'GIRO', 'dì «giro» o il tempo'], sync: ['🔄', 'SINCRONIZZA', 'dì «tempo 24 30»'], benz: ['⛽', 'BENZINA', 'dì «24 litri»'], tempo: ['🏁', 'TEMPO', 'dì «tempo 24 30»'], sosta: ['🔧', 'SOSTA? · pit ' + (R.pits.length + 1), 'dì «sosta 38»']};
   const last = R.laps[R.laps.length - 1];
-  const centre = R.pit.in ? '<div class="rcq inbox"><div class="rcsy">🔧</div><div class="rcw">IN BOX</div><div class="rcsm">dì «box» quando esci</div></div>'
+  const centre = R.pit.in ? '<div class="rcq inbox"><div class="rcsy">🔧</div><div class="rcw">IN BOX</div><div class="rcsm">dì «box» quando esci' + (R.pit.rec != null ? ' · carica <b>' + R.pit.rec + ' L</b> (nel serbatoio ~' + Math.round(c.fuel ? c.fuel.v : 0) + ' L)' : '') + '</div></div>'
     : c.remaining <= 0 ? '<div class="rcq l2"><div class="rcsy">🏁</div><div class="rcw">ULTIMO GIRO</div><div class="rcsm">al traguardo dì «fine gara»</div></div>'
     : q ? `<div class="rcq l${q.lvl}"><div class="rcsy">${S[q.k][0]}</div><div class="rcw">${S[q.k][1]}${q.k === 'sync' ? ' · persi ' + q.missed : ''}</div><div class="rcsm">${S[q.k][2]}</div></div>`
     : `<div class="rcq rest"><div class="rcw">GIRO ${c.done}</div>${last && last.t ? '<div class="rcsm">' + esc(last.t) + '</div>' : ''}</div>`;
   const mg = c.margin == null ? '—' : (c.margin >= 0 ? '+' : '−') + Math.abs(c.margin).toFixed(1).replace('.', ',');
   const mcls = c.margin == null ? '' : c.margin >= 1 ? 'ok' : c.margin >= 0 ? 'warn' : 'bad';
   const warn = (c.stintLeftLaps != null && c.stintLeftLaps <= 3 ? '<div class="rcwarn">STINT: ' + Math.max(0, c.stintLeftLaps) + ' giri al limite</div>' : '') + (c.forced ? '' : '');
-  const s = rcStrat(R), boxTxt = c.boxIn == null ? 'nessun box previsto' : (c.boxIn <= 0 ? 'BOX ORA' : c.boxIn === 1 ? 'BOX QUESTO GIRO' : 'Box fra ' + c.boxIn + ' giri') + (c.litri != null ? ' · carica ' + c.litri + ' L' : '');
+  const s = rcStrat(R), boxTxt = c.boxIn == null ? 'nessun box previsto' : (c.boxIn <= 0 ? 'BOX ORA' : c.boxIn === 1 ? 'BOX QUESTO GIRO' : 'Box fra ' + c.boxIn + ' giri') + (c.litri != null ? ' · in serbatoio ~' + Math.round(c.atBoxL) + ' L · carica ' + c.litri + ' L' : '');
   el.innerHTML = `<div class="rcs"><div class="rctop"><div><div class="rcbig">${c.lapsLeft}</div><div class="rcsm">giri alla fine</div></div><div class="rcright"><div class="rcsm">tempo gara</div><div class="rctime">${rcMS(c.remaining)}</div></div></div>
     ${centre}${warn}
     <div class="rcrow"><div class="rcbox ${mcls}"><div class="rcsm">Margine benzina</div><div class="rcnum">${mg}<small> giri</small></div></div><div class="rcbox"><div class="rcsm">Stint ${R.stint.n + 1} · ${rcMS(c.stintEl)}</div><div class="rcnum2">${esc(boxTxt)}</div></div></div>
-    ${R.sim && UI.sim ? `<div class="rcsim">🧪 SIMULAZIONE · velocità <b>x${UI.sim.speed}</b> ${[10, 30, 60].map(k => `<button class="sec2" data-act="rcspd" data-k="${k}">x${k}</button>`).join('')}</div>` : ''}${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'vzstop'}">${R.sim ? 'Chiudi simulazione' : 'Esci'}</button></div></div>`;
+    ${R.sim && UI.sim ? `<div class="rcsim">🧪 SIMULAZIONE · velocità <b>x${UI.sim.speed}</b> ${[10, 30, 60].map(k => `<button class="sec2" data-act="rcspd" data-k="${k}">x${k}</button>`).join('')}<br><button class="sec2" data-act="rcsimhold">${UI.sim.hold ? '▶ Riprendo a rispondere' : '🤐 Non rispondo'}</button><button class="sec2" data-act="rcsimskip">${UI.sim.forceForget ? '⏭ prossimo giro non detto ✓' : '⏭ Salta un giro'}</button></div>` : ''}${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'vzstop'}">${R.sim ? 'Chiudi simulazione' : 'Esci'}</button></div></div>`;
 }
 document.addEventListener('pointerdown', () => { UI.ptr = true; }, true);
 ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => { UI.ptr = false; }, 80), true));
@@ -3007,7 +3011,7 @@ function rcSimSay(txt) { const vz = UI.vz; if (vz) vzHandle(txt); }
 function rcSimTick() {
   const S = UI.sim, vz = UI.vz; if (!S || !vz || !rcOn(vz.st) || !vz.st.race.sim) return rcSimEnd(false);
   const now = Date.now(); S.t += (now - S.last) * S.speed; S.last = now;
-  while (S.q.length && S.q[0].at <= S.t) { const e = S.q.shift(); S.cur = e.at; try { e.fn(); } catch (_) {} S.cur = null; }
+  while (!S.hold && S.q.length && S.q[0].at <= S.t) { const e = S.q.shift(); S.cur = S.t - e.at > 1500 ? null : e.at; try { e.fn(); } catch (_) {} S.cur = null; }   // se rispondo in ritardo, il dato vale da adesso
   vzDraw();
 }
 function rcSimPlan(S, tStart) {   // programma il prossimo giro come lo guiderebbe una persona che guarda lo schermo
@@ -3017,7 +3021,8 @@ function rcSimPlan(S, tStart) {   // programma il prossimo giro come lo guidereb
   S.lap++; S.fuel -= cons;
   const finalLap = (tStart / 1000) >= cfg.dur - 1 || c.remaining <= 0;
   if (enter) { rcSimAt(S, tEnd - 20000, () => rcSimSay('box')); rcSimAt(S, tEnd - 19000, () => rcSimSay('sosta ' + (cfg.pit || 38))); if (c.litri != null) { rcSimAt(S, tEnd - 18000, () => rcSimSay('carico ' + c.litri)); } }
-  const forget = !enter && rnd() < 0.06;
+  const forget = !enter && (S.forceForget || rnd() < 0.06); if (forget) { (R.simlog = R.simlog || []).push('giro ' + S.lap + ' non detto'); S.forceForget = false; }
+  if (enter) (R.simlog = R.simlog || []).push('box al giro ' + S.lap);
   if (!forget) rcSimAt(S, tEnd, () => { if (enter || rnd() < 0.5) rcSimSay('giro'); else { const m = Math.floor(lt / 60), sec = Math.floor(lt % 60), ms = Math.floor((lt - Math.floor(lt)) * 1000); rcSimSay(m + ' ' + sec + ' e ' + String(ms).padStart(3, '0')); } });
   if (enter) { rcSimAt(S, tEnd + extra, () => { rcSimSay('box'); S.fuel = Math.min(cfg.tank || 999, S.fuel + (c.litri || 0)); }); }
   if (S.lap % 3 === 0 && !forget && !enter) rcSimAt(S, tEnd + 2000, () => rcSimSay(Math.max(1, S.fuel).toFixed(1).replace('.', ',') + ' litri'));
@@ -3964,6 +3969,8 @@ const ACT = {
   rcresume: () => { closeSheet(); vzStart(); },
   rcspd: b => { if (UI.sim) { UI.sim.speed = +b.dataset.k || 20; vzDraw(); } },
   rcsimexit: () => rcSimExit(),
+  rcsimhold: () => { const S = UI.sim; if (!S) return; S.hold = !S.hold; const R = UI.vz.st.race; (R.simlog = R.simlog || []).push(S.hold ? 'silenzio da ' + rcMS(S.t / 1000) : 'risposte riprese a ' + rcMS(S.t / 1000)); vzDraw(); },
+  rcsimskip: () => { const S = UI.sim; if (S) { S.forceForget = true; vzDraw(); } },
   vzbrmode: b => { vzSt().mode = b.dataset.m; vzPersist(); vzBrief(); },
   vzbrwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBrief(); },
   vzstop: vzStop,
