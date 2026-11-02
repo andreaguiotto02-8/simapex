@@ -2938,7 +2938,7 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
     const s = rcStrat(R), dur = (now - R.pit.inAt) / 1000, cOut = rcCalc(st, now), fOut = cOut.fuel ? cOut.fuel.v : R.pit.fuelAtIn;   // benzina all'uscita: il giro d'entrata è già passato
     R.pit.in = false; R.pitLaps.push(R.laps.length + 1); const pa = R.pit.act || {};
     if (pa.drv) R.drv = {start: now, n: ((R.drv || {}).n || 1) + 1}; if (pa.tyre) { R.tyre0 = R.laps.length; st.tyre0 = R.laps.length; }
-    R.pits.push({drv: !!pa.drv, tyre: !!pa.tyre, inAt: R.pit.inAt, outAt: now, dur, strat: s.id, soste: R.pit.soste != null ? R.pit.soste : s.sosta, litri: R.pit.litri != null ? R.pit.litri : (R.pit.rec != null ? R.pit.rec : s.litri), lap: R.laps.length});
+    R.pits.push({drv: !!pa.drv, tyre: !!pa.tyre, fuel: !!pa.fuel, inAt: R.pit.inAt, outAt: now, dur, strat: s.id, soste: R.pit.soste != null ? R.pit.soste : s.sosta, litri: R.pit.litri != null ? R.pit.litri : (R.pit.rec != null ? R.pit.rec : s.litri), lap: R.laps.length});
     if (fOut != null && R.cfg.refuel !== false) R.fuelBase = {lap: R.laps.length, fuel: Math.min(R.cfg.tank || 999, Math.round((Math.max(0, fOut) + (R.pit.litri != null ? R.pit.litri : (R.pit.rec != null ? R.pit.rec : (s.litri || 0)))) * 10) / 10), pit: true};
     R.pit.soste = null; R.pit.litri = null; R.pit.rec = null; R.pit.act = null; R.sostaAsk = null; R.forcePit = false; R.stint = {start: now, n: R.stint.n + 1, synced: false};
     return done('box · USCITA dopo ' + rcMS(dur));
@@ -2995,6 +2995,11 @@ function rcApply(st, now) {   // solo quando clicchi «Salva nello storico gare�
         if (o) { o.v = val; o.n = w + nn; } else p.cons.push({map: m, v: val, n: nn, main: !p.cons.length});
         histAdd('cons', val, (o || {}).map || m, 'Dalla gara (' + nn + ' letture)'); p.u = new Date().toISOString();
       }
+    }
+    if (G && V && R.pits.length) {   // tempi di sosta detti a voce: memorizzati per tipo di sosta (pilota / gomme / benzina)
+      const pk0 = kk(V.id, G.id), pt0 = DB.pits[pk0] || {s: 60, st: 'predefinito'}, stops = Object.assign({}, pt0.stops || {}); let ch = false;
+      R.pits.forEach(p => { if (p.soste > 0 && p.soste < 300) { const k = rcCombo({drv: p.drv, tyre: p.tyre, fuel: p.fuel}), o = stops[k] || {v: 0, n: 0, lit: 0}; stops[k] = {v: Math.round((o.v * o.n + p.soste) / (o.n + 1) * 10) / 10, n: o.n + 1, lit: p.fuel ? Math.round(((o.lit || 0) * o.n + (p.litri || 0)) / (o.n + 1)) : 0}; ch = true; } });
+      if (ch) DB.pits[pk0] = Object.assign({}, pt0, {stops, u: new Date().toISOString()});
     }
     if (G && V && R.pits.length) {
       const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}, pace = rcPace(st);
@@ -3118,7 +3123,7 @@ function rcSimExit() {
 }
 function rcLaunch(sim) {
   const P = UI.zP, c = UI.zC; if (!P || !c) return toast('Compila prima durata, passo e consumo');
-  const strat = [{id: '1', litri: Math.round(c.r.fuel[1] || 0), gomme: 'piano', freni: 'no', sosta: P.pit}];
+  const strat = [{id: '1', litri: Math.round(c.r.fuel[1] || 0), gomme: 'piano', freni: 'no', sosta: P.stop != null ? P.stop : P.pit}];
   const mgL = P.mgu === 'giri' ? P.mg : (P.cons > 0 ? P.mg / P.cons : 0), fuel0 = Math.ceil(c.r.fuel[0]);   // il margine scritto è già dentro la benzina di partenza, e conta solo lì
   if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
   if (sim) UI.simPrev = JSON.stringify(DB.settings.vzSess || null); else vzArchive('prima della gara');
@@ -3381,6 +3386,7 @@ function tyreLearn() {   // da tutte le sessioni con giri e «gomme nuove»: di 
   if (sn < 8) return null; const slope = sw / sn; if (slope < 0.02) return null;
   return {lim: Math.max(6, Math.min(60, Math.round(1 / slope))), slope, n: sn};
 }
+const rcCombo = a => ((a.drv ? 'P' : '') + ((a.ty || a.tyre) ? 'G' : '') + (a.fuel ? 'B' : '')) || 'S';   // P cambio pilota · G gomme · B benzina · S solo sosta
 function stratActs(P, r) {   // a ogni sosta: cambio pilota, gomme, benzina
   const acts = []; let drvT = 0, tyreL = 0, dn = 1;
   for (let i = 0; i < r.pits.length; i++) {
@@ -3441,7 +3447,7 @@ function openStrat() {
       <label class="f">Passo gara<input id="zpace" value="${esc(perf ? perf.paceD : '')}" placeholder="m:ss.mmm"></label>
       <label class="f">Consumo (${esc(G.unit)})<input id="zcons" inputmode="decimal" value="${esc(main ? main.v : '')}"></label>
       <label class="f">Soste obbligatorie<input id="zmand" inputmode="numeric" value="1"></label>
-      <label class="f">Tempo di sosta (s)<input id="zpit" inputmode="numeric" value="${pt.s}"></label>
+      <label class="f">Sosta effettiva (s)<input id="zpit" inputmode="numeric" value="${pt.s}"></label>
       <label class="f">Serbatoio (L)<input id="ztank" inputmode="numeric" value="${esc(tank)}"></label>
       <div class="full z2"><span id="zpst"></span><button class="sec2" id="zsave" type="button">Salva per questa pista</button></div>
       <label class="f">Giro di formazione<select id="zform"><option value="none">Nessuno</option><option value="full">Completo</option><option value="short">Breve</option></select></label>
@@ -3461,15 +3467,19 @@ function openStrat() {
     if ([D, pace, cons, pit, mand, tk, mg].some(v => v == null || v < 0) || D <= 0 || pace <= 0 || cons <= 0 || (msOn && (ms == null || ms <= 0))) {
       UI.zP = null; out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
     }
-    const P = {D: D * 60, pace, cons, pit, mand: Math.floor(mand), tank: tk, mg, mgu: g('zmgu'), form: g('zform'), refuel: g('zref') === '1', ms: ms != null ? ms * 60 : null, nd, md: mdR > 0 ? mdR * 60 : null, tl: tlR > 0 ? Math.floor(tlR) : null};
-    const c = stratCalc(P), r = c.r; UI.zP = P; UI.zC = c; 
+    const lane = pt.lane > 0 ? pt.lane : 0, stopsM = pt.stops || {};
+    let P = {D: D * 60, pace, cons, pit: pit + lane, stop: pit, lane, mand: Math.floor(mand), tank: tk, mg, mgu: g('zmgu'), form: g('zform'), refuel: g('zref') === '1', ms: ms != null ? ms * 60 : null, nd, md: mdR > 0 ? mdR * 60 : null, tl: tlR > 0 ? Math.floor(tlR) : null};
+    let c = stratCalc(P);
+    { const a1 = stratActs(P, c.r); if (a1.some(a => stopsM[rcCombo(a)])) { const avg = a1.reduce((m, a) => m + (stopsM[rcCombo(a)] ? stopsM[rcCombo(a)].v : pit), 0) / a1.length; P = Object.assign({}, P, {pit: avg + lane}); c = stratCalc(P); } }   // con i tempi di sosta già memorizzati per quel tipo di sosta
+    const r = c.r; UI.zP = P; UI.zC = c; 
     let h = c.notes.map(n => `<div class="warn">${esc(n)}</div>`).join('');
+    h += `<p class="meta">Tempo perso a ogni sosta: corsia box <b>${lane ? String(lane).replace('.', ',') + ' s' : 'non ancora misurata (la misuro dalla prima gara salvata)'}</b> + sosta effettiva (${pit} s o quella memorizzata per quel tipo di sosta).</p>`;
     h += `<div class="ztiles"><div class="tile"><div class="k">Giri di gara</div><div class="v">${r.n}</div><div class="s">passo tra ${fPace(r.low)}${r.high != null ? ' e ' + fPace(r.high) : ' e oltre'}</div></div>
       <div class="tile"><div class="k">Durata stimata</div><div class="v">${fDur(r.dur)}</div><div class="s">${r.stops}${r.stops === 1 ? ' sosta' : ' soste'}</div></div></div><div class="rows">`;
     const acts = stratActs(P, r);
     r.st.forEach((laps, i) => {
       h += `<div class="zst"><div><b>Stint ${i + 1}</b> · ${laps} giri${i === 0 && P.form === 'full' ? ' (compreso il giro di formazione)' : ''}</div><div class="r">${r.fuel[i]} L</div><div class="meta">${i === 0 ? 'alla partenza' : (P.refuel ? 'alla sosta ' + i : '')}</div><div></div></div>`;
-      if (i < r.pits.length) { const a = acts[i], pr = [a.drv ? 'PILOTA' : '', a.ty ? 'GOMME' : '', a.fuel ? 'BENZINA ' + a.litri + ' L' : ''].filter(Boolean); h += `<div class="zpit">Sosta ${i + 1} al giro ${r.pits[i][0]} · restano ${fMS(r.pits[i][1])}<br><b>${pr.length ? pr.join(' + ') : 'SOLO SOSTA'}</b></div>`; }
+      if (i < r.pits.length) { const a = acts[i], pr = [a.drv ? 'PILOTA' : '', a.ty ? 'GOMME' : '', a.fuel ? 'BENZINA ' + a.litri + ' L' : ''].filter(Boolean), sm = stopsM[rcCombo(a)]; h += `<div class="zpit">Sosta ${i + 1} al giro ${r.pits[i][0]} · restano ${fMS(r.pits[i][1])}<br><b>${pr.length ? pr.join(' + ') : 'SOLO SOSTA'}</b> · sosta ${sm ? String(sm.v).replace('.', ',') + ' s (memorizzata)' : pit + ' s'}</div>`; }
     });
     out.innerHTML = h + '</div>';
   };
@@ -3483,7 +3493,7 @@ function openStrat() {
   $('zsave').addEventListener('click', () => {
     const v = numP($('zpit').value);
     if (v == null || v < 0) return toast('Scrivi un tempo di sosta valido');
-    pt = {s: v, st: 'misurato', u: now()}; DB.pits[pk] = pt; save(); pst(); toast('Tempo di sosta salvato');
+    pt = Object.assign({}, pt, {s: v, st: 'misurato', u: now()}); DB.pits[pk] = pt; save(); pst(); toast('Tempo di sosta salvato');
   });
   pst(); zr();
 }
