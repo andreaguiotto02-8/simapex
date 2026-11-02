@@ -1885,7 +1885,7 @@ function pathCtx() {
   const pf = DB.perf[engKey()] || {}, hs = (DB.hist || []).filter(h => h.c === A.id && h.v === V.id);
   const gen = c => !!((DB.setupGen[gk()] || {})[c]), spec = c => !!((DB.setupSpec[kk(A.id, V.id)] || {})[c]);
   const tn = turnsOf().length, bk = (G && V ? DB.brakes[kk(V.id, G.id)] : null) || {}, nb = Object.keys(bk).filter(k => bk[k] && (bk[k].dry || bk[k].full)).length;
-  const dev = hs.filter(h => /sviluppo auto/.test(h.note || '') && /dopo giro/.test(h.note || '')).length;
+  const dev = new Set(hs.filter(h => /sviluppo auto/.test(h.note || '') && /dopo giro/.test(h.note || '')).map(h => h.note)).size;   // una prova = uno stint (giro veloce e media dello stesso stint hanno la stessa nota)
   return {pf, gen, spec, tn, nb, dev, saved: k => hs.some(h => h.k === k) && !!pf[k]};
 }
 const PATH_PRI = {base: 10, learn: 30, brk: 35, ref: 30, dev: 60, pace: 30};   // minuti di partenza: poi si affinano con i percorsi completati
