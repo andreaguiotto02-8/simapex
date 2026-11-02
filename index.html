@@ -2073,7 +2073,7 @@ function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
     }
     res.push(typeof x === 'object' ? {n: x.n} : x);
   });
-  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ').replace(/\bazioni(?= .*\d)/g, 'pressioni').replace(/\bgiro (?:di )?(?:entrata|uscita|ingresso)(?: (?:ai |nei |dai |dei |in |nella )?(?:box|corsia))?\b/g, 'giro box');
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ').replace(/\bazioni(?= .*\d)/g, 'pressioni').replace(/\b(\d{1,2}) (?:l|litri) (\d)\b/g, '$1.$2 litri').replace(/\bgiro (?:di )?(?:entrata|uscita|ingresso)(?: (?:ai |nei |dai |dei |in |nella )?(?:box|corsia))?\b/g, 'giro box');
 }
 function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
   let m, ss, ms;
@@ -2114,7 +2114,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\b(ultimo|precedente) giro sporco\b|\bgiro (precedente|prima) sporco\b/.test(t)) return Object.assign(r, {k: 'lap_dirty', last: true});
   if (/giro sporco/.test(t)) return Object.assign(r, {k: 'lap_dirty'});
   if (/\bpression\w*\b/.test(t) && !/\b(qual|quale|dimmi|leggi|leggimi)\b/.test(t)) {
-    const nn = (t.replace(/\b(\d{2}) e (\d)\b/g, '$1.$2').match(/\b\d+(?:\.\d+)?\b/g) || []).map(x => /^\d{3}$/.test(x) ? +x / 10 : +x);   // "268" = 26,8 · "26 e 9" = 26,9
+    const nn = (t.replace(/\b(\d{2}) (?:e )?(\d)(?= |$)/g, '$1.$2').match(/\b\d+(?:\.\d+)?\b/g) || []).map(x => /^\d{3}$/.test(x) ? +x / 10 : +x);   // "268" = 26,8 · "26 e 9" = 26,9
     if (nn.length === 4) return Object.assign(r, {k: 'press', vals: {FL: nn[0], FR: nn[1], RL: nn[2], RR: nn[3]}});
     const f = /\banterior\w*|\bdavanti\b/.test(t), rr = /\bposterior\w*|\bdietro\b/.test(t), l = /\bsinistr\w*|\bsx\b/.test(t), d = /\bdestr\w*|\bdx\b/.test(t);
     if (nn.length === 1 && (f || rr) && (l || d)) return Object.assign(r, {k: 'press', vals: {[(f ? 'F' : 'R') + (l ? 'L' : 'R')]: nn[0]}});
@@ -2648,6 +2648,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
           else { st.junk = (st.junk || []).concat([{text: 'benzina ' + p.v + ' (non credibile dopo ' + prior.fuel + ')', lap: ln}]).slice(-30); return {say: 'Benzina non credibile, non la segno.', line: 'benzina ' + p.v + ' L scartata (prima ' + prior.fuel + ')', bad: true}; }
         }
       }
+      { const ex = (st.fuelLog || []).find(x => x.lap === ln); if (ex && v < ex.fuel && ex.fuel - v < 7 && ln > 1 && !(st.fuelLog || []).some(x => x.lap === ln - 1)) ex.lap = ln - 1; }   // due letture dette dopo lo stesso tempo: la prima era del giro prima
       st.fuelLog = (st.fuelLog || []).filter(x => x.lap !== ln); st.fuelLog.push(Object.assign({lap: ln, fuel: v, map: st.map}, note ? {was: p.v} : {}));
       return {say: 'Carburante ' + String(v).replace('.', ',') + ' litri' + note + '.', line: 'benzina ' + v + ' L' + note};
     }
