@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.70';   // versione dell'app
+const APP_V = '0.71';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2783,7 +2783,7 @@ const rcT = () => (UI.sim ? (UI.sim.cur != null ? UI.sim.cur : UI.sim.t) : typeo
 const rcMS = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const rcOn = st => !!(st && st.race && st.race.on);
 function rcNew(P, plan, strat, fuel0) {
-  return {on: true, phase: 'wait', cfg: {dur: P.D, mand: P.mand, ms: P.ms, mg: 1.5, form: P.form, tank: P.tank, pace: P.pace, cons: P.cons, nd: P.nd || 1, md: P.md || null, tl: P.tl || null, fuel0, pits: plan.pits.map(x => x[0]), refuel: P.refuel, pit: P.pit},
+  return {on: true, phase: 'wait', cfg: {dur: P.D, mand: P.mand, ms: P.ms, mg: 0, form: P.form, tank: P.tank, pace: P.pace, cons: P.cons, nd: P.nd || 1, md: P.md || null, tl: P.tl || null, fuel0, pits: plan.pits.map(x => x[0]), refuel: P.refuel, pit: P.pit},
     strat, act: strat[0].id, laps: [], pits: [], pitLaps: [], pit: {in: false, inAt: 0, soste: null}, stint: {start: 0, n: 0, synced: true}, sync: null, fuelBase: null, forcePit: false, sostaAsk: null, t0: 0, tForm: 0, cmdAt: 0, drv: {start: 0, n: 1}, tyre0: 0, paused: null, pauses: []};
 }
 function rcPace(st) {   // passo medio degli ultimi giri puliti (esclusi primo giro, box, sporchi, oltre il 107%)
@@ -3083,7 +3083,7 @@ function rcSimExit() {
 function rcLaunch(sim) {
   const P = UI.zP, c = UI.zC; if (!P || !c) return toast('Compila prima durata, passo e consumo');
   const strat = [{id: '1', litri: Math.round(c.r.fuel[1] || 0), gomme: 'piano', freni: 'no', sosta: P.pit}];
-  const mgL = P.mgu === 'giri' ? P.mg : (P.cons > 0 ? P.mg / P.cons : 0), fuel0 = Math.ceil(c.r.fuel[0] + Math.max(0, 1.5 - mgL) * P.cons);
+  const mgL = P.mgu === 'giri' ? P.mg : (P.cons > 0 ? P.mg / P.cons : 0), fuel0 = Math.ceil(c.r.fuel[0]);   // il margine scritto è già dentro la benzina di partenza, e conta solo lì
   if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
   if (sim) UI.simPrev = JSON.stringify(DB.settings.vzSess || null); else vzArchive('prima della gara');
   DB.settings.vzSess = null; UI.vzst = null; closeSheet(); vzStart();
@@ -3345,6 +3345,16 @@ function tyreLearn() {   // da tutte le sessioni con giri e «gomme nuove»: di 
   if (sn < 8) return null; const slope = sw / sn; if (slope < 0.02) return null;
   return {lim: Math.max(6, Math.min(60, Math.round(1 / slope))), slope, n: sn};
 }
+function stratActs(P, r) {   // a ogni sosta: cambio pilota, gomme, benzina
+  const acts = []; let drvT = 0, tyreL = 0;
+  for (let i = 0; i < r.pits.length; i++) {
+    drvT += r.racing[i] * P.pace; tyreL += r.racing[i]; const nx = r.racing[i + 1] || 0;
+    const drv = !!(P.nd > 1 && P.md && drvT + nx * P.pace > P.md - P.pace), ty = !!(P.tl && tyreL + nx > P.tl - 1);
+    acts.push({drv, ty, fuel: !!(P.refuel && r.fuel[i + 1] > 0), litri: r.fuel[i + 1]});
+    drvT = drv ? 0 : drvT + P.pit; if (ty) tyreL = 0;
+  }
+  return acts;
+}
 function stratPlan(P, stops) {
   const avail = P.D - stops * P.pit;
   let n = ceilEps(avail / P.pace); if (n < 1) n = 1;
@@ -3420,9 +3430,10 @@ function openStrat() {
     let h = c.notes.map(n => `<div class="warn">${esc(n)}</div>`).join('');
     h += `<div class="ztiles"><div class="tile"><div class="k">Giri di gara</div><div class="v">${r.n}</div><div class="s">passo tra ${fPace(r.low)}${r.high != null ? ' e ' + fPace(r.high) : ' e oltre'}</div></div>
       <div class="tile"><div class="k">Durata stimata</div><div class="v">${fDur(r.dur)}</div><div class="s">${r.stops}${r.stops === 1 ? ' sosta' : ' soste'}</div></div></div><div class="rows">`;
+    const acts = stratActs(P, r);
     r.st.forEach((laps, i) => {
       h += `<div class="zst"><div><b>Stint ${i + 1}</b> · ${laps} giri${i === 0 && P.form === 'full' ? ' (compreso il giro di formazione)' : ''}</div><div class="r">${r.fuel[i]} L</div><div class="meta">${i === 0 ? 'alla partenza' : (P.refuel ? 'alla sosta ' + i : '')}</div><div></div></div>`;
-      if (i < r.pits.length) h += `<div class="zpit">Sosta ${i + 1} al giro ${r.pits[i][0]} · restano ${fMS(r.pits[i][1])}</div>`;
+      if (i < r.pits.length) { const a = acts[i], pr = [a.drv ? 'PILOTA' : '', a.ty ? 'GOMME' : '', a.fuel ? 'BENZINA ' + a.litri + ' L' : ''].filter(Boolean); h += `<div class="zpit">Sosta ${i + 1} al giro ${r.pits[i][0]} · restano ${fMS(r.pits[i][1])}<br><b>${pr.length ? pr.join(' + ') : 'SOLO SOSTA'}</b></div>`; }
     });
     out.innerHTML = h + '</div>';
   };
