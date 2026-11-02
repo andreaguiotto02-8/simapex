@@ -2170,6 +2170,8 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   if (/\b(temperatura|temp)\b/.test(t) && dec.length) return Object.assign(r, {k: 'temp', v: parseFloat(dec[0]), kind: /\baria\b/.test(t) ? 'aria' : 'pista'});
   // tempo detto a pezzi: "un minuto 53 secondi", "740 millesimi", "1 54" poi "705", "53 e 157" (manca il minuto)
   const tm = t.replace(/\b(un|uno|una)\b(?= minut)/g, '1');
+  const lm = tm.match(/\b(\d) minut[oi] (?:e )?(\d{1,2})(?: e |\.| )(\d{3})\b/);   // "2 minuti 26,070" · "2 minuti 34 e 464" · "2 minuti 17 457"
+  if (lm && +lm[2] <= 59) { const gl = tm.match(/\bgiro (\d+)\b/); return Object.assign(r, {k: 'lap_time', time: lm[1] + ':' + lm[2].padStart(2, '0') + '.' + lm[3], lap: gl ? +gl[1] : null}); }
   const mM = tm.match(/\b(\d+) minut[oi]\b/), sM = tm.match(/\b(\d+) second[oi]\b/), msM = tm.match(/\b(\d+) (?:millesim\w*|decim\w*)\b/), gM = tm.match(/\bgiro (\d+)\b/);
   if (mM || sM || msM) return Object.assign(r, {k: 'tpart', m: mM ? +mM[1] : null, s: sM ? +sM[1] : null, ms: msM ? msM[1] : null, lap: gM ? +gM[1] : null});
   let q2;
@@ -2860,7 +2862,8 @@ function rcMark(st, t, now) {   // un giro passato sul traguardo (con o senza te
   const l = {n, at: now, t: t || null}; R.laps.push(l); st.lapNo = n; return l;
 }
 function rcHandle(raw, vz) {   // comandi di gara; true = gestito
-  const st = vz.st, R = st.race, tn = vzNorm(raw), now = rcT(), nums = (tn.match(/\d+/g) || []).map(Number);
+  const st = vz.st, R = st.race, now = rcT(); let tn = vzNorm(raw); { const rm = tn.match(/^(\d+) minut[oi] (?:e )?(\d+) second[oi]$/); if (rm && +rm[1] >= 4 && +rm[2] <= 59) tn = 'tempo ' + rm[1] + ' ' + rm[2]; }   // "26 minuti e 7 secondi" senza dire "tempo" = tempo gara rimasto
+  const nums = (tn.match(/\d+/g) || []).map(Number);
   const done = line => { rcLog(vz, raw, line); vzDraw(); return true; };
   if (R.phase === 'done') return false;
   if (/\bnuova sessione\b/.test(tn)) return done('«nuova sessione» ignorato in gara');
