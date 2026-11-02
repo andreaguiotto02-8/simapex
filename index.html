@@ -261,7 +261,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.64';   // versione dell'app
+const APP_V = '0.65';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1603,7 +1603,10 @@ function openHist(grp) {
       ch = fch + (ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(hChg(a[i], b[i]))}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima');
     } else ch = 'prima prova';
     const better = prev && (hNum(e) < hNum(prev));
-    return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${e.air || e.road ? ` <span class="meta">· ${e.air ? 'aria ' + esc(e.air.replace('.', ',')) + '°' : ''}${e.air && e.road ? ' ' : ''}${e.road ? 'pista ' + esc(e.road.replace('.', ',')) + '°' : ''}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
+    const SL = {lapD: 'giro veloce', lapW: 'giro veloce', avgD: 'media 3', avgW: 'media 3', paceD: 'passo gara', paceW: 'passo gara'}, est = !e.sid;
+    const sib = [...new Set(all.filter(x => x !== e && SL[x.k] && x.k !== e.k && (e.sid ? x.sid === e.sid : (!x.sid && x.cond === e.cond && /^Test vocale/.test(e.note || '') && /^Test vocale/.test(x.note || '') && Math.abs(Date.parse(x.t) - Date.parse(e.t)) <= 15 * 60000))).map(x => x.k))].map(k => all.filter(x => x.k === k && x !== e && (e.sid ? x.sid === e.sid : (!x.sid && x.cond === e.cond && Math.abs(Date.parse(x.t) - Date.parse(e.t)) <= 15 * 60000))).pop());
+    const stint = sib.length ? `<div class="hn">Stesso stint${est ? ' (stimato dall\'orario)' : ''}: ${sib.map(x => { const bg = all.filter(y => y.k === x.k), bs = bg.reduce((m, y) => hNum(y) < hNum(m) ? y : m, bg[0]), d = hNum(x) - hNum(bs); return `${SL[x.k]} <b>${esc(x.val)}</b> ${x === bs ? '★ migliore' : '(' + esc(hDiff(d, 's')) + ' dal migliore)'}`; }).join(' · ')}</div>` : '';
+    return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${e.air || e.road ? ` <span class="meta">· ${e.air ? 'aria ' + esc(e.air.replace('.', ',')) + '°' : ''}${e.air && e.road ? ' ' : ''}${e.road ? 'pista ' + esc(e.road.replace('.', ',')) + '°' : ''}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}${stint}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
   sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns">${fuelMissing().h || fuelMissing().q ? '<button class="sec2" data-act="hfuel">Imposta il carburante sui tempi vecchi</button>' : ''}</div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
@@ -2073,7 +2076,7 @@ function vzNorm(raw) {   // frase detta -> testo semplice con i numeri in cifre
     }
     res.push(typeof x === 'object' ? {n: x.n} : x);
   });
-  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ').replace(/\bazioni(?= .*\d)/g, 'pressioni').replace(/\b(\d{1,2}) (?:l|litri) (\d)\b/g, '$1.$2 litri').replace(/\bgiro (?:di )?(?:entrata|uscita|ingresso)(?: (?:ai |nei |dai |dei |in |nella )?(?:box|corsia))?\b/g, 'giro box');
+  return res.map(x => typeof x === 'object' ? String(x.n) : x).join(' ').replace(/(\d+) (?:virgola|punto) (\d+)/g, '$1.$2').replace(/\b(\d{1,2}) e 0\.(\d{2})\b/g, '$1 e 0$2').replace(/\bgiro (?:sport|sporto|sporgo|sporca|sporchi|sporchia)\b/g, 'giro sporco').replace(/\bsuperiori\b/g, 'anteriori').replace(/\banche (?=\d)/g, 'carburante ').replace(/\bazioni(?= .*\d)/g, 'pressioni').replace(/\bgrado (?=gomm|pneumatic)/g, 'degrado ').replace(/\b(inizio|inizia|c e|sento|poco|molto) grado\b/g, '$1 degrado').replace(/\b(\d{1,2}) (?:l|litri) (\d)\b/g, '$1.$2 litri').replace(/\bgiro (?:di )?(?:entrata|uscita|ingresso)(?: (?:ai |nei |dai |dei |in |nella )?(?:box|corsia))?\b/g, 'giro box');
 }
 function vzTime(g) {   // gruppi di cifre -> "m:ss.mmm" oppure null
   let m, ss, ms;
@@ -2165,7 +2168,7 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
     if (!hasGiro && ints.length === 1 && ctx.pendLap) { return Object.assign(r, {k: 'partial', ints}); }
     if (hasGiro) return Object.assign(r, {k: 'lap_bad'});
   }
-  if (/\b(sottosterzo|sovrasterzo|pattina|pattinano|bloccano|blocca|instabile|scivola|nervos[oa]|saltella|molle|dura|morbida)\b/.test(t)) return Object.assign(r, {k: 'feeling', text: raw});
+  if (/\b(sottosterzo|sovrasterzo|pattina|pattinano|bloccano|blocca|instabile|scivola|scivolamento|degrado|nervos[oa]|saltella|molle|dura|morbida)\b/.test(t) || /\bgomme? (finite|finita|andate|morte|cotte|calate|calano|cala|crollano|crolla)\b/.test(t)) return Object.assign(r, {k: 'feeling', text: raw});
   return r;
 }
 const vzSay = {   // come si legge a voce un tempo: "1:52.485" -> "uno, cinquantadue, quattrocentottantacinque"
@@ -2414,7 +2417,7 @@ function vzAutoPit(st) {   // tempo perso ai box: se non ne hai ancora uno salva
 function vzPersist() {
   try { if (UI.vzst) { vzAutoCons(UI.vzst); vzAutoPit(UI.vzst); } } catch (_) {}
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, saved: s.saved, baseId: s.baseId, chOff: s.chOff, consApplied: s.consApplied, consHist: s.consHist, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, saved: s.saved, baseId: s.baseId, chOff: s.chOff, consApplied: s.consApplied, consHist: s.consHist, sid: s.sid, u: now()};
   save();
 }
 function vzHelp() {
@@ -2552,7 +2555,7 @@ function vzBoxCopy() {
     .concat((() => { const m = vzSummary(st, false), f = d => d == null ? '' : ' (' + (d < 0 ? '−' : '+') + Math.abs(d).toFixed(3) + ' s vs salvato)'; return ['Giro veloce: ' + (m.lap ? m.lap.t + ' (giro ' + m.lap.n + ')' : '—') + ' · salvato ' + (m.sl || '—') + f(m.dLap), 'Media 3 migliori: ' + (m.avg || '—') + ' · salvata ' + (m.sa || '—') + f(m.dAvg)]; })())
     .concat((st.press || []).map(x => 'Pressioni a caldo dopo il giro ' + x.lap + ': ant sx ' + (x.FL ?? '—') + ', ant dx ' + (x.FR ?? '—') + ', post sx ' + (x.RL ?? '—') + ', post dx ' + (x.RR ?? '—')))
     .concat([(st.fuelLog || []).length ? 'Benzina rimasta: ' + st.fuelLog.map(x => 'giro ' + x.lap + ' ' + x.fuel).join(', ') : '', (st.feel || []).length ? 'Sensazioni:' : ''])
-    .concat((st.feel || []).map(x => '  ' + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text)).filter(Boolean).join('\n');
+    .concat((st.feel || []).map(x => '  ' + (x.tyre ? '[gomme] ' : '') + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text)).filter(Boolean).join('\n');
   try { navigator.clipboard.writeText(t).then(() => toast('Copiato'), () => toast('Copia non riuscita')); } catch (_) { toast('Copia non riuscita'); }
 }
 function vzSetupChanges(st) {   // modifiche al setup rilevate da sole: setup di adesso contro quello salvato con l'ultima prova (fissato a inizio sessione)
@@ -2567,21 +2570,21 @@ function vzSetupChanges(st) {   // modifiche al setup rilevate da sole: setup di
   } catch (_) { return []; }
 }
 function vzTestSave(st) {
-  const c = st.confirm; st.confirm = null; st.test = null;
+  const c = st.confirm; st.confirm = null; st.test = null; st.sid = st.sid || uid();
   const key = engKey(); let p = DB.perf[key];
   if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now()};
   p.fu = p.fu || {}; p.cons = p.cons || [];
-  const env = c.env || {air: st.air != null ? String(st.air) : '', road: st.road != null ? String(st.road) : ''}, note = 'Test vocale' + (st.mode && st.mode !== 'libera' ? ' (' + {sviluppo: 'sviluppo auto', passo: 'passo gara', qualifica: 'qualifica'}[st.mode] + ')' : '') + (() => { const l = (st.changes || []).map(x => 'dopo giro ' + x.lap + ': ' + x.text).concat(vzSetupChanges(st).map(x => 'dopo giro 0: ' + x.label + ' ' + x.from + ' → ' + x.to)); return l.length ? ' · ' + l.join(' | ') : ''; })();
+  const env = c.env || {air: st.air != null ? String(st.air) : '', road: st.road != null ? String(st.road) : ''}, note = 'Test vocale' + (st.mode && st.mode !== 'libera' ? ' (' + {sviluppo: 'sviluppo auto', passo: 'passo gara', qualifica: 'qualifica'}[st.mode] + ')' : '') + (() => { const l = (st.changes || []).map(x => 'dopo giro ' + x.lap + ': ' + x.text).concat(vzSetupChanges(st).map(x => 'dopo giro 0: ' + x.label + ' ' + x.from + ' → ' + x.to)); return l.length ? ' · ' + l.join(' | ') : ''; })() + (() => { const g = (st.feel || []).filter(x => x.tyre); return g.length ? ' · gomme: ' + g.map(x => (x.lap ? 'giro ' + x.lap + ' ' : '') + x.text).join(' | ') : ''; })();
   if (env.air) p.air = env.air; if (env.road) p.road = env.road;
   if (c.k === 'cons') {
     const o = p.cons.find(x => x.map === c.map);
     if (o) o.v = c.val; else p.cons.push({map: c.map, v: c.val, main: !p.cons.length});
-    histAdd('cons', c.val, c.map, note);
+    histAdd('cons', c.val, c.map, note); DB.hist[DB.hist.length - 1].sid = st.sid;
     p.u = now(); save(); render(); toast('Consumo salvato');
     return {say: 'Salvato. Consumo ' + vzNumSay(c.val) + ' litri al giro.', line: 'salvato · consumo ' + c.val};
   }
   (st.saved = st.saved || {})[c.k] = c.val;
-  histAdd(c.k, c.val, '', note, c.wet ? 'wet' : 'dry', undefined, undefined, c.fuel ? String(c.fuel) : '', env);
+  histAdd(c.k, c.val, '', note, c.wet ? 'wet' : 'dry', undefined, undefined, c.fuel ? String(c.fuel) : '', env); DB.hist[DB.hist.length - 1].sid = st.sid;
   perfSync(A.id, V.id); p.u = now(); save(); render(); toast('Salvato nello storico');
   const kept = p[c.k] !== c.val ? ' Dati rapidi restano sul tuo migliore, ' + vzSay.time(p[c.k]) + '.' : ' Ora è il tuo migliore.';
   return {say: 'Salvato nello storico.' + kept, line: 'salvato · ' + c.name + ' ' + c.val};
@@ -2630,7 +2633,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'read_brake': return vzReadBrake(p);
     case 'read_note': return vzReadNote(p);
     case 'read_map': if (p.set) st.map = String(p.n); return vzReadMap(p);
-    case 'sess_reset': vzArchive('nuova sessione'); st.consApplied = {}; st.consHist = {}; st.saved = {}; st.baseId = null; st.chOff = []; st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pitNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
+    case 'sess_reset': vzArchive('nuova sessione'); st.consApplied = {}; st.consHist = {}; st.saved = {}; st.sid = null; st.baseId = null; st.chOff = []; st.wet = false; st.mode = null; st.changes = []; st.laps = []; st.fuelLog = []; st.feel = []; st.junk = []; st.press = []; st.gaps = []; st.dirtyNext = false; st.pitNext = false; st.pendLap = null; st.pendT = null; st.cons = 0; st.fuelStart = 0; st.lapNo = 0; st.air = st.road = st.map = null; st.test = null; st.confirm = null; st.ask = null; return {say: 'Sessione azzerata.', line: 'sessione azzerata'};
     case 'help': return {say: 'Dì: test giro veloce, test media, test passo gara o test consumo, e ti guido. Posso anche dirti: il tuo giro veloce, la media, il passo gara, il consumo, la staccata di una curva, un valore del setup come la convergenza anteriore, le tue note e le mappe motore. Poi segno giri, benzina e temperature.', line: 'aiuto'};
     case 'fuel': {
       if (p.start) { st.fuelStart = p.v; return {say: 'Carburante di partenza ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
@@ -2674,7 +2677,7 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'lap_only': st.pendLap = p.lap; return {say: 'Giro ' + p.lap + '. Dimmi il tempo.', line: 'giro ' + p.lap + ' (aspetto il tempo)'};
     case 'lap_bad': return {say: 'Non ho capito il tempo. Ripeti: giro, numero, e il tempo, per esempio uno cinquantadue quattrocentottantacinque.', line: 'tempo non chiaro', bad: true};
     case 'partial': return {say: 'Non ho capito tutto il tempo. Ripeti il tempo intero.', line: 'tempo incompleto', bad: true};
-    case 'feeling': st.feel = st.feel || []; st.feel.push({lap: st.lapNo || null, text: p.text}); return {say: 'Annotato: ' + p.text + '.', line: 'sensazione: ' + p.text};
+    case 'feeling': st.feel = st.feel || []; const tx = String(p.text).replace(/\bgrado\b/gi, 'degrado'), ty = /degrado|scivolament|\bgomm/i.test(tx); st.feel.push({lap: st.lapNo || null, text: tx, tyre: ty || undefined}); return {say: ty ? 'Annotato il feedback gomme' + (st.lapNo ? ' al giro ' + st.lapNo : '') + '.' : 'Annotato: ' + tx + '.', line: (ty ? 'gomme' + (st.lapNo ? ' · giro ' + st.lapNo : '') + ': ' : 'sensazione: ') + tx};
     default: return {say: 'Non ho capito.', line: 'non capito', bad: true};
   }
 }
