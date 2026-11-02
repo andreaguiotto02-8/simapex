@@ -2792,7 +2792,8 @@ function rcPace(st) {   // passo medio degli ultimi giri puliti (esclusi primo g
   const R = st.race, base = R.cfg.pace || 150, pl = new Set(R.pitLaps || []), dirty = n => (st.laps || []).some(l => l.n === n && l.dirty);
   const sec = (R.laps || []).filter(l => l.t).map(l => ({n: l.n, s: paceP(l.t)})).filter(x => x.s > 20);
   if (!sec.length) return base;
-  const best = Math.min(...sec.map(x => x.s)), ok = sec.filter(x => x.n > 1 && !pl.has(x.n) && !dirty(x.n) && x.s <= best * 1.07).slice(-5);
+  const cl = sec.filter(x => x.n > 1 && !pl.has(x.n) && !dirty(x.n)); if (!cl.length) return base;
+  const best = Math.min(...cl.map(x => x.s)), ok = cl.filter(x => x.s <= best * 1.07).slice(-5);   // il migliore si cerca tra i giri normali: il primo giro o un box non spostano la soglia
   return ok.length ? ok.reduce((m, x) => m + x.s, 0) / ok.length : base;
 }
 function rcMapCheck(st) {   // cambio mappa in gara: il consumo diventa quello salvato per quella mappa
@@ -2864,7 +2865,7 @@ function rcFill(st, n, now, estLast) {   // giri non detti: li segno stimati
   const R = st.race; let last = R.laps.length ? R.laps[R.laps.length - 1] : null; const pace = rcPace(st) * 1000;
   while (R.laps.length < n) { const prevAt = last ? last.at : R.t0; const l = {n: R.laps.length + 1, at: Math.min(now, prevAt + pace), t: null, est: true}; R.laps.push(l); last = l; }
 }
-function rcLog(vz, raw, line, bad) { vz.heard = raw; vz.log.unshift({heard: raw, norm: vzNorm(raw), k: 'race', line, bad: !!bad}); vz.log = vz.log.slice(0, 40); vz.st.race.cmdAt = rcT(); }
+function rcLog(vz, raw, line, bad) { vz.heard = raw; vz.log.unshift({heard: raw, norm: vzNorm(raw), k: 'race', line, bad: !!bad}); vz.log = vz.log.slice(0, 250); vz.st.race.cmdAt = rcT(); }
 function rcReqs(st, now) {
   const R = st.race, out = []; if (R.phase !== 'run' || R.pit.in || R.paused) return out;
   const cal = rcCalc(st, now), pace = cal.pace, last = R.laps.length ? R.laps[R.laps.length - 1] : null, lastAt = last ? last.at : R.t0;
@@ -2893,9 +2894,10 @@ function rcMark(st, t, now) {   // un giro passato sul traguardo (con o senza te
 function rcHandle(raw, vz) {   // comandi di gara; true = gestito
   const st = vz.st, R = st.race, now = rcRef(); let tn = vzNorm(raw); { const rm = tn.match(/^(\d+) minut[oi] (?:e )?(\d+) second[oi]$/); if (rm && +rm[1] >= 4 && +rm[2] <= 59) tn = 'tempo ' + rm[1] + ' ' + rm[2]; }   // "26 minuti e 7 secondi" senza dire "tempo" = tempo gara rimasto
   const nums = (tn.match(/\d+/g) || []).map(Number);
-  const done = line => { rcLog(vz, raw, line); vzDraw(); return true; };
+  const done = (line, bad) => { rcLog(vz, raw, line, bad); vzDraw(); return true; };
   if (R.phase === 'done') return false;
   if (/\bnuova sessione\b/.test(tn)) return done('«nuova sessione» ignorato in gara');
+  { const cur = tn.match(/^(?:inizio|inizia|iniziato|sono (?:nel corso del|al|nel|in)|siamo (?:al|nel)|nel corso del|corso del|in corso) giro (\d+)$/); if (cur && +cur[1] > 1 && R.phase === 'run' && R.paused == null) { vzHandle0('giro ' + (+cur[1] - 1)); return true; } }   // «inizio giro 10» = ho finito il 9
   if (R.phase === 'run' && R.paused != null) {
     if (/^(riprendi|ripresa|riprendo|riparti|ripartiamo|continua|continuiamo|via|verde)$/.test(tn)) {
       const dt = now - R.paused; R.t0 += dt; R.stint.start += dt; if (R.drv) R.drv.start += dt; R.laps.forEach(l => { l.at += dt; });
@@ -2947,15 +2949,19 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
     if (/^(senza|niente|no|non|stesso) (cambio )?pilota$/.test(tn)) { R.pit.act.drv = false; return done('box: stesso pilota'); }
   }
   if (/^(litri|carico|caricati|ho caricato|ho messo|aggiungo)\b/.test(tn) && nums.length === 1 && (R.pit.in || R.forcePit || tn.startsWith('carico'))) { R.pit.litri = nums[0]; return done('carico ' + nums[0] + ' L al box'); }
-  if (/^sosta\b/.test(tn) && nums.length) { const v = nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0]; R.pit.soste = v; rcStrat(R).sosta = v; return done('sosta ' + v + ' s (strategia ' + rcStrat(R).id + ')'); }
+  if (/^sosta\b/.test(tn) && nums.length) {   // l'MFD dà secondi e centesimi: «sosta 31,06» = 31,06 s (mai minuti)
+    const dm = tn.match(/\d+(?:\.\d+)?/), v = nums.length >= 2 && !/\./.test(dm[0]) ? parseFloat(nums[0] + '.' + String(tn.match(/\d+/g)[1])) : parseFloat(dm[0]);
+    if (!(v > 0 && v < 300)) return done('sosta ' + v + ' s · valore strano, ignorato', true);
+    R.pit.soste = v; rcStrat(R).sosta = v; return done('sosta ' + v + ' s'); }
   if (/^strategia ([a-d])$/.test(tn)) { const id = tn.slice(-1).toUpperCase(), s = R.strat.find(x => x.id === id); if (!s) return done('strategia ' + id + ' non definita'); R.act = id; return done('strategia ' + id + ' attiva · ' + s.litri + ' L'); }
   if (/^(box adesso|box subito|box ora|devo fermarmi|pit adesso)$/.test(tn)) { R.forcePit = true; return done('box adesso · ricalcolo'); }
   if (/^(fine gara|bandiera a scacchi|finita)$/.test(tn)) { rcEnd(st, now); return done('gara conclusa'); }
   if (!nums.length && ((/\b(box|pit|pitstop|sosta)\b/.test(tn) && /\b(cosa|quanto|quanti|quanta|devo|prossim\w*|litri|gomme|pilota|fare|faccio|carico|caricare|serve|servono)\b/.test(tn)) || /^(cosa devo fare|cosa faccio|che devo fare|prossimo box|prossima sosta)$/.test(tn))) { R.show = {until: now + 14000}; return done('domanda sul box · risposta a schermo'); }
   return false;
 }
-function rcAfter(st, lapNo0, nLaps0) {   // dopo una frase normale: se ha registrato un giro, lo aggancio al cronometro
+function rcAfter(st, lapNo0, nLaps0, pend0) {   // dopo una frase normale: se ha registrato un giro, lo aggancio al cronometro
   const R = st.race; if (!R || R.phase !== 'run') return; const now = rcRef();
+  if (st.pendLap && st.pendLap !== pend0 && st.pendLap > R.laps.length && st.laps.length === nLaps0) { const n = st.pendLap; rcFill(st, n - 1, now); R.laps.push({n, at: now, t: null}); st.lapNo = n; return; }   // «giro 9» detto al traguardo: il giro è passato adesso, il tempo arriva dopo
   if (st.lapNo === lapNo0 && st.laps.length === nLaps0) return;
   const lp = st.laps[st.laps.length - 1], last = R.laps[R.laps.length - 1];
   if (st.laps.length !== nLaps0 && lp) {
@@ -2969,10 +2975,12 @@ function rcAfter(st, lapNo0, nLaps0) {   // dopo una frase normale: se ha regist
 }
 function rcEnd(st, now) {
   const R = st.race; if (R.phase === 'done') return; R.phase = 'done'; R.tEnd = now;
-  try { if (UI.vz && UI.vz.st === st) R.cmds = UI.vz.log.slice(0, 60).map(l => ({h: l.heard, l: l.line, b: !!l.bad})); } catch (_) {}
+  try { if (UI.vz && UI.vz.st === st) R.cmds = UI.vz.log.slice(0, 250).map(l => ({h: l.heard, l: l.line, b: !!l.bad})); } catch (_) {}
   if (R.sim) return;
   try {   // consumo e perdita sulla corsia box si aggiornano dai dati veri della gara
-    const c = rcCons(st, true), key = engKey();   // rcCons scarta già i valori assurdi
+    let c = rcCons(st, true); const key = engKey();   // rcCons scarta già i valori assurdi
+    { const fl = (st.fuelLog || []).filter(x => x.lap >= 1).sort((a, b) => a.lap - b.lap), pls = new Set(R.pitLaps || []), ds = []; for (let i = 1; i < fl.length; i++) { const a = fl[i - 1], b = fl[i], n = b.lap - a.lap; let sp = false; for (let k = a.lap + 1; k <= b.lap; k++) if (pls.has(k)) sp = true; if (!sp && n > 0 && a.fuel > b.fuel) ds.push((a.fuel - b.fuel) / n); }
+      if (c && (ds.length < 2 || Math.max(...ds) / Math.min(...ds) > 1.4)) { R.consSkip = 'letture troppo diverse tra loro: consumo salvato NON aggiornato'; c = null; } }   // non si sporca il dato salvato con letture dubbie
     if (c && A && V) {
       let p = DB.perf[key]; if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now ? new Date(now).toISOString() : '' };
       p.cons = p.cons || []; const m = String(st.map || (p.cons.find(x => x.main) || p.cons[0] || {}).map || '').split(' ')[0];
@@ -3001,6 +3009,7 @@ function rcReport(st) {
   L.push('Benzina rimasta: ' + ((st.fuelLog || []).map(x => 'giro ' + x.lap + ' ' + x.fuel).join(', ') || '—') + ' · consumo reale ' + (rcCons(st, true) ? rcCons(st, true).toFixed(2).replace('.', ',') + ' L/giro' : '—'));
   R.pits.forEach((p, i) => L.push('Box ' + (i + 1) + ': giro ' + p.lap + ' · ' + p.litri + ' L caricati/previsti · sosta ' + (p.soste != null ? p.soste + ' s' : '?') + ' · tempo ai box ' + rcMS(p.dur) + (cfg.nd > 1 ? ' · ' + (p.drv ? 'cambio pilota' : 'stesso pilota') : '') + ' · gomme ' + (p.tyre ? 'cambiate' : 'no')));
   const stints = [], pz = (a, b) => (R.pauses || []).filter(x => x.at >= a && x.at <= b).reduce((m, x) => m + x.dt, 0); let s0 = R.tReal || R.t0; R.pits.forEach(p => { stints.push((p.inAt - s0 - pz(s0, p.inAt)) / 1000); s0 = p.outAt; }); stints.push((now - s0 - pz(s0, now)) / 1000);
+  if (R.consSkip) L.push('Consumo: ' + R.consSkip);
   if ((R.pauses || []).length) L.push('Pause: ' + R.pauses.map(x => rcMS(x.dt / 1000)).join(' · '));
   L.push('Stint: ' + stints.map((x, i) => (i + 1) + ') ' + rcMS(x)).join(' · '));
   if ((st.feel || []).length) L.push('Sensazioni:'), (st.feel || []).forEach(x => L.push('  ' + (x.tyre ? '[gomme] ' : '') + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text));
@@ -3114,7 +3123,7 @@ function rcLaunch(sim) {
   vzPersist(); vzDraw();
 }
 
-function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0]; vzHandle0(raw); try { if (st0 && rcOn(st0)) rcMapCheck(st0); } catch (_) {} try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
+function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0], pl0 = st0 ? st0.pendLap : null; vzHandle0(raw); try { if (st0 && rcOn(st0)) rcMapCheck(st0); } catch (_) {} try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0, pl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
 setInterval(() => { const vz = UI.vz; if (vz && !vz.rec && !(vz.status === 'err' && /Microfono non consentito/.test(vz.err || ''))) { vz.errs = []; vzListen(); } }, 5000);   // guardiano: se l'ascolto è fermo, riparte da solo
 document.addEventListener('visibilitychange', () => { const vz = UI.vz; if (!document.hidden && vz && !vz.rec) { vz.errs = []; vzListen(); } });
