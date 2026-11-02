@@ -172,6 +172,10 @@ nav{align-items:flex-end}
 .f .fu{margin-top:4px;font-size:13px;padding:6px 10px;min-height:0;opacity:.9}
 .calc{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}.calc summary{font-weight:700;cursor:pointer;min-height:32px;display:flex;align-items:center}
 .f .sgn{margin-top:4px;padding:6px 10px;min-height:0;font-size:13px}
+#vzo.rco{padding:10px 14px;justify-content:flex-start;background:#05070a;color:#fff}.rco #vzv{max-width:none;height:100%;gap:8px}.rcs{display:flex;flex-direction:column;gap:10px;height:100%;color:#fff}.rctop{display:flex;justify-content:space-between;align-items:flex-end}.rcbig{font-size:clamp(56px,16vh,150px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}.rcsm{font-size:clamp(14px,3vh,24px);opacity:.8}.rcright{text-align:right}.rctime{font-size:clamp(26px,7vh,60px);font-weight:800;font-variant-numeric:tabular-nums;opacity:.9}
+.rcq{flex:1;border-radius:18px;border:3px solid #2b3440;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px;min-height:0;overflow:hidden}.rcq .rcsy{font-size:clamp(32px,11vh,90px);line-height:1}.rcq .rcw{font-size:clamp(30px,9vh,76px);font-weight:900;letter-spacing:.02em;line-height:1.05}.rcq.rest{border-color:#2b3440;background:#0b0f14}.rcq.l0{border-color:#8aa0b8;background:#0f1722}.rcq.l1{border-color:#8aa0b8;animation:rcp 1s infinite}.rcq.l2{border-color:#f5c518;background:#3a3000;color:#ffe066}.rcq.l3{position:fixed;inset:0;z-index:70;border-radius:0;background:#b3141a;border:0;color:#fff;animation:rcp2 .6s infinite}.rcq.inbox{border-color:#3aa0ff;background:#0c2540}
+@keyframes rcp{50%{opacity:.45}}@keyframes rcp2{50%{opacity:.8}}.rcrow{display:flex;gap:10px}.rcbox{flex:1;border:2px solid #2b3440;border-radius:14px;padding:8px 12px}.rcbox.ok{border-color:#2fbf71;background:#0b2a1a}.rcbox.warn{border-color:#f5c518;background:#2e2700}.rcbox.bad{border-color:#e5484d;background:#3a0f12}.rcnum{font-size:clamp(34px,10vh,80px);font-weight:900;font-variant-numeric:tabular-nums}.rcnum small{font-size:.4em;font-weight:600}.rcnum2{font-size:clamp(20px,6vh,44px);font-weight:800}
+.rcwarn{background:#f5c518;color:#000;font-weight:900;text-align:center;border-radius:10px;padding:6px;font-size:clamp(18px,4vh,34px)}.rcstrip{text-align:center;font-size:14px;opacity:.7;padding:4px}.rcstrip.bad{opacity:1;background:#e5484d;color:#fff;border:0;font-weight:900;font-size:clamp(16px,3.5vh,28px);padding:10px;border-radius:10px;width:100%}.rccmd{min-height:22px;text-align:center;font-size:clamp(14px,3vh,22px);color:#8fd3ff}.rcbtn{font-size:clamp(24px,7vh,48px)!important;padding:20px!important}.rcrep{white-space:pre-wrap;font-size:13px;background:#0b0f14;border-radius:10px;padding:10px;overflow:auto;max-height:55vh}
 #vzo{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
 #vzv{max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}.vzt{font-size:15px;font-weight:700;color:var(--accent)}.vzn{font-weight:500;color:var(--muted,var(--fg));opacity:.8;font-size:13px;margin-left:6px}
 .vzlap{border-radius:10px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--line)}
@@ -262,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.66';   // versione dell'app
+const APP_V = '0.67';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1589,6 +1593,7 @@ function perfSyncAll() { let ch = false; new Set((DB.hist || []).map(e => e.c + 
 function openHist(grp) {
   if (!needCtx('av')) return;
   grp = UI.hg = grp || UI.hg || 'lap';
+  if (grp === 'race') return openRaces();
   const ks = HGROUP[grp], lab = parLabels();
   const all = (DB.hist || []).filter(e => e.c === A.id && e.v === V.id).sort((a, b) => a.t < b.t ? -1 : 1);
   const rows = all.filter(e => ks.includes(e.k)).map(e => {
@@ -1620,7 +1625,12 @@ function openHist(grp) {
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${e.air || e.road ? ` <span class="meta">· ${e.air ? 'aria ' + esc(e.air.replace('.', ',')) + '°' : ''}${e.air && e.road ? ' ' : ''}${e.road ? 'pista ' + esc(e.road.replace('.', ',')) + '°' : ''}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}${stint}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
-  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns">${fuelMissing().h || fuelMissing().q ? '<button class="sec2" data-act="hfuel">Imposta il carburante sui tempi vecchi</button>' : ''}</div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}${chip('race', 'Gare')}</div>${rows || '<div class="empty">Ancora nessuna prova. Si riempie da solo ogni volta che salvi un tempo o un consumo in Dati rapidi.</div>'}<div class="btns">${fuelMissing().h || fuelMissing().q ? '<button class="sec2" data-act="hfuel">Imposta il carburante sui tempi vecchi</button>' : ''}</div><p class="meta">Con ogni prova l\'app ricorda il setup di quel momento e mostra cosa è cambiato rispetto alla prova prima. Salva il setup prima di segnare il tempo.</p>`, carNameFull());
+}
+function openRaces() {
+  const rs = (DB.races || []).filter(r => r.c === A.id && r.v === V.id).sort((a, b) => a.t < b.t ? 1 : -1), chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${g === 'race'}">${t}</button>`;
+  const rows = rs.map(r => `<div class="hrow"><div class="h1"><b>${r.laps} giri</b> <span class="meta">${r.pits} ${r.pits === 1 ? 'sosta' : 'soste'} · ${r.best ? 'migliore ' + esc(fPace(r.best)) + ' · ' : ''}passo ${esc(fPace(r.pace))}</span></div><div class="meta">${esc(fd(r.t))} · ${esc(new Date(r.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><details><summary class="meta">Report</summary><pre class="rcrep">${esc(r.report)}</pre></details></div>`).join('');
+  sheet('Storico prove', `<div class="seg">${chip('lap', 'Giro veloce')}${chip('avg', 'Media 3')}${chip('pace', 'Passo gara')}${chip('cons', 'Consumo')}${chip('race', 'Gare')}</div>${rows || '<div class="empty">Nessuna gara salvata. A fine gara tocchi «Salva nello storico gare».</div>'}`, carNameFull());
 }
 function savePerf() {
   collectPerf();
@@ -2428,7 +2438,7 @@ function vzAutoPit(st) {   // tempo perso ai box: se non ne hai ancora uno salva
 function vzPersist() {
   try { if (UI.vzst) { vzAutoCons(UI.vzst); vzAutoPit(UI.vzst); } } catch (_) {}
   const s = UI.vzst; if (!s) return;
-  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, saved: s.saved, baseId: s.baseId, chOff: s.chOff, consApplied: s.consApplied, consHist: s.consHist, sid: s.sid, u: now()};
+  DB.settings.vzSess = {laps: s.laps, fuelLog: s.fuelLog, feel: s.feel, press: s.press, gaps: s.gaps, junk: s.junk, dirtyNext: s.dirtyNext, pitNext: s.pitNext, fuelStart: s.fuelStart, air: s.air, road: s.road, map: s.map, lapNo: s.lapNo, cons: s.cons, wet: s.wet, mode: s.mode, changes: s.changes, saved: s.saved, baseId: s.baseId, chOff: s.chOff, consApplied: s.consApplied, consHist: s.consHist, sid: s.sid, race: s.race, u: now()};
   save();
 }
 function vzHelp() {
@@ -2734,7 +2744,7 @@ function vzRecStop() { const vz = UI.vz; if (vz && vz.rec) { const r = vz.rec; v
 function vzTalk(text) {   // parla, poi torna ad ascoltare
   const vz = UI.vz; if (!vz) return;
   vz.st.last = text; vz.said = text;
-  if (DB.settings.vzMute) { vz.status = 'listen'; vzDraw(); vzRecStop(); setTimeout(() => { if (UI.vz === vz) vzListen(); }, 120); return; }   // modo muto: niente voce, risponde solo sullo schermo
+  if (DB.settings.vzMute || rcOn(vz.st)) { vz.status = 'listen'; vzDraw(); vzRecStop(); setTimeout(() => { if (UI.vz === vz) vzListen(); }, 120); return; }   // modo muto: niente voce, risponde solo sullo schermo
   vz.status = 'speak'; vzDraw();
   vzRecStop();
   try {
@@ -2763,13 +2773,244 @@ function vzListen() {
   vz.rec = r; vz.status = 'listen'; vz.err = ''; vzDraw();
   try { r.start(); } catch (_) { vz.rec = null; setTimeout(vzListen, 500); }
 }
-function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} pathTick(); }
+/* ===================================================================
+   MODALITÀ GARA — l'ingegnere ti segue in gara (schermo per il tablet)
+   =================================================================== */
+const rcT = () => (typeof window.__rcT === 'function' ? window.__rcT() : Date.now());
+const rcMS = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const rcOn = st => !!(st && st.race && st.race.on);
+function rcNew(P, plan, strat, fuel0) {
+  return {on: true, phase: 'wait', cfg: {dur: P.D, mand: P.mand, ms: P.ms, mg: 1.5, form: P.form, tank: P.tank, pace: P.pace, cons: P.cons, fuel0, pits: plan.pits.map(x => x[0]), refuel: P.refuel, pit: P.pit},
+    strat, act: strat[0].id, laps: [], pits: [], pitLaps: [], pit: {in: false, inAt: 0, soste: null}, stint: {start: 0, n: 0, synced: true}, sync: null, fuelBase: null, forcePit: false, sostaAsk: null, t0: 0, tForm: 0, cmdAt: 0};
+}
+function rcPace(st) {   // passo medio degli ultimi giri puliti (esclusi primo giro, box, sporchi, oltre il 107%)
+  const R = st.race, base = R.cfg.pace || 150, pl = new Set(R.pitLaps || []), dirty = n => (st.laps || []).some(l => l.n === n && l.dirty);
+  const sec = (R.laps || []).filter(l => l.t).map(l => ({n: l.n, s: paceP(l.t)})).filter(x => x.s > 20);
+  if (!sec.length) return base;
+  const best = Math.min(...sec.map(x => x.s)), ok = sec.filter(x => x.n > 1 && !pl.has(x.n) && !dirty(x.n) && x.s <= best * 1.07).slice(-5);
+  return ok.length ? ok.reduce((m, x) => m + x.s, 0) / ok.length : base;
+}
+function rcCons(st, whole) {   // litri a giro dalle letture della gara (mai a cavallo di un box)
+  const R = st.race, pl = new Set(R.pitLaps || []), fl = (st.fuelLog || []).filter(x => x.lap >= 1).sort((a, b) => a.lap - b.lap), ds = [];
+  for (let i = 1; i < fl.length; i++) {
+    const a = fl[i - 1], b = fl[i], n = b.lap - a.lap; let span = false; for (let k = a.lap + 1; k <= b.lap; k++) if (pl.has(k)) span = true;
+    if (!span && n > 0 && a.fuel > b.fuel) ds.push((a.fuel - b.fuel) / n);
+  }
+  if (!ds.length) return null; const u = whole ? ds : ds.slice(-6), v = u.reduce((m, x) => m + x, 0) / u.length, ref = R.cfg.cons;
+  return ref && (v < ref * 0.5 || v > ref * 2) ? null : v;   // un valore assurdo (lettura sbagliata) non guasta i calcoli
+}
+function rcFuelNow(st, c) {
+  const R = st.race, done = R.laps.length, fl = (st.fuelLog || []).slice().sort((a, b) => b.lap - a.lap)[0];
+  let base = fl ? {lap: fl.lap, fuel: fl.fuel} : (st.fuelStart > 0 ? {lap: 0, fuel: st.fuelStart} : null);
+  if (R.fuelBase && (!base || R.fuelBase.lap > base.lap || (R.fuelBase.lap === base.lap && R.fuelBase.pit))) base = R.fuelBase;
+  return base ? {v: base.fuel - Math.max(0, done - base.lap) * (c || 0), lap: base.lap} : null;
+}
+function rcCalc(st, now) {
+  const R = st.race, cfg = R.cfg, done = R.laps.length, pace = rcPace(st), c = rcCons(st) || cfg.cons || 3;
+  const remaining = R.sync ? R.sync.left - (now - R.sync.at) / 1000 : cfg.dur - (now - R.t0) / 1000;
+  const lapsLeft = remaining <= 0 ? 1 : Math.max(1, Math.ceil(remaining / pace));
+  const pitsLeft = Math.max(0, cfg.mand - R.pits.length);
+  const fuel = rcFuelNow(st, c), fuelLaps = fuel ? fuel.v / c : null;
+  const stintEl = (now - (R.stint.start || R.t0)) / 1000, stintLeftLaps = cfg.ms ? Math.floor((cfg.ms - stintEl) / pace) - 1 : null;   // un giro di sicurezza prima del limite
+  let planned = lapsLeft, forced = false;
+  if (pitsLeft > 0) { const pl = (cfg.pits || [])[R.pits.length]; planned = pl != null ? Math.max(0, pl - done) : Math.ceil(lapsLeft / (pitsLeft + 1)); }   // il giro del box è quello del piano
+  if (stintLeftLaps != null && stintLeftLaps < planned) { planned = Math.max(0, stintLeftLaps); forced = true; }
+  const margin = fuelLaps != null ? fuelLaps - planned : null;
+  let boxIn = null;
+  if (R.forcePit) boxIn = 0;
+  else if (pitsLeft > 0 || forced || (fuelLaps != null && fuelLaps < lapsLeft)) boxIn = Math.max(0, Math.floor(Math.min(planned, fuelLaps != null ? fuelLaps - 1 : planned)));
+  let litri = null;
+  if (boxIn != null && fuel) {
+    const lapsAfter = Math.max(0, lapsLeft - boxIn), pitsAfter = Math.max(0, pitsLeft - 1), capLaps = cfg.ms ? Math.floor(cfg.ms / pace) : 1e9;
+    const stintAfter = Math.min(Math.ceil(lapsAfter / (pitsAfter + 1)), capLaps), atBox = Math.max(0, fuel.v - boxIn * c);
+    litri = Math.ceil(Math.min(Math.max(0, (stintAfter + cfg.mg) * c - atBox), Math.max(0, (cfg.tank || 999) - atBox)));
+  }
+  return {pace, c, remaining, lapsLeft, done, pitsLeft, fuel, fuelLaps, margin, boxIn, litri, stintEl, stintLeftLaps, forced, planned};
+}
+function rcFill(st, n, now, estLast) {   // giri non detti: li segno stimati
+  const R = st.race; let last = R.laps.length ? R.laps[R.laps.length - 1] : null; const pace = rcPace(st) * 1000;
+  while (R.laps.length < n) { const prevAt = last ? last.at : R.t0; const l = {n: R.laps.length + 1, at: Math.min(now, prevAt + pace), t: null, est: true}; R.laps.push(l); last = l; }
+}
+function rcLog(vz, raw, line, bad) { vz.heard = raw; vz.log.unshift({heard: raw, norm: vzNorm(raw), k: 'race', line, bad: !!bad}); vz.log = vz.log.slice(0, 40); vz.st.race.cmdAt = rcT(); }
+function rcReqs(st, now) {
+  const R = st.race, out = []; if (R.phase !== 'run' || R.pit.in) return out;
+  const cal = rcCalc(st, now), pace = cal.pace, last = R.laps.length ? R.laps[R.laps.length - 1] : null, lastAt = last ? last.at : R.t0;
+  if (now > lastAt + pace * 1250) { const missed = Math.floor((now - lastAt) / (pace * 1000)); out.push(missed >= 2 ? {k: 'sync', since: lastAt + pace * 2000, missed} : {k: 'giro', since: lastAt + pace * 1250}); }
+  const fl = (st.fuelLog || []).reduce((m, x) => Math.max(m, x.lap), R.fuelBase ? R.fuelBase.lap : 0);
+  if (cal.done - fl >= 3) out.push({k: 'benz', since: Math.max(lastAt, (R.laps[fl + 2] || last || {at: R.t0}).at)});
+  const sAt = R.sync ? R.sync.at : R.t0;
+  if (now - sAt > pace * 10000) out.push({k: 'tempo', since: Math.max(lastAt, sAt + pace * 10000)});
+  else if (R.stint.n > 0 && !R.stint.synced && now - R.stint.start > 150000) out.push({k: 'tempo', since: R.stint.start + 150000});
+  if (cal.boxIn != null && cal.boxIn <= 2 && R.pit.soste == null) { R.sostaAsk = R.sostaAsk || now; out.push({k: 'sosta', since: R.sostaAsk}); }
+  out.forEach(q => { const d = (now - q.since) / 1000; q.lvl = d < 10 ? 0 : d < 30 ? 1 : d < 60 ? 2 : 3; });
+  return out;
+}
+function rcStrat(R) { return R.strat.find(s => s.id === R.act) || R.strat[0]; }
+function rcGap(st, now) {   // giri saltati prima di questo passaggio (non conta il box)
+  const R = st.race, last = R.laps[R.laps.length - 1], lastAt = last ? last.at : R.t0, pace = rcPace(st) * 1000;
+  if (R.pit.in || (R.pitLaps || []).includes(R.laps.length + 1)) return 0;
+  const gap = now - lastAt; return gap > pace * 1.6 ? Math.max(0, Math.round(gap / pace) - 1) : 0;
+}
+function rcMark(st, t, now) {   // un giro passato sul traguardo (con o senza tempo)
+  const R = st.race; if (R.phase !== 'run') return null;
+  { const g = rcGap(st, now); if (g) rcFill(st, R.laps.length + g, now); }
+  const n = R.laps.length + 1;
+  const l = {n, at: now, t: t || null}; R.laps.push(l); st.lapNo = n; return l;
+}
+function rcHandle(raw, vz) {   // comandi di gara; true = gestito
+  const st = vz.st, R = st.race, tn = vzNorm(raw), now = rcT(), nums = (tn.match(/\d+/g) || []).map(Number);
+  const done = line => { rcLog(vz, raw, line); vzDraw(); return true; };
+  if (R.phase === 'done') return false;
+  if (/\bnuova sessione\b/.test(tn)) return done('«nuova sessione» ignorato in gara');
+  if (/^(via|verde|semaforo verde|partito|partiti)$/.test(tn)) {
+    if (R.phase === 'run') return done('via · gara già partita');
+    R.phase = 'run'; R.t0 = now; R.stint = {start: now, n: 0, synced: true}; R.sync = null;
+    if (!(st.fuelStart > 0)) st.fuelStart = R.cfg.fuel0;
+    const f = R.cfg.form === 'full' ? 1 : R.cfg.form === 'short' ? 0.5 : 0;
+    if (R.tForm) R.fuelBase = {lap: 0, fuel: Math.round((st.fuelStart - f * (R.cfg.cons || 0)) * 10) / 10};   // il giro di formazione ha già consumato
+    st.lapNo = 0; return done('via · cronometro partito');
+  }
+  if (R.phase !== 'run') return false;
+  if (/^(giro|passato|traguardo)$/.test(tn)) {
+    const last = R.laps[R.laps.length - 1];
+    if (last && now - last.at < 25000 && last.t) return done('giro già segnato (' + last.n + ')');
+    const l = rcMark(st, null, now); return done('giro ' + l.n + ' passato');
+  }
+  if (/^(tempo|manca|mancano|rimasto|tempo rimasto|tempo gara)\b/.test(tn) && nums.length && nums.length <= 2) {
+    const last = R.laps[R.laps.length - 1], pace = rcPace(st) * 1000, lastAt = last ? last.at : R.t0;
+    const miss = Math.floor((now - lastAt) / pace + 0.35); if (miss >= 1) rcFill(st, R.laps.length + miss, now);
+    st.lapNo = R.laps.length;
+    const left = nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0] * 60;
+    R.sync = {at: now, left}; R.stint.synced = true;
+    return done('tempo rimasto ' + rcMS(left) + (miss >= 1 ? ' · giri ricostruiti: ' + miss : ''));
+  }
+  if (/^(box|pit|stand|box dentro|box fuori|entro box|esco box)$/.test(tn)) {
+    const wantIn = /dentro|entro/.test(tn) ? true : /fuori|esco/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
+    if (wantIn === R.pit.in) return done(wantIn ? 'sei già in box' : 'sei già fuori dal box');
+    if (wantIn) { R.pit.in = true; R.pit.inAt = now; R.pit.fuelAtIn = c.fuel ? c.fuel.v : null; R.pitLaps.push(R.laps.length + 1); return done('box · ENTRATA'); }
+    const s = rcStrat(R), dur = (now - R.pit.inAt) / 1000, cOut = rcCalc(st, now), fOut = cOut.fuel ? cOut.fuel.v : R.pit.fuelAtIn;   // benzina all'uscita: il giro d'entrata è già passato
+    R.pit.in = false; R.pitLaps.push(R.laps.length + 1);
+    R.pits.push({inAt: R.pit.inAt, outAt: now, dur, strat: s.id, soste: R.pit.soste != null ? R.pit.soste : s.sosta, litri: R.pit.litri != null ? R.pit.litri : s.litri, lap: R.laps.length});
+    if (fOut != null && R.cfg.refuel !== false) R.fuelBase = {lap: R.laps.length, fuel: Math.min(R.cfg.tank || 999, Math.round((Math.max(0, fOut) + (R.pit.litri != null ? R.pit.litri : (s.litri || 0))) * 10) / 10), pit: true};
+    R.pit.soste = null; R.pit.litri = null; R.sostaAsk = null; R.forcePit = false; R.stint = {start: now, n: R.stint.n + 1, synced: false};
+    return done('box · USCITA dopo ' + rcMS(dur));
+  }
+  if (/^(litri|carico|caricati|ho caricato|ho messo|aggiungo)\b/.test(tn) && nums.length === 1 && (R.pit.in || R.forcePit || tn.startsWith('carico'))) { R.pit.litri = nums[0]; return done('carico ' + nums[0] + ' L al box'); }
+  if (/^sosta\b/.test(tn) && nums.length) { const v = nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0]; R.pit.soste = v; rcStrat(R).sosta = v; return done('sosta ' + v + ' s (strategia ' + rcStrat(R).id + ')'); }
+  if (/^strategia ([a-d])$/.test(tn)) { const id = tn.slice(-1).toUpperCase(), s = R.strat.find(x => x.id === id); if (!s) return done('strategia ' + id + ' non definita'); R.act = id; return done('strategia ' + id + ' attiva · ' + s.litri + ' L'); }
+  if (/^(box adesso|box subito|box ora|devo fermarmi|pit adesso)$/.test(tn)) { R.forcePit = true; return done('box adesso · ricalcolo'); }
+  if (/^(fine gara|bandiera a scacchi|finita)$/.test(tn)) { rcEnd(st, now); return done('gara conclusa'); }
+  return false;
+}
+function rcAfter(st, lapNo0, nLaps0) {   // dopo una frase normale: se ha registrato un giro, lo aggancio al cronometro
+  const R = st.race; if (!R || R.phase !== 'run') return; const now = rcT();
+  if (st.lapNo === lapNo0 && st.laps.length === nLaps0) return;
+  const lp = st.laps[st.laps.length - 1], last = R.laps[R.laps.length - 1];
+  if (st.laps.length !== nLaps0 && lp) {
+    const fixLog = () => { const lg = UI.vz && UI.vz.log[0]; if (lg && lg.k !== 'race' && /^giro \d+/.test(lg.line || '')) lg.line = lg.line.replace(/^giro \d+/, 'giro ' + lp.n); };
+    if (last && !last.t && now - last.at < 25000 && lp.n === last.n + 1) { last.t = lp.t; lp.n = last.n; st.lapNo = last.n; fixLog(); return; }   // prima «giro», poi il tempo
+    if (lp.n <= R.laps.length) { const m = R.laps.find(x => x.n === lp.n); if (m) { m.t = lp.t; m.est = false; } return; }   // correzione di un giro già segnato
+    if (lp.n === R.laps.length + 1) { const g = rcGap(st, now); if (g) { rcFill(st, R.laps.length + g, now); lp.n = R.laps.length + 1; } }
+    rcFill(st, lp.n - 1, now); R.laps.push({n: lp.n, at: now, t: lp.t}); st.lapNo = lp.n; fixLog(); return;
+  }
+  if (st.lapNo > R.laps.length) { rcFill(st, st.lapNo - 1, now); R.laps.push({n: st.lapNo, at: now, t: null}); }   // tempo non capito: il giro c'è
+}
+function rcEnd(st, now) {
+  const R = st.race; if (R.phase === 'done') return; R.phase = 'done'; R.tEnd = now;
+  try {   // consumo e perdita sulla corsia box si aggiornano dai dati veri della gara
+    const c = rcCons(st, true), key = engKey();   // rcCons scarta già i valori assurdi
+    if (c && A && V) {
+      let p = DB.perf[key]; if (!p) p = DB.perf[key] = {lapD: '', lapW: '', avgD: '', avgW: '', paceD: '', paceW: '', cons: [], fu: {}, u: now ? new Date(now).toISOString() : '' };
+      p.cons = p.cons || []; const m = String(st.map || (p.cons.find(x => x.main) || p.cons[0] || {}).map || '').split(' ')[0];
+      if (m) {
+        const o = p.cons.find(x => String(x.map).split(' ')[0] === m), nn = (st.fuelLog || []).length, w = o ? (o.n || 3) : 0, ov = o ? parseFloat(String(o.v).replace(',', '.')) : 0;
+        const nv = o && ov > 0 ? (ov * w + c * nn) / (w + nn) : c, val = nv.toFixed(2);
+        if (o) { o.v = val; o.n = w + nn; } else p.cons.push({map: m, v: val, n: nn, main: !p.cons.length});
+        histAdd('cons', val, (o || {}).map || m, 'Dalla gara (' + nn + ' letture)'); p.u = new Date().toISOString();
+      }
+    }
+    if (G && V && R.pits.length) {
+      const pk = kk(V.id, G.id), pt = DB.pits[pk] || {s: 60, st: 'predefinito'}, pace = rcPace(st);
+      const ls = R.pits.map(p => { const a = R.laps.find(x => x.n === p.lap + 0), b = R.laps.find(x => x.n === p.lap + 1); return a && b && a.t && b.t ? paceP(a.t) + paceP(b.t) - 2 * pace - (p.soste || 0) : null; }).filter(x => x != null && x > 3 && x < 40);
+      if (ls.length && !pt.manual) DB.pits[pk] = Object.assign({}, pt, {lane: Math.round(ls.reduce((m, x) => m + x, 0) / ls.length * 10) / 10, laneU: new Date().toISOString(), u: new Date().toISOString(), auto: true});
+    }
+  } catch (_) {}
+  vzArchive('gara'); save();
+}
+function rcReport(st) {
+  const R = st.race, cfg = R.cfg, now = R.tEnd || rcT(), L = ['Gara · ' + (typeof carNameFull === 'function' ? carNameFull() : ''), 'Durata ' + rcMS(cfg.dur) + ' · soste obbligatorie ' + cfg.mand + (cfg.ms ? ' · stint max ' + Math.round(cfg.ms / 60) + ' min' : '')];
+  const sec = R.laps.filter(l => l.t).map(l => paceP(l.t)).filter(Boolean), pace = rcPace(st), dirty = n => (st.laps || []).some(l => l.n === n && l.dirty), pl = new Set(R.pitLaps);
+  L.push('Giri: ' + R.laps.length + (R.laps.some(l => l.est) ? ' (di cui ' + R.laps.filter(l => l.est).length + ' stimati)' : '') + ' · passo medio puliti ' + fPace(pace) + (sec.length ? ' · migliore ' + fPace(Math.min(...sec)) : ''));
+  const pv = (DB.perf[engKey()] || {}).paceD; if (pv && paceP(pv)) { const d = pace - paceP(pv); L.push('Rispetto al passo gara salvato (' + pv + '): ' + (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(3).replace('.', ',') + ' s'); }
+  L.push('Giri sporchi: ' + R.laps.filter(l => dirty(l.n)).map(l => l.n).join(', ') + (R.laps.some(l => dirty(l.n)) ? '' : 'nessuno'));
+  L.push('Tempi: ' + R.laps.map(l => l.n + (l.t ? ' ' + l.t : ' ?') + (pl.has(l.n) ? ' (box)' : '') + (dirty(l.n) ? ' (sporco)' : '')).join(' · '));
+  L.push('Benzina rimasta: ' + ((st.fuelLog || []).map(x => 'giro ' + x.lap + ' ' + x.fuel).join(', ') || '—') + ' · consumo reale ' + (rcCons(st, true) ? rcCons(st, true).toFixed(2).replace('.', ',') + ' L/giro' : '—'));
+  R.pits.forEach((p, i) => L.push('Box ' + (i + 1) + ': giro ' + p.lap + ' · strategia ' + p.strat + ' · ' + p.litri + ' L previsti · sosta ' + (p.soste != null ? p.soste + ' s' : '?') + ' · tempo ai box ' + rcMS(p.dur)));
+  const stints = []; let s0 = R.t0; R.pits.forEach(p => { stints.push((p.inAt - s0) / 1000); s0 = p.outAt; }); stints.push((now - s0) / 1000);
+  L.push('Stint: ' + stints.map((x, i) => (i + 1) + ') ' + rcMS(x)).join(' · '));
+  if ((st.feel || []).length) L.push('Sensazioni:'), (st.feel || []).forEach(x => L.push('  ' + (x.tyre ? '[gomme] ' : '') + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text));
+  if ((st.junk || []).length) L.push('Non capito: ' + st.junk.map(x => '"' + x.text + '"' + (x.lap ? ' (giro ' + x.lap + ')' : '')).join(' · '));
+  return L.join('\n');
+}
+function rcSaveRace(st) {
+  const R = st.race; if (!R || R.phase !== 'done' || R.saved) return false;
+  const sec = R.laps.filter(l => l.t).map(l => paceP(l.t)).filter(Boolean);
+  (DB.races = DB.races || []).push({id: uid(), t: new Date().toISOString(), c: A.id, v: V.id, dur: R.cfg.dur, laps: R.laps.length, best: sec.length ? Math.min(...sec) : null, pace: rcPace(st), pits: R.pits.length, report: rcReport(st)});
+  R.saved = true; save(); return true;
+}
+function rcDraw(el, vz) {
+  const st = vz.st, R = st.race, now = rcT(), o = $('vzo'); if (o) o.classList.add('rco');
+  const listen = vz.status === 'err' || (!vz.rec && vz.status !== 'speak' && vz.status !== 'start');
+  const strip = listen ? '<button class="rcstrip bad" data-act="vzgo">⚠ ASCOLTO FERMO — tocca per riprendere</button>' : '<div class="rcstrip">🎙 in ascolto</div>';
+  const cmd = vz.log[0] && now - (R.cmdAt || 0) < 3500 ? '<div class="rccmd">' + esc(vz.log[0].line) + '</div>' : '<div class="rccmd"></div>';
+  if (R.phase === 'wait') {
+    el.innerHTML = `<div class="rcs"><div class="rcbig">Gara pronta</div><div class="rcsm">Benzina di partenza <b>${R.cfg.fuel0} L</b> · ${R.cfg.mand} ${R.cfg.mand === 1 ? 'sosta' : 'soste'} · stint ${R.cfg.ms ? Math.round(R.cfg.ms / 60) + ' min' : 'libero'}${R.cfg.pits.length ? ' · box ai giri ' + R.cfg.pits.join(', ') : ''}</div>
+      <div class="rcsm">Strategie: ${R.strat.map(s => '<b>' + s.id + '</b> ' + s.litri + ' L ' + esc(s.gomme) + (s.freni === 'si' ? ' + freni' : '')).join(' · ')}</div>
+      <button class="pri rcbtn" data-act="rcform">PARTI · giro di formazione</button><button class="sec2" data-act="vzstop">Esci</button>${strip}</div>`; return;
+  }
+  if (R.phase === 'form') {
+    el.innerHTML = `<div class="rcs"><div class="rcbig">Giro di formazione</div><div class="rcsm">Al semaforo verde dì <b>«via»</b> (oppure tocca)</div><button class="pri rcbtn" data-act="rcvia">VIA</button>${cmd}${strip}</div>`; return;
+  }
+  if (R.phase === 'done') {
+    el.innerHTML = `<div class="rcs"><div class="rcbig">Gara conclusa</div><div class="rcsm">${R.laps.length} giri · ${R.pits.length} ${R.pits.length === 1 ? 'sosta' : 'soste'}</div><pre class="rcrep">${esc(rcReport(st))}</pre>
+      <div class="vzb"><button class="pri" data-act="rccopy">Copia il report</button><button class="sec2" data-act="rcsave">${R.saved ? '✓ Salvata nelle gare' : 'Salva nello storico gare'}</button><button class="sec2" data-act="vzstop">Chiudi</button></div></div>`; return;
+  }
+  const c = rcCalc(st, now), reqs = rcReqs(st, now), q = reqs[0], S = {giro: ['⏱', 'GIRO', 'dì «giro» o il tempo'], sync: ['🔄', 'SINCRONIZZA', 'dì «tempo 24 30»'], benz: ['⛽', 'BENZINA', 'dì «24 litri»'], tempo: ['🏁', 'TEMPO', 'dì «tempo 24 30»'], sosta: ['🔧', 'SOSTA?', 'dì «sosta 38»']};
+  const last = R.laps[R.laps.length - 1];
+  const centre = R.pit.in ? '<div class="rcq inbox"><div class="rcsy">🔧</div><div class="rcw">IN BOX</div><div class="rcsm">dì «box» quando esci</div></div>'
+    : c.remaining <= 0 ? '<div class="rcq l2"><div class="rcsy">🏁</div><div class="rcw">ULTIMO GIRO</div><div class="rcsm">al traguardo dì «fine gara»</div></div>'
+    : q ? `<div class="rcq l${q.lvl}"><div class="rcsy">${S[q.k][0]}</div><div class="rcw">${S[q.k][1]}${q.k === 'sync' ? ' · persi ' + q.missed : ''}</div><div class="rcsm">${S[q.k][2]}</div></div>`
+    : `<div class="rcq rest"><div class="rcw">GIRO ${c.done}</div>${last && last.t ? '<div class="rcsm">' + esc(last.t) + '</div>' : ''}</div>`;
+  const mg = c.margin == null ? '—' : (c.margin >= 0 ? '+' : '−') + Math.abs(c.margin).toFixed(1).replace('.', ',');
+  const mcls = c.margin == null ? '' : c.margin >= 1 ? 'ok' : c.margin >= 0 ? 'warn' : 'bad';
+  const warn = (c.stintLeftLaps != null && c.stintLeftLaps <= 3 ? '<div class="rcwarn">STINT: ' + Math.max(0, c.stintLeftLaps) + ' giri al limite</div>' : '') + (c.forced ? '' : '');
+  const s = rcStrat(R), boxTxt = c.boxIn == null ? 'nessun box previsto' : (c.boxIn <= 0 ? 'BOX ORA' : c.boxIn === 1 ? 'BOX QUESTO GIRO' : 'Box fra ' + c.boxIn + ' giri') + (c.litri != null ? ' · carica ' + c.litri + ' L' : '');
+  el.innerHTML = `<div class="rcs"><div class="rctop"><div><div class="rcbig">${c.lapsLeft}</div><div class="rcsm">giri alla fine</div></div><div class="rcright"><div class="rcsm">tempo gara</div><div class="rctime">${rcMS(c.remaining)}</div></div></div>
+    ${centre}${warn}
+    <div class="rcrow"><div class="rcbox ${mcls}"><div class="rcsm">Margine benzina</div><div class="rcnum">${mg}<small> giri</small></div></div><div class="rcbox"><div class="rcsm">Strategia ${esc(s.id)} · stint ${rcMS(c.stintEl)}</div><div class="rcnum2">${esc(boxTxt)}</div></div></div>
+    ${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="vzstop">Esci</button></div></div>`;
+}
+document.addEventListener('pointerdown', () => { UI.ptr = true; }, true);
+['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => { UI.ptr = false; }, 80), true));
+setInterval(() => { const vz = UI.vz; if (vz && rcOn(vz.st) && ['run', 'form'].includes(vz.st.race.phase) && !UI.ptr) vzDraw(); }, 1000);   // non ridisegna mentre tocchi lo schermo: i tocchi non si perdono
+function rcLaunch() {
+  const P = UI.zP, c = UI.zC; if (!P || !c) return toast('Compila prima durata, passo e consumo');
+  const strat = ['A', 'B', 'C'].map(id => ({id, litri: numP($('rsL' + id).value), gomme: $('rsT' + id).value, freni: $('rsF' + id).value, sosta: numP($('rsS' + id).value)})).filter(s => s.litri != null && s.litri >= 0 && $('rsL' + s.id).value.trim() !== '').map(s => Object.assign(s, {sosta: s.sosta != null ? s.sosta : P.pit}));
+  if (!strat.length) strat.push({id: 'A', litri: Math.round(c.r.fuel[1] || 0), gomme: 'nuove', freni: 'no', sosta: P.pit});
+  const mgL = P.mgu === 'giri' ? P.mg : (P.cons > 0 ? P.mg / P.cons : 0), fuel0 = Math.ceil(c.r.fuel[0] + Math.max(0, 1.5 - mgL) * P.cons);
+  if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
+  vzArchive('prima della gara'); DB.settings.vzSess = null; UI.vzst = null; closeSheet(); vzStart();
+  if (!UI.vz) return; UI.vz.st.race = rcNew(P, c.r, strat, fuel0); vzPersist(); vzDraw();
+}
+
+function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0; vzHandle0(raw); try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
 setInterval(() => { const vz = UI.vz; if (vz && !vz.rec && !(vz.status === 'err' && /Microfono non consentito/.test(vz.err || ''))) { vz.errs = []; vzListen(); } }, 5000);   // guardiano: se l'ascolto è fermo, riparte da solo
 document.addEventListener('visibilitychange', () => { const vz = UI.vz; if (!document.hidden && vz && !vz.rec) { vz.errs = []; vzListen(); } });
 document.addEventListener('input', () => pathTick(), true);   // anche mentre scrivi i valori del setup
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
+  if (rcOn(vz.st) && rcHandle(raw, vz)) return;
   let tn = vzNorm(raw);
   if (/\btemperatura\b/.test(tn) && !/\btemperatura\b.*\btemperatura\b/.test(tn)) tn = tn.replace(/(\d)(\D*?)\b(aria|pista)\b/, (m, d, g, w) => /\b(aria|pista)\b/.test(tn.slice(0, tn.indexOf(m))) ? d + g + ' temperatura ' + w : m);   // "temperatura aria 30 pista 38"
   const parts = tn.split(/(?=\btemperatura\b)/).filter(x => x.trim());
@@ -2808,6 +3049,8 @@ function vzHandle0(raw) {
 }
 function vzDraw() {
   const vz = UI.vz, el = $('vzv'); if (!vz || !el) return;
+  if (rcOn(vz.st)) return rcDraw(el, vz);
+  { const o = $('vzo'); if (o) o.classList.remove('rco'); }
   const stTxt = {start: 'Avvio…', listen: '🎙 In ascolto', speak: '🔊 Sta parlando', err: '⚠️ Fermo'}[vz.status] || '';
   el.innerHTML = `<div class="vzt">${stTxt} <span class="vzn">Salva solo dopo il tuo sì</span></div>
     <div class="vzs" style="opacity:.9"><b>${esc((VZ_MODES[vz.st.mode || 'libera'] || {}).n || 'Libera')}</b> · ${vz.st.wet ? 'bagnato' : 'asciutto'}</div>
@@ -3052,16 +3295,20 @@ function openStrat() {
       <label class="f">Rifornimento<select id="zref"><option value="1">Consentito</option><option value="0">Non consentito</option></select></label>
       <div class="full z2"><label class="zc"><input type="checkbox" id="zmsOn"> Durata massima stint</label><label class="f zf dis" id="zmsw">Minuti<input id="zms" inputmode="decimal" value="45" disabled></label></div>
       <div class="full z2"><label class="f">Margine<input id="zmg" inputmode="decimal" value="0"></label><label class="f">Unità<select id="zmgu"><option value="giri">Giri</option><option value="litri">Litri</option></select></label></div>
-    </div><div id="zout"></div>`, carNameFull());
+    </div><div id="zout"></div>
+    <div class="zs" style="margin-top:14px"><b>Gara con l'ingegnere</b><p class="meta">Strategie di pit stop (come nell'MFD): litri da aggiungere, gomme, freni e totale sosta letto dall'MFD. La A è quella attiva, in gara dici «strategia B» per cambiarla.</p>
+      ${['A', 'B', 'C'].map(id => `<div class="zg" style="grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px"><label class="f">${id} · litri<input id="rsL${id}" inputmode="numeric" placeholder="${id === 'A' ? 'dal piano' : ''}"></label><label class="f">Gomme<select id="rsT${id}"><option value="nuove">nuove</option><option value="usate">usate</option><option value="no">no</option></select></label><label class="f">Freni<select id="rsF${id}"><option value="no">no</option><option value="si">sì</option></select></label><label class="f">Sosta (s)<input id="rsS${id}" inputmode="numeric" placeholder="MFD"></label></div>`).join('')}
+      <div class="btns" style="margin-top:8px"><button class="pri" id="rcgo" type="button">▶ Avvia la gara</button>${(() => { const r = DB.settings.vzSess && DB.settings.vzSess.race; return r && r.on && r.phase !== 'done' ? '<button class="sec2" data-act="rcresume">↩ Riprendi la gara in corso</button>' : ''; })()}</div></div>`, carNameFull());
+  $('rcgo').addEventListener('click', rcLaunch);
   const zr = () => {
     const g = id => $(id).value;
     const dh = numP(g('zdurh') || '0'), dm = numP(g('zdurm') || '0'), D = dh == null || dm == null ? null : dh * 60 + dm, pace = paceP(g('zpace')), cons = numP(g('zcons')), pit = numP(g('zpit')), mand = numP(g('zmand')), tk = numP(g('ztank')), mg = numP(g('zmg'));
     const msOn = $('zmsOn').checked, ms = msOn ? numP(g('zms')) : null, out = $('zout');
     if ([D, pace, cons, pit, mand, tk, mg].some(v => v == null || v < 0) || D <= 0 || pace <= 0 || cons <= 0 || (msOn && (ms == null || ms <= 0))) {
-      out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
+      UI.zP = null; out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
     }
     const P = {D: D * 60, pace, cons, pit, mand: Math.floor(mand), tank: tk, mg, mgu: g('zmgu'), form: g('zform'), refuel: g('zref') === '1', ms: ms != null ? ms * 60 : null};
-    const c = stratCalc(P), r = c.r;
+    const c = stratCalc(P), r = c.r; UI.zP = P; UI.zC = c; if ($('rsLA') && !$('rsLA').value.trim() && r.fuel[1]) $('rsLA').placeholder = Math.round(r.fuel[1]) + ' (dal piano)';
     let h = c.notes.map(n => `<div class="warn">${esc(n)}</div>`).join('');
     h += `<div class="ztiles"><div class="tile"><div class="k">Giri di gara</div><div class="v">${r.n}</div><div class="s">passo tra ${fPace(r.low)}${r.high != null ? ' e ' + fPace(r.high) : ' e oltre'}</div></div>
       <div class="tile"><div class="k">Durata stimata</div><div class="v">${fDur(r.dur)}</div><div class="s">${r.stops}${r.stops === 1 ? ' sosta' : ' soste'}</div></div></div><div class="rows">`;
@@ -3666,6 +3913,12 @@ const ACT = {
   engundo: engUndo,
   vz: () => { if (needCtx('av')) vzBrief(); },
   vzstart: vzStart,
+  rcform: () => { const st = UI.vz && UI.vz.st; if (!rcOn(st)) return; st.race.phase = 'form'; st.race.tForm = rcT(); if (!(st.fuelStart > 0)) st.fuelStart = st.race.cfg.fuel0; vzPersist(); vzDraw(); },
+  rcvia: () => { const vz = UI.vz; if (rcOn(vz && vz.st)) vzHandle('via'); },
+  rcend: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; if (UI.rcArm && rcT() - UI.rcArm < 4000) { UI.rcArm = 0; rcEnd(vz.st, rcT()); vzPersist(); vzDraw(); } else { UI.rcArm = rcT(); vzDraw(); } },
+  rccopy: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; try { navigator.clipboard.writeText(rcReport(vz.st)).then(() => toast('Report copiato'), () => toast('Copia non riuscita')); } catch (_) { toast('Copia non riuscita'); } },
+  rcsave: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; if (rcSaveRace(vz.st)) { vzPersist(); vzDraw(); toast('Gara salvata nello storico'); } },
+  rcresume: () => { closeSheet(); vzStart(); },
   vzbrmode: b => { vzSt().mode = b.dataset.m; vzPersist(); vzBrief(); },
   vzbrwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBrief(); },
   vzstop: vzStop,
