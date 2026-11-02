@@ -2914,8 +2914,8 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
     R.sync = {at: now - 500, left}; R.stint.synced = true;   // il tempo l'hai letto mezzo secondo prima di iniziare a dirlo
     return done('tempo rimasto ' + rcMS(left) + (miss >= 1 ? ' · giri ricostruiti: ' + miss : ''));
   }
-  if (/^(box|pit|stand|box dentro|box fuori|entro box|esco box)$/.test(tn)) {
-    const wantIn = /dentro|entro/.test(tn) ? true : /fuori|esco/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
+  if (/^(box|boxe|bocs|bos|pit|pit ?stop|stand|(box|boxe|pit|pit ?stop) (dentro|fuori)|(sono )?(dentro|fuori)( box| ai box| dai box)?|entro( nei| in| ai)? (box|pit)|esco( dai| dal)? (box|pit)|entrato|uscito|(sono )?(entrato|uscito)( dai| dal| nei| ai)?( box| pit)?)$/.test(tn)) {
+    const wantIn = /dentro|entro|entrato/.test(tn) ? true : /fuori|esco|uscito/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
     if (wantIn === R.pit.in) return done(wantIn ? 'sei già in box' : 'sei già fuori dal box');
     if (wantIn) { R.pit.in = true; R.pit.inAt = now; R.pit.fuelAtIn = c.fuel ? c.fuel.v : null; R.pit.rec = c.litri; R.pit.act = c.act ? Object.assign({}, c.act) : {drv: false, tyre: false, fuel: false}; R.pitLaps.push(R.laps.length + 1); return done('box · ENTRATA'); }
     const s = rcStrat(R), dur = (now - R.pit.inAt) / 1000, cOut = rcCalc(st, now), fOut = cOut.fuel ? cOut.fuel.v : R.pit.fuelAtIn;   // benzina all'uscita: il giro d'entrata è già passato
@@ -3003,6 +3003,7 @@ function rcSaveRace(st) {
 }
 function rcDraw(el, vz) {
   const st = vz.st, R = st.race, now = rcT(), o = $('vzo'); if (o) o.classList.add('rco');
+  if (!vz.bk && !R.sim) { vz.bk = 1; try { history.pushState({vz: 1}, ''); } catch (_) {} }   // il tasto «indietro» non chiude la gara
   const listen = vz.status === 'err' || (!vz.rec && vz.status !== 'speak' && vz.status !== 'start');
   const strip = listen ? '<button class="rcstrip bad" data-act="vzgo">⚠ ASCOLTO FERMO — tocca per riprendere</button>' : '<div class="rcstrip">🎙 in ascolto</div>';
   const cmd = vz.log[0] && now - (R.cmdAt || 0) < 3500 ? '<div class="rccmd">' + esc(vz.log[0].line) + '</div>' : '<div class="rccmd"></div>';
@@ -3038,8 +3039,9 @@ function rcDraw(el, vz) {
   el.innerHTML = `<div class="rcs"><div class="rctop"><div><div class="rcsm">TEMPO GARA</div><div class="rcbig">${rcMS(c.remaining)}</div></div><div class="rcright"><div class="rcsm">GIRI ALLA FINE</div><div class="rcbig">${c.lapsLeft}</div></div></div>
     ${centre}
     <div class="rcbot"><div class="rcb1">${esc(boxTxt)}</div><div class="rcb2">${near && q ? esc(boxWord + ' · ' + actTxt) : 'stint ' + (R.stint.n + 1) + ' · ' + rcMS(c.stintEl) + (c.capLeft != null && c.capLeft <= 3 ? ' · limite fra ' + Math.max(0, c.capLeft) + ' g' : '')}</div><div class="rcb3 ${mcls}">margine ${mg} giri</div></div>
-    ${R.sim && UI.sim ? `<div class="rcsim">🧪 SIMULAZIONE · velocità <b>x${UI.sim.speed}</b> ${[10, 30, 60].map(k => `<button class="sec2" data-act="rcspd" data-k="${k}">x${k}</button>`).join('')}<br><button class="sec2" data-act="rcsimhold">${UI.sim.hold ? '▶ Riprendo a rispondere' : '🤐 Non rispondo'}</button><button class="sec2" data-act="rcsimskip">${UI.sim.forceForget ? '⏭ prossimo giro non detto ✓' : '⏭ Salta un giro'}</button></div>` : ''}${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'vzstop'}">${R.sim ? 'Chiudi simulazione' : 'Esci'}</button></div></div>`;
+    ${R.sim && UI.sim ? `<div class="rcsim">🧪 SIMULAZIONE · velocità <b>x${UI.sim.speed}</b> ${[10, 30, 60].map(k => `<button class="sec2" data-act="rcspd" data-k="${k}">x${k}</button>`).join('')}<br><button class="sec2" data-act="rcsimhold">${UI.sim.hold ? '▶ Riprendo a rispondere' : '🤐 Non rispondo'}</button><button class="sec2" data-act="rcsimskip">${UI.sim.forceForget ? '⏭ prossimo giro non detto ✓' : '⏭ Salta un giro'}</button></div>` : ''}${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'rcexit'}">${R.sim ? 'Chiudi simulazione' : (UI.rcArm2 && now - UI.rcArm2 < 4000 ? 'Tocca ancora: esci' : 'Esci')}</button></div></div>`;
 }
+window.addEventListener('popstate', () => { const vz = UI.vz; if (vz && rcOn(vz.st) && vz.st.race.phase !== 'done') { try { history.pushState({vz: 1}, ''); } catch (_) {} } });
 document.addEventListener('pointerdown', () => { UI.ptr = true; }, true);
 ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => { UI.ptr = false; }, 80), true));
 setInterval(() => { const vz = UI.vz; if (vz && rcOn(vz.st) && ['run', 'form'].includes(vz.st.race.phase) && !UI.ptr && !UI.sim) vzDraw(); }, 1000);   // non ridisegna mentre tocchi lo schermo: i tocchi non si perdono
@@ -4038,6 +4040,7 @@ const ACT = {
   vz: () => { if (needCtx('av')) vzBrief(); },
   vzstart: vzStart,
   rcform: () => { const st = UI.vz && UI.vz.st; if (!rcOn(st)) return; st.race.phase = 'form'; st.race.tForm = rcT(); if (!(st.fuelStart > 0)) st.fuelStart = st.race.cfg.fuel0; vzPersist(); vzDraw(); },
+  rcexit: () => { if (UI.rcArm2 && rcT() - UI.rcArm2 < 4000) { UI.rcArm2 = 0; vzStop(); } else { UI.rcArm2 = rcT(); vzDraw(); } },
   rcresume2: () => { const vz = UI.vz; if (rcOn(vz && vz.st)) vzHandle('riprendi'); },
   rcvia: () => { const vz = UI.vz; if (rcOn(vz && vz.st)) vzHandle('via'); },
   rcend: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; if (UI.rcArm && rcT() - UI.rcArm < 4000) { UI.rcArm = 0; rcEnd(vz.st, rcT()); vzPersist(); vzDraw(); } else { UI.rcArm = rcT(); vzDraw(); } },
@@ -4321,6 +4324,10 @@ function start() {
       } else DB = newDB();
       DB.settings.copies = DB.settings.copies || {every:'day', keep:5};
       render();
+      try {   // se la gara era in corso (l'app si è chiusa o ricaricata), torna da sola alla schermata di gara
+        const rr = DB.settings.vzSess && DB.settings.vzSess.race;
+        if (rr && rr.on && !rr.sim && ['wait', 'form', 'run'].includes(rr.phase) && Date.now() - (rr.cmdAt || 0) < (rr.paused != null ? 3600000 : 900000)) setTimeout(() => { if (!UI.vz) vzStart(); }, 500);
+      } catch (_) {}
       if (syncOn()) syncStart(false);
       if (idb) maybeCopy();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(p => { UI.persisted = p; if (UI.tab === 'backup') render(); });
