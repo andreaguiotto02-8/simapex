@@ -167,6 +167,7 @@ nav{align-items:flex-end}
 .dh{touch-action:none;cursor:grab;width:34px;padding:0;flex:none;font-size:18px}.row2.drag{opacity:.55;box-shadow:0 4px 14px rgba(0,0,0,.3);position:relative;z-index:9}.row2.dropt{outline:2px solid var(--accent);outline-offset:1px}.sub.dropt,.sec.dropt{outline:2px dashed var(--accent)}
 @media(min-width:900px){.sheet{max-width:960px}}
 .gi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}.gi.hot{border-color:var(--accent)}.gi p{margin:4px 0}.gi ul{margin:4px 0 0;padding-left:20px}.gi li{margin:3px 0}.tl{position:relative}.tl[data-act]{cursor:pointer}.tl .ii{position:absolute;top:0;right:0;padding:6px 8px;color:var(--accent);font-size:15px;line-height:1}.tl[data-act] .k{padding-right:16px}
+.stt{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:13px;font-variant-numeric:tabular-nums}.stt caption{text-align:left;font-size:12px;opacity:.75;padding-bottom:3px}.stt th{font-weight:600;font-size:11px;opacity:.65;text-align:right;padding:2px 4px}.stt th:first-child,.stt td:first-child{text-align:left}.stt td{padding:4px;text-align:right;border-top:1px solid var(--line)}.stt tr.me td{background:var(--hl);font-weight:700}.stt .gd{color:var(--good);font-weight:700}.stt .gb{color:var(--bad)}
 .hrow{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 58px 10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:2px}.hrow.best{border-color:var(--accent)}.hrow .h1{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:20px;font-variant-numeric:tabular-nums}.hrow .star{font-size:13px;color:var(--accent);font-weight:700}.hrow .hd{margin-left:auto;font-size:15px;font-weight:700}.hrow .hd.up{color:#2e7d4f}.hrow .hd.dn{color:#c0392b}.hrow .hc{font-size:14px}.hrow .hn{font-size:14px;font-style:italic}.hrow .x{position:absolute;top:6px;right:6px}
 .f .fu{margin-top:4px;font-size:13px;padding:6px 10px;min-height:0;opacity:.9}
 .calc{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}.calc summary{font-weight:700;cursor:pointer;min-height:32px;display:flex;align-items:center}
@@ -261,7 +262,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.65';   // versione dell'app
+const APP_V = '0.66';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -1603,9 +1604,19 @@ function openHist(grp) {
       ch = fch + (ids.length ? ids.slice(0, 8).map(i => `${esc(lab[i] || 'parametro')} ${esc(hChg(a[i], b[i]))}`).join(' · ') + (ids.length > 8 ? ' · +' + (ids.length - 8) + ' altri' : '') : 'setup uguale alla prova prima');
     } else ch = 'prima prova';
     const better = prev && (hNum(e) < hNum(prev));
-    const SL = {lapD: 'giro veloce', lapW: 'giro veloce', avgD: 'media 3', avgW: 'media 3', paceD: 'passo gara', paceW: 'passo gara'}, est = !e.sid;
-    const sib = [...new Set(all.filter(x => x !== e && SL[x.k] && x.k !== e.k && (e.sid ? x.sid === e.sid : (!x.sid && x.cond === e.cond && /^Test vocale/.test(e.note || '') && /^Test vocale/.test(x.note || '') && Math.abs(Date.parse(x.t) - Date.parse(e.t)) <= 15 * 60000))).map(x => x.k))].map(k => all.filter(x => x.k === k && x !== e && (e.sid ? x.sid === e.sid : (!x.sid && x.cond === e.cond && Math.abs(Date.parse(x.t) - Date.parse(e.t)) <= 15 * 60000))).pop());
-    const stint = sib.length ? `<div class="hn">Stesso stint${est ? ' (stimato dall\'orario)' : ''}: ${sib.map(x => { const bg = all.filter(y => y.k === x.k), bs = bg.reduce((m, y) => hNum(y) < hNum(m) ? y : m, bg[0]), d = hNum(x) - hNum(bs); return `${SL[x.k]} <b>${esc(x.val)}</b> ${x === bs ? '★ migliore' : '(' + esc(hDiff(d, 's')) + ' dal migliore)'}`; }).join(' · ')}</div>` : '';
+    const SL = {lapD: 'Giro veloce', lapW: 'Giro veloce', avgD: 'Media 3', avgW: 'Media 3', paceD: 'Passo gara', paceW: 'Passo gara'}, OR = {Giro: 0, Medi: 1, Pass: 2}, est = !e.sid;
+    const near = x => e.sid ? x.sid === e.sid : (!x.sid && x.cond === e.cond && /^Test vocale/.test(e.note || '') && /^Test vocale/.test(x.note || '') && Math.abs(Date.parse(x.t) - Date.parse(e.t)) <= 15 * 60000);
+    const sibK = [...new Set(all.filter(x => x !== e && SL[x.k] && x.k !== e.k && near(x)).map(x => x.k))], sib = sibK.map(k => all.filter(x => x.k === k && x !== e && near(x)).pop());
+    let stint = '';
+    if (sib.length && SL[e.k]) {
+      const rowsS = [e, ...sib].sort((p, q) => OR[SL[p.k].slice(0, 4)] - OR[SL[q.k].slice(0, 4)]), lapE = rowsS.find(x => /^lap/.test(x.k));
+      const tr = rowsS.map(x => {
+        const bg = all.filter(y => y.k === x.k), bs = bg.reduce((m, y) => hNum(y) < hNum(m) ? y : m, bg[0]), d = hNum(x) - hNum(bs);
+        const vs = lapE && x !== lapE ? hDiff(hNum(x) - hNum(lapE), 's') : '—', f = x.fuel ? esc(x.fuel.replace('.', ',')) + ' ' + esc(fuelU()) : '—';
+        return `<tr class="${x === e ? 'me' : ''}"><td>${SL[x.k]}${x === e ? ' ◂' : ''}</td><td>${esc(x.val)}</td><td class="${x === bs ? 'gd' : 'gb'}">${x === bs ? '★ migliore' : esc(hDiff(d, 's'))}</td><td>${vs}</td><td>${f}</td></tr>`;
+      }).join('');
+      stint = `<table class="stt"><caption>Stesso stint${est ? ' (stimato dall\'orario)' : ''}</caption><tr><th>Dato</th><th>Tempo</th><th>Dal migliore</th><th>Dal giro veloce</th><th>Benzina</th></tr>${tr}</table>`;
+    }
     return `<div class="hrow${best ? ' best' : ''}"><div class="h1"><b>${esc(e.val)}</b>${e.k === 'cons' ? ` <span class="meta">${esc(G.mapLabel || 'mappa')} ${esc(e.map)}</span>` : (e.cond === 'wet' ? ' <span class="meta">bagnato</span>' : '')}${e.fuel ? ` <span class="meta">· ${esc(e.fuel.replace('.', ','))} ${esc(fuelU())}</span>` : ''}${e.air || e.road ? ` <span class="meta">· ${e.air ? 'aria ' + esc(e.air.replace('.', ',')) + '°' : ''}${e.air && e.road ? ' ' : ''}${e.road ? 'pista ' + esc(e.road.replace('.', ',')) + '°' : ''}</span>` : ''}${best ? ' <span class="star">★ migliore</span>' : ''}<span class="hd${prev ? (better ? ' up' : ' dn') : ''}">${esc(diff)}</span></div><div class="meta">${esc(fd(e.t))} · ${esc(new Date(e.t).toLocaleTimeString('it', {hour: '2-digit', minute: '2-digit'}))}</div><div class="hc">${ch}</div>${e.note ? `<div class="hn">${esc(e.note)}</div>` : ''}${stint}<button class="x" data-act="histdel" data-id="${e.id}" aria-label="Elimina prova">✕</button></div>`;
   }).reverse().join('');
   const chip = (g, t) => `<button class="sec2" data-act="histtab" data-g="${g}" aria-pressed="${grp === g}">${t}</button>`;
