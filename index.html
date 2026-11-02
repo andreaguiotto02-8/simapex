@@ -2795,8 +2795,22 @@ function rcPace(st) {   // passo medio degli ultimi giri puliti (esclusi primo g
   const best = Math.min(...sec.map(x => x.s)), ok = sec.filter(x => x.n > 1 && !pl.has(x.n) && !dirty(x.n) && x.s <= best * 1.07).slice(-5);
   return ok.length ? ok.reduce((m, x) => m + x.s, 0) / ok.length : base;
 }
+function rcMapCheck(st) {   // cambio mappa in gara: il consumo diventa quello salvato per quella mappa
+  const R = st.race; if (!R || R.phase !== 'run' || st.map == null) return;
+  const m = String(st.map).split(' ')[0]; if (!m) return;
+  if (R.map == null) { R.map = m; return; }
+  if (m === R.map) return;
+  try { const f0 = rcFuelNow(st, rcCons(st) || R.cfg.cons); if (f0) R.fuelBase = {lap: R.laps.length, fuel: Math.round(f0.v * 10) / 10, pit: true}; } catch (_) {}   // la benzina fino a qui resta calcolata col consumo della mappa di prima
+  R.map = m; R.mapLap = R.laps.length;
+  let line = 'mappa ' + m + ' · consumo non salvato, resta ' + String(R.cfg.cons).replace('.', ',');
+  try {
+    const p = DB.perf[engKey()], o = p && (p.cons || []).find(x => String(x.map).split(' ')[0] === m), v = o ? parseFloat(String(o.v).replace(',', '.')) : 0;
+    if (v > 0) { R.cfg.cons = v; line = 'mappa ' + m + ' · consumo ' + String(v).replace('.', ',') + ' L/giro (salvato)'; }
+  } catch (_) {}
+  if (UI.vz) UI.vz.log.unshift({heard: '', norm: '', k: 'race', line}); R.cmdAt = rcT();
+}
 function rcCons(st, whole) {   // litri a giro dalle letture della gara (mai a cavallo di un box)
-  const R = st.race, pl = new Set(R.pitLaps || []), fl = (st.fuelLog || []).filter(x => x.lap >= 1).sort((a, b) => a.lap - b.lap), ds = [];
+  const R = st.race, pl = new Set(R.pitLaps || []), fl = (st.fuelLog || []).filter(x => x.lap >= 1 && x.lap >= (R.mapLap || 0)).sort((a, b) => a.lap - b.lap), ds = [];
   for (let i = 1; i < fl.length; i++) {
     const a = fl[i - 1], b = fl[i], n = b.lap - a.lap; let span = false; for (let k = a.lap + 1; k <= b.lap; k++) if (pl.has(k)) span = true;
     if (!span && n > 0 && a.fuel > b.fuel) ds.push((a.fuel - b.fuel) / n);
@@ -2894,7 +2908,7 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
   if (R.phase === 'run' && /^(pausa|in pausa|metti in pausa|gioco in pausa|pausa gioco)$/.test(tn)) { R.paused = now; return done('PAUSA · cronometro fermo'); }
   if (/^(via|verde|semaforo verde|partito|partiti)$/.test(tn)) {
     if (R.phase === 'run') return done('via · gara già partita');
-    R.phase = 'run'; R.t0 = now; R.stint = {start: now, n: 0, synced: true}; R.sync = null; R.drv = {start: now, n: 1}; R.tyre0 = 0; st.tyre0 = 0; R.tReal = now;
+    R.phase = 'run'; R.t0 = now; R.stint = {start: now, n: 0, synced: true}; R.sync = null; R.drv = {start: now, n: 1}; R.tyre0 = 0; st.tyre0 = 0; R.tReal = now; R.map = st.map != null ? String(st.map).split(' ')[0] : null;
     if (!(st.fuelStart > 0)) st.fuelStart = R.cfg.fuel0;
     const f = R.cfg.form === 'full' ? 1 : R.cfg.form === 'short' ? 0.5 : 0;
     if (R.tForm) R.fuelBase = {lap: 0, fuel: Math.round((st.fuelStart - f * (R.cfg.cons || 0)) * 10) / 10};   // il giro di formazione ha già consumato
@@ -3100,7 +3114,7 @@ function rcLaunch(sim) {
   vzPersist(); vzDraw();
 }
 
-function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0]; vzHandle0(raw); try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
+function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0]; vzHandle0(raw); try { if (st0 && rcOn(st0)) rcMapCheck(st0); } catch (_) {} try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
 setInterval(() => { const vz = UI.vz; if (vz && !vz.rec && !(vz.status === 'err' && /Microfono non consentito/.test(vz.err || ''))) { vz.errs = []; vzListen(); } }, 5000);   // guardiano: se l'ascolto è fermo, riparte da solo
 document.addEventListener('visibilitychange', () => { const vz = UI.vz; if (!document.hidden && vz && !vz.rec) { vz.errs = []; vzListen(); } });
