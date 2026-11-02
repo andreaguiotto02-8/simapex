@@ -2755,8 +2755,9 @@ function vzListen() {
     vz.rec = null;
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { vz.status = 'err'; vz.err = 'Microfono non consentito: abilitalo nelle impostazioni del browser.'; return vzDraw(); }
     const t = Date.now(); vz.errs = vz.errs.filter(x => t - x < 4000); vz.errs.push(t);
-    if (vz.errs.length > 6) { vz.status = 'err'; vz.err = 'L\'ascolto si è interrotto. Tocca "Riprendi".'; return vzDraw(); }
-    if (UI.vz === vz) setTimeout(vzListen, 400);
+    if (e.error !== 'no-speech' && e.error !== 'aborted') { vz.log.unshift({heard: '', norm: '', k: 'sys', line: 'ascolto: errore ' + e.error + ' (riavvio)'}); vz.log.length = Math.min(vz.log.length, 60); }   // resta nel report: si capisce perché si è fermato
+    const wait = vz.errs.length > 6 ? Math.min(6000, 600 * (vz.errs.length - 5)) : 400;   // non si arrende più: riprova sempre, sempre più piano
+    if (UI.vz === vz) setTimeout(vzListen, wait);
   };
   r.onend = () => { if (vz.rec === r) { vz.rec = null; if (UI.vz === vz) setTimeout(vzListen, 200); } };
   vz.rec = r; vz.status = 'listen'; vz.err = ''; vzDraw();
@@ -2764,6 +2765,8 @@ function vzListen() {
 }
 function vzHandle(raw) { vzHandle0(raw); try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
+setInterval(() => { const vz = UI.vz; if (vz && !vz.rec && !(vz.status === 'err' && /Microfono non consentito/.test(vz.err || ''))) { vz.errs = []; vzListen(); } }, 5000);   // guardiano: se l'ascolto è fermo, riparte da solo
+document.addEventListener('visibilitychange', () => { const vz = UI.vz; if (!document.hidden && vz && !vz.rec) { vz.errs = []; vzListen(); } });
 document.addEventListener('input', () => pathTick(), true);   // anche mentre scrivi i valori del setup
 function vzHandle0(raw) {
   const vz = UI.vz; if (!vz) return;
