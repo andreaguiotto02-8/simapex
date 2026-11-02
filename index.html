@@ -2822,7 +2822,7 @@ function rcCalc(st, now) {
   let planned = lapsLeft, forced = false;
   if (pitsLeft > 0) { const pl = (cfg.pits || [])[R.pits.length]; planned = pl != null ? Math.max(0, pl - done) : Math.ceil(lapsLeft / (pitsLeft + 1)); }   // il giro del box è quello del piano
   if (capLeft != null && capLeft < (pitsLeft > 0 ? planned : planned - 1)) { planned = Math.max(0, capLeft); forced = true; }   // dopo l'ultimo box non forza per un giro solo
-  const margin = fuelLaps != null ? fuelLaps - planned : null;
+  const margin = fuelLaps != null ? fuelLaps - (cfg.refuel === false ? lapsLeft : planned) : null;   // senza rifornimento la benzina deve bastare fino alla fine, non fino al box
   let boxIn = null;
   if (R.forcePit) boxIn = 0;
   else if (pitsLeft > 0 || forced || (fuelLaps != null && fuelLaps < lapsLeft)) boxIn = Math.max(0, Math.floor(Math.min(planned, fuelLaps != null ? fuelLaps - 1 : planned)));
@@ -3026,7 +3026,7 @@ function rcDraw(el, vz) {
     : c.remaining <= 0 ? '<div class="rcq l2"><div class="rcsy">🏁</div><div class="rcw">ULTIMO GIRO</div><div class="rcsm">al traguardo dì «fine gara»</div></div>'
     : q ? `<div class="rcq l${q.lvl}"><div class="rcsy">${S[q.k][0]}</div><div class="rcw">${S[q.k][1]}${q.k === 'sync' ? ' · persi ' + q.missed : ''}</div><div class="rcsm">${S[q.k][2]}</div></div>`
     : near ? `<div class="rcq near"><div class="rcsy">🔧</div><div class="rcw">${boxWord}</div><div class="rcact">${esc(actTxt)}</div>${c.boxIn <= 2 && litTxt ? '<div class="rcsm">' + litTxt + ' · nel serbatoio ~' + Math.round(c.atBoxL) + ' L</div>' : ''}</div>`
-    : `<div class="rcq rest"><div class="rcw">GIRO ${c.done}</div>${last && last.t ? '<div class="rcsm">' + esc(last.t) + '</div>' : ''}</div>`;
+    : `<div class="rcq rest"><div class="rcw">GIRO ${Math.min(c.done + 1, c.done + (c.remaining > 0 ? 1 : 0))}</div>${last && last.t ? '<div class="rcsm">' + esc(last.t) + '</div>' : ''}</div>`;
   const mg = c.margin == null ? '—' : (c.margin >= 0 ? '+' : '−') + Math.abs(c.margin).toFixed(1).replace('.', ',');
   const mcls = c.margin == null ? '' : c.margin >= 1 ? 'ok' : c.margin >= 0 ? 'warn' : 'bad';
   const boxTxt = c.boxIn == null ? 'nessun box' : c.boxIn <= 0 ? 'BOX ORA' : c.boxIn === 1 ? 'box questo giro' : 'box fra ' + c.boxIn + ' giri';
