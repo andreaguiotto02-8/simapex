@@ -175,7 +175,7 @@ nav{align-items:flex-end}
 #vzo.rco{padding:10px 14px;justify-content:flex-start;background:#05070a;color:#fff}.rco #vzv{max-width:none;height:100%;gap:8px}.rcs{display:flex;flex-direction:column;gap:10px;height:100%;color:#fff}.rctop{display:flex;justify-content:space-between;align-items:flex-end}.rcbig{font-size:clamp(56px,16vh,150px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}.rcsm{font-size:clamp(14px,3vh,24px);opacity:.8}.rcright{text-align:right}.rctime{font-size:clamp(26px,7vh,60px);font-weight:800;font-variant-numeric:tabular-nums;opacity:.9}
 .rcq{flex:1;border-radius:18px;border:3px solid #2b3440;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px;min-height:0;overflow:hidden}.rcq .rcsy{font-size:clamp(32px,11vh,90px);line-height:1}.rcq .rcw{font-size:clamp(30px,9vh,76px);font-weight:900;letter-spacing:.02em;line-height:1.05}.rcq.rest{border-color:#2b3440;background:#0b0f14}.rcq.l0{border-color:#8aa0b8;background:#0f1722}.rcq.l1{border-color:#8aa0b8;animation:rcp 1s infinite}.rcq.l2{border-color:#f5c518;background:#3a3000;color:#ffe066}.rcq.l3{position:fixed;inset:0;z-index:70;border-radius:0;background:#b3141a;border:0;color:#fff;animation:rcp2 .6s infinite}.rcq.inbox{border-color:#3aa0ff;background:#0c2540}
 @keyframes rcp{50%{opacity:.45}}@keyframes rcp2{50%{opacity:.8}}.rcrow{display:flex;gap:10px}.rcbox{flex:1;border:2px solid #2b3440;border-radius:14px;padding:8px 12px}.rcbox.ok{border-color:#2fbf71;background:#0b2a1a}.rcbox.warn{border-color:#f5c518;background:#2e2700}.rcbox.bad{border-color:#e5484d;background:#3a0f12}.rcnum{font-size:clamp(34px,10vh,80px);font-weight:900;font-variant-numeric:tabular-nums}.rcnum small{font-size:.4em;font-weight:600}.rcnum2{font-size:clamp(20px,6vh,44px);font-weight:800}
-.rcwarn{background:#f5c518;color:#000;font-weight:900;text-align:center;border-radius:10px;padding:6px;font-size:clamp(18px,4vh,34px)}.rcstrip{text-align:center;font-size:14px;opacity:.7;padding:4px}.rcstrip.bad{opacity:1;background:#e5484d;color:#fff;border:0;font-weight:900;font-size:clamp(16px,3.5vh,28px);padding:10px;border-radius:10px;width:100%}.rccmd{min-height:22px;text-align:center;font-size:clamp(14px,3vh,22px);color:#8fd3ff}.rcbtn{font-size:clamp(24px,7vh,48px)!important;padding:20px!important}.rcrep{white-space:pre-wrap;font-size:13px;background:#0b0f14;border-radius:10px;padding:10px;overflow:auto;max-height:55vh}
+.rcwarn{background:#f5c518;color:#000;font-weight:900;text-align:center;border-radius:10px;padding:6px;font-size:clamp(18px,4vh,34px)}.rcstrip{text-align:center;font-size:14px;opacity:.7;padding:4px}.rcstrip.bad{opacity:1;background:#e5484d;color:#fff;border:0;font-weight:900;font-size:clamp(16px,3.5vh,28px);padding:10px;border-radius:10px;width:100%}.rccmd{min-height:22px;text-align:center;font-size:clamp(14px,3vh,22px);color:#8fd3ff}.rcbtn{font-size:clamp(24px,7vh,48px)!important;padding:20px!important}.rcsim{text-align:center;font-size:14px;color:#ffd24a}.rcsim .sec2{padding:2px 10px;margin-left:6px}.rcrep{white-space:pre-wrap;font-size:13px;background:#0b0f14;border-radius:10px;padding:10px;overflow:auto;max-height:55vh}
 #vzo{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
 #vzv{max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}.vzt{font-size:15px;font-weight:700;color:var(--accent)}.vzn{font-weight:500;color:var(--muted,var(--fg));opacity:.8;font-size:13px;margin-left:6px}
 .vzlap{border-radius:10px;background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--line)}
@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.67';   // versione dell'app
+const APP_V = '0.68';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2662,7 +2662,8 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
       if (!st.laps.length && !(st.fuelStart > 0)) { st.fuelStart = p.v; return {say: 'Carburante ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina di partenza ' + p.v + ' L'}; }
       const ln = st.pendLap || st.lapNo;
       if (!ln) return {say: 'Carburante ' + String(p.v).replace('.', ',') + ' litri.', line: 'benzina ' + p.v + ' L'};
-      const prior = (st.fuelLog || []).filter(x => x.lap < ln).sort((a, b) => b.lap - a.lap)[0] || (st.fuelStart > 0 ? {lap: 0, fuel: st.fuelStart} : null);
+      let prior = (st.fuelLog || []).filter(x => x.lap < ln).sort((a, b) => b.lap - a.lap)[0] || (st.fuelStart > 0 ? {lap: 0, fuel: st.fuelStart} : null);
+      if (prior && st.race && st.race.on && ((st.race.pits || []).some(pp => pp.lap >= prior.lap) || st.race.pit.in)) prior = null;   // dopo un rifornimento la benzina sale: non è un errore
       let v = p.v, note = '';
       if (prior) {   // controllo che sia credibile: la benzina scende, di 1-6 litri a giro
         const d = Math.max(1, ln - prior.lap), ok = x => x <= prior.fuel + 0.3 && prior.fuel - x <= 7 * d;
@@ -2776,7 +2777,7 @@ function vzListen() {
 /* ===================================================================
    MODALITÀ GARA — l'ingegnere ti segue in gara (schermo per il tablet)
    =================================================================== */
-const rcT = () => (typeof window.__rcT === 'function' ? window.__rcT() : Date.now());
+const rcT = () => (UI.sim ? (UI.sim.cur != null ? UI.sim.cur : UI.sim.t) : typeof window.__rcT === 'function' ? window.__rcT() : Date.now());
 const rcMS = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const rcOn = st => !!(st && st.race && st.race.on);
 function rcNew(P, plan, strat, fuel0) {
@@ -2887,12 +2888,12 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
   if (/^(box|pit|stand|box dentro|box fuori|entro box|esco box)$/.test(tn)) {
     const wantIn = /dentro|entro/.test(tn) ? true : /fuori|esco/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
     if (wantIn === R.pit.in) return done(wantIn ? 'sei già in box' : 'sei già fuori dal box');
-    if (wantIn) { R.pit.in = true; R.pit.inAt = now; R.pit.fuelAtIn = c.fuel ? c.fuel.v : null; R.pitLaps.push(R.laps.length + 1); return done('box · ENTRATA'); }
+    if (wantIn) { R.pit.in = true; R.pit.inAt = now; R.pit.fuelAtIn = c.fuel ? c.fuel.v : null; R.pit.rec = c.litri; R.pitLaps.push(R.laps.length + 1); return done('box · ENTRATA'); }
     const s = rcStrat(R), dur = (now - R.pit.inAt) / 1000, cOut = rcCalc(st, now), fOut = cOut.fuel ? cOut.fuel.v : R.pit.fuelAtIn;   // benzina all'uscita: il giro d'entrata è già passato
     R.pit.in = false; R.pitLaps.push(R.laps.length + 1);
-    R.pits.push({inAt: R.pit.inAt, outAt: now, dur, strat: s.id, soste: R.pit.soste != null ? R.pit.soste : s.sosta, litri: R.pit.litri != null ? R.pit.litri : s.litri, lap: R.laps.length});
-    if (fOut != null && R.cfg.refuel !== false) R.fuelBase = {lap: R.laps.length, fuel: Math.min(R.cfg.tank || 999, Math.round((Math.max(0, fOut) + (R.pit.litri != null ? R.pit.litri : (s.litri || 0))) * 10) / 10), pit: true};
-    R.pit.soste = null; R.pit.litri = null; R.sostaAsk = null; R.forcePit = false; R.stint = {start: now, n: R.stint.n + 1, synced: false};
+    R.pits.push({inAt: R.pit.inAt, outAt: now, dur, strat: s.id, soste: R.pit.soste != null ? R.pit.soste : s.sosta, litri: R.pit.litri != null ? R.pit.litri : (R.pit.rec != null ? R.pit.rec : s.litri), lap: R.laps.length});
+    if (fOut != null && R.cfg.refuel !== false) R.fuelBase = {lap: R.laps.length, fuel: Math.min(R.cfg.tank || 999, Math.round((Math.max(0, fOut) + (R.pit.litri != null ? R.pit.litri : (R.pit.rec != null ? R.pit.rec : (s.litri || 0)))) * 10) / 10), pit: true};
+    R.pit.soste = null; R.pit.litri = null; R.pit.rec = null; R.sostaAsk = null; R.forcePit = false; R.stint = {start: now, n: R.stint.n + 1, synced: false};
     return done('box · USCITA dopo ' + rcMS(dur));
   }
   if (/^(litri|carico|caricati|ho caricato|ho messo|aggiungo)\b/.test(tn) && nums.length === 1 && (R.pit.in || R.forcePit || tn.startsWith('carico'))) { R.pit.litri = nums[0]; return done('carico ' + nums[0] + ' L al box'); }
@@ -2917,6 +2918,7 @@ function rcAfter(st, lapNo0, nLaps0) {   // dopo una frase normale: se ha regist
 }
 function rcEnd(st, now) {
   const R = st.race; if (R.phase === 'done') return; R.phase = 'done'; R.tEnd = now;
+  if (R.sim) return;
   try {   // consumo e perdita sulla corsia box si aggiornano dai dati veri della gara
     const c = rcCons(st, true), key = engKey();   // rcCons scarta già i valori assurdi
     if (c && A && V) {
@@ -2945,7 +2947,7 @@ function rcReport(st) {
   L.push('Giri sporchi: ' + R.laps.filter(l => dirty(l.n)).map(l => l.n).join(', ') + (R.laps.some(l => dirty(l.n)) ? '' : 'nessuno'));
   L.push('Tempi: ' + R.laps.map(l => l.n + (l.t ? ' ' + l.t : ' ?') + (pl.has(l.n) ? ' (box)' : '') + (dirty(l.n) ? ' (sporco)' : '')).join(' · '));
   L.push('Benzina rimasta: ' + ((st.fuelLog || []).map(x => 'giro ' + x.lap + ' ' + x.fuel).join(', ') || '—') + ' · consumo reale ' + (rcCons(st, true) ? rcCons(st, true).toFixed(2).replace('.', ',') + ' L/giro' : '—'));
-  R.pits.forEach((p, i) => L.push('Box ' + (i + 1) + ': giro ' + p.lap + ' · strategia ' + p.strat + ' · ' + p.litri + ' L previsti · sosta ' + (p.soste != null ? p.soste + ' s' : '?') + ' · tempo ai box ' + rcMS(p.dur)));
+  R.pits.forEach((p, i) => L.push('Box ' + (i + 1) + ': giro ' + p.lap + ' · ' + p.litri + ' L caricati/previsti · sosta ' + (p.soste != null ? p.soste + ' s' : '?') + ' · tempo ai box ' + rcMS(p.dur)));
   const stints = []; let s0 = R.t0; R.pits.forEach(p => { stints.push((p.inAt - s0) / 1000); s0 = p.outAt; }); stints.push((now - s0) / 1000);
   L.push('Stint: ' + stints.map((x, i) => (i + 1) + ') ' + rcMS(x)).join(' · '));
   if ((st.feel || []).length) L.push('Sensazioni:'), (st.feel || []).forEach(x => L.push('  ' + (x.tyre ? '[gomme] ' : '') + (x.lap ? 'giro ' + x.lap + ': ' : '') + x.text));
@@ -2953,7 +2955,7 @@ function rcReport(st) {
   return L.join('\n');
 }
 function rcSaveRace(st) {
-  const R = st.race; if (!R || R.phase !== 'done' || R.saved) return false;
+  const R = st.race; if (!R || R.phase !== 'done' || R.saved || R.sim) return false;
   const sec = R.laps.filter(l => l.t).map(l => paceP(l.t)).filter(Boolean);
   (DB.races = DB.races || []).push({id: uid(), t: new Date().toISOString(), c: A.id, v: V.id, dur: R.cfg.dur, laps: R.laps.length, best: sec.length ? Math.min(...sec) : null, pace: rcPace(st), pits: R.pits.length, report: rcReport(st)});
   R.saved = true; save(); return true;
@@ -2965,17 +2967,16 @@ function rcDraw(el, vz) {
   const cmd = vz.log[0] && now - (R.cmdAt || 0) < 3500 ? '<div class="rccmd">' + esc(vz.log[0].line) + '</div>' : '<div class="rccmd"></div>';
   if (R.phase === 'wait') {
     el.innerHTML = `<div class="rcs"><div class="rcbig">Gara pronta</div><div class="rcsm">Benzina di partenza <b>${R.cfg.fuel0} L</b> · ${R.cfg.mand} ${R.cfg.mand === 1 ? 'sosta' : 'soste'} · stint ${R.cfg.ms ? Math.round(R.cfg.ms / 60) + ' min' : 'libero'}${R.cfg.pits.length ? ' · box ai giri ' + R.cfg.pits.join(', ') : ''}</div>
-      <div class="rcsm">Strategie: ${R.strat.map(s => '<b>' + s.id + '</b> ' + s.litri + ' L ' + esc(s.gomme) + (s.freni === 'si' ? ' + freni' : '')).join(' · ')}</div>
       <button class="pri rcbtn" data-act="rcform">PARTI · giro di formazione</button><button class="sec2" data-act="vzstop">Esci</button>${strip}</div>`; return;
   }
   if (R.phase === 'form') {
     el.innerHTML = `<div class="rcs"><div class="rcbig">Giro di formazione</div><div class="rcsm">Al semaforo verde dì <b>«via»</b> (oppure tocca)</div><button class="pri rcbtn" data-act="rcvia">VIA</button>${cmd}${strip}</div>`; return;
   }
   if (R.phase === 'done') {
-    el.innerHTML = `<div class="rcs"><div class="rcbig">Gara conclusa</div><div class="rcsm">${R.laps.length} giri · ${R.pits.length} ${R.pits.length === 1 ? 'sosta' : 'soste'}</div><pre class="rcrep">${esc(rcReport(st))}</pre>
-      <div class="vzb"><button class="pri" data-act="rccopy">Copia il report</button><button class="sec2" data-act="rcsave">${R.saved ? '✓ Salvata nelle gare' : 'Salva nello storico gare'}</button><button class="sec2" data-act="vzstop">Chiudi</button></div></div>`; return;
+    el.innerHTML = `<div class="rcs"><div class="rcbig">${R.sim ? 'Simulazione conclusa' : 'Gara conclusa'}</div><div class="rcsm">${R.laps.length} giri · ${R.pits.length} ${R.pits.length === 1 ? 'sosta' : 'soste'}</div><pre class="rcrep">${esc(rcReport(st))}</pre>
+      <div class="vzb"><button class="pri" data-act="rccopy">Copia il report</button>${R.sim ? '' : `<button class="sec2" data-act="rcsave">${R.saved ? '✓ Salvata nelle gare' : 'Salva nello storico gare'}</button>`}<button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'vzstop'}">${R.sim ? 'Chiudi simulazione' : 'Chiudi'}</button></div></div>`; return;
   }
-  const c = rcCalc(st, now), reqs = rcReqs(st, now), q = reqs[0], S = {giro: ['⏱', 'GIRO', 'dì «giro» o il tempo'], sync: ['🔄', 'SINCRONIZZA', 'dì «tempo 24 30»'], benz: ['⛽', 'BENZINA', 'dì «24 litri»'], tempo: ['🏁', 'TEMPO', 'dì «tempo 24 30»'], sosta: ['🔧', 'SOSTA?', 'dì «sosta 38»']};
+  const c = rcCalc(st, now), reqs = rcReqs(st, now), q = reqs[0], S = {giro: ['⏱', 'GIRO', 'dì «giro» o il tempo'], sync: ['🔄', 'SINCRONIZZA', 'dì «tempo 24 30»'], benz: ['⛽', 'BENZINA', 'dì «24 litri»'], tempo: ['🏁', 'TEMPO', 'dì «tempo 24 30»'], sosta: ['🔧', 'SOSTA? · pit ' + (R.pits.length + 1), 'dì «sosta 38»']};
   const last = R.laps[R.laps.length - 1];
   const centre = R.pit.in ? '<div class="rcq inbox"><div class="rcsy">🔧</div><div class="rcw">IN BOX</div><div class="rcsm">dì «box» quando esci</div></div>'
     : c.remaining <= 0 ? '<div class="rcq l2"><div class="rcsy">🏁</div><div class="rcw">ULTIMO GIRO</div><div class="rcsm">al traguardo dì «fine gara»</div></div>'
@@ -2987,20 +2988,63 @@ function rcDraw(el, vz) {
   const s = rcStrat(R), boxTxt = c.boxIn == null ? 'nessun box previsto' : (c.boxIn <= 0 ? 'BOX ORA' : c.boxIn === 1 ? 'BOX QUESTO GIRO' : 'Box fra ' + c.boxIn + ' giri') + (c.litri != null ? ' · carica ' + c.litri + ' L' : '');
   el.innerHTML = `<div class="rcs"><div class="rctop"><div><div class="rcbig">${c.lapsLeft}</div><div class="rcsm">giri alla fine</div></div><div class="rcright"><div class="rcsm">tempo gara</div><div class="rctime">${rcMS(c.remaining)}</div></div></div>
     ${centre}${warn}
-    <div class="rcrow"><div class="rcbox ${mcls}"><div class="rcsm">Margine benzina</div><div class="rcnum">${mg}<small> giri</small></div></div><div class="rcbox"><div class="rcsm">Strategia ${esc(s.id)} · stint ${rcMS(c.stintEl)}</div><div class="rcnum2">${esc(boxTxt)}</div></div></div>
-    ${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="vzstop">Esci</button></div></div>`;
+    <div class="rcrow"><div class="rcbox ${mcls}"><div class="rcsm">Margine benzina</div><div class="rcnum">${mg}<small> giri</small></div></div><div class="rcbox"><div class="rcsm">Stint ${R.stint.n + 1} · ${rcMS(c.stintEl)}</div><div class="rcnum2">${esc(boxTxt)}</div></div></div>
+    ${R.sim && UI.sim ? `<div class="rcsim">🧪 SIMULAZIONE · velocità <b>x${UI.sim.speed}</b> ${[10, 30, 60].map(k => `<button class="sec2" data-act="rcspd" data-k="${k}">x${k}</button>`).join('')}</div>` : ''}${cmd}${strip}<div class="vzb"><button class="sec2" data-act="rcend">${UI.rcArm && now - UI.rcArm < 4000 ? 'Tocca ancora: fine gara' : 'Fine gara'}</button><button class="sec2" data-act="${R.sim ? 'rcsimexit' : 'vzstop'}">${R.sim ? 'Chiudi simulazione' : 'Esci'}</button></div></div>`;
 }
 document.addEventListener('pointerdown', () => { UI.ptr = true; }, true);
 ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => { UI.ptr = false; }, 80), true));
-setInterval(() => { const vz = UI.vz; if (vz && rcOn(vz.st) && ['run', 'form'].includes(vz.st.race.phase) && !UI.ptr) vzDraw(); }, 1000);   // non ridisegna mentre tocchi lo schermo: i tocchi non si perdono
-function rcLaunch() {
+setInterval(() => { const vz = UI.vz; if (vz && rcOn(vz.st) && ['run', 'form'].includes(vz.st.race.phase) && !UI.ptr && !UI.sim) vzDraw(); }, 1000);   // non ridisegna mentre tocchi lo schermo: i tocchi non si perdono
+
+/* --- Simulazione: una gara finta con orologio accelerato, la guardi sul tablet senza guidare --- */
+function rcSimStart() {
+  const vz = UI.vz, st = vz.st, R = st.race, S = UI.sim = {t: -120000, cur: null, speed: 20, last: Date.now(), q: [], lap: 0, fuel: R.cfg.fuel0, tick: null, fin: false};
+  R.phase = 'form'; R.tForm = rcT(); st.fuelStart = R.cfg.fuel0; S.fuel = R.cfg.fuel0 - (R.cfg.form === 'full' ? 1 : R.cfg.form === 'short' ? 0.5 : 0) * (R.cfg.cons || 0);
+  rcSimAt(S, 0, () => { rcSimSay('via'); rcSimPlan(S, 0); });
+  S.tick = setInterval(rcSimTick, 200); vzPersist(); vzDraw();
+}
+function rcSimAt(S, at, fn) { S.q.push({at, fn}); S.q.sort((a, b) => a.at - b.at); }
+function rcSimSay(txt) { const vz = UI.vz; if (vz) vzHandle(txt); }
+function rcSimTick() {
+  const S = UI.sim, vz = UI.vz; if (!S || !vz || !rcOn(vz.st) || !vz.st.race.sim) return rcSimEnd(false);
+  const now = Date.now(); S.t += (now - S.last) * S.speed; S.last = now;
+  while (S.q.length && S.q[0].at <= S.t) { const e = S.q.shift(); S.cur = e.at; try { e.fn(); } catch (_) {} S.cur = null; }
+  vzDraw();
+}
+function rcSimPlan(S, tStart) {   // programma il prossimo giro come lo guiderebbe una persona che guarda lo schermo
+  const vz = UI.vz; if (!vz || S.fin) return; const st = vz.st, R = st.race, cfg = R.cfg, rnd = Math.random;
+  const c = rcCalc(st, tStart), lt = cfg.pace + (rnd() - 0.5) * 3 + (rnd() < 0.05 ? rnd() * 8 : 0), enter = c.boxIn != null && c.boxIn <= 1;
+  const extra = enter ? 52000 : 0, tEnd = tStart + lt * 1000 + (enter ? 14000 : 0), cons = (cfg.cons || 3) + (rnd() - 0.5) * 0.2;
+  S.lap++; S.fuel -= cons;
+  const finalLap = (tStart / 1000) >= cfg.dur - 1 || c.remaining <= 0;
+  if (enter) { rcSimAt(S, tEnd - 20000, () => rcSimSay('box')); rcSimAt(S, tEnd - 19000, () => rcSimSay('sosta ' + (cfg.pit || 38))); if (c.litri != null) { rcSimAt(S, tEnd - 18000, () => rcSimSay('carico ' + c.litri)); } }
+  const forget = !enter && rnd() < 0.06;
+  if (!forget) rcSimAt(S, tEnd, () => { if (enter || rnd() < 0.5) rcSimSay('giro'); else { const m = Math.floor(lt / 60), sec = Math.floor(lt % 60), ms = Math.floor((lt - Math.floor(lt)) * 1000); rcSimSay(m + ' ' + sec + ' e ' + String(ms).padStart(3, '0')); } });
+  if (enter) { rcSimAt(S, tEnd + extra, () => { rcSimSay('box'); S.fuel = Math.min(cfg.tank || 999, S.fuel + (c.litri || 0)); }); }
+  if (S.lap % 3 === 0 && !forget && !enter) rcSimAt(S, tEnd + 2000, () => rcSimSay(Math.max(1, S.fuel).toFixed(1).replace('.', ',') + ' litri'));
+  if (S.lap % 10 === 0 && !enter) rcSimAt(S, tEnd + 3000, () => { const left = Math.max(0, Math.round(cfg.dur - (tEnd + 3000) / 1000)); rcSimSay('tempo ' + Math.floor(left / 60) + ' ' + (left % 60)); });
+  if (finalLap) { S.fin = true; rcSimAt(S, tEnd + 4000, () => { rcSimSay('fine gara'); rcSimEnd(true); }); return; }
+  rcSimAt(S, tEnd + extra + 3500, () => rcSimPlan(S, tEnd + extra));
+}
+function rcSimEnd(finished) {
+  const S = UI.sim; if (S && S.tick) { clearInterval(S.tick); S.tick = null; }
+  if (finished) return;   // resta il report a schermo: si chiude con «Chiudi simulazione»
+  rcSimExit();
+}
+function rcSimExit() {
+  const S = UI.sim; if (S && S.tick) clearInterval(S.tick); UI.sim = null;
+  if (UI.simPrev !== undefined) { try { DB.settings.vzSess = JSON.parse(UI.simPrev); } catch (_) { DB.settings.vzSess = null; } UI.simPrev = undefined; }
+  UI.vzst = null; save(); if (UI.vz) vzStop();
+}
+function rcLaunch(sim) {
   const P = UI.zP, c = UI.zC; if (!P || !c) return toast('Compila prima durata, passo e consumo');
-  const strat = ['A', 'B', 'C'].map(id => ({id, litri: numP($('rsL' + id).value), gomme: $('rsT' + id).value, freni: $('rsF' + id).value, sosta: numP($('rsS' + id).value)})).filter(s => s.litri != null && s.litri >= 0 && $('rsL' + s.id).value.trim() !== '').map(s => Object.assign(s, {sosta: s.sosta != null ? s.sosta : P.pit}));
-  if (!strat.length) strat.push({id: 'A', litri: Math.round(c.r.fuel[1] || 0), gomme: 'nuove', freni: 'no', sosta: P.pit});
+  const strat = [{id: '1', litri: Math.round(c.r.fuel[1] || 0), gomme: 'piano', freni: 'no', sosta: P.pit}];
   const mgL = P.mgu === 'giri' ? P.mg : (P.cons > 0 ? P.mg / P.cons : 0), fuel0 = Math.ceil(c.r.fuel[0] + Math.max(0, 1.5 - mgL) * P.cons);
   if (!vzSupport()) return toast('Voce non supportata qui: serve Chrome');
-  vzArchive('prima della gara'); DB.settings.vzSess = null; UI.vzst = null; closeSheet(); vzStart();
-  if (!UI.vz) return; UI.vz.st.race = rcNew(P, c.r, strat, fuel0); vzPersist(); vzDraw();
+  if (sim) UI.simPrev = JSON.stringify(DB.settings.vzSess || null); else vzArchive('prima della gara');
+  DB.settings.vzSess = null; UI.vzst = null; closeSheet(); vzStart();
+  if (!UI.vz) return; const R = rcNew(P, c.r, strat, fuel0); if (sim) R.sim = true; UI.vz.st.race = R;
+  if (sim) return rcSimStart();
+  vzPersist(); vzDraw();
 }
 
 function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0; vzHandle0(raw); try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
@@ -3296,10 +3340,9 @@ function openStrat() {
       <div class="full z2"><label class="zc"><input type="checkbox" id="zmsOn"> Durata massima stint</label><label class="f zf dis" id="zmsw">Minuti<input id="zms" inputmode="decimal" value="45" disabled></label></div>
       <div class="full z2"><label class="f">Margine<input id="zmg" inputmode="decimal" value="0"></label><label class="f">Unità<select id="zmgu"><option value="giri">Giri</option><option value="litri">Litri</option></select></label></div>
     </div><div id="zout"></div>
-    <div class="zs" style="margin-top:14px"><b>Gara con l'ingegnere</b><p class="meta">Strategie di pit stop (come nell'MFD): litri da aggiungere, gomme, freni e totale sosta letto dall'MFD. La A è quella attiva, in gara dici «strategia B» per cambiarla.</p>
-      ${['A', 'B', 'C'].map(id => `<div class="zg" style="grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px"><label class="f">${id} · litri<input id="rsL${id}" inputmode="numeric" placeholder="${id === 'A' ? 'dal piano' : ''}"></label><label class="f">Gomme<select id="rsT${id}"><option value="nuove">nuove</option><option value="usate">usate</option><option value="no">no</option></select></label><label class="f">Freni<select id="rsF${id}"><option value="no">no</option><option value="si">sì</option></select></label><label class="f">Sosta (s)<input id="rsS${id}" inputmode="numeric" placeholder="MFD"></label></div>`).join('')}
-      <div class="btns" style="margin-top:8px"><button class="pri" id="rcgo" type="button">▶ Avvia la gara</button>${(() => { const r = DB.settings.vzSess && DB.settings.vzSess.race; return r && r.on && r.phase !== 'done' ? '<button class="sec2" data-act="rcresume">↩ Riprendi la gara in corso</button>' : ''; })()}</div></div>`, carNameFull());
-  $('rcgo').addEventListener('click', rcLaunch);
+    <div class="zs" style="margin-top:14px"><b>Gara con l'ingegnere</b><p class="meta">Segue il piano calcolato qui sopra: benzina di partenza, giri dei box e litri da caricare. Il tempo di sosta lo dici tu quando lo vedi nell'MFD («sosta 38»).</p>
+      <div class="btns" style="margin-top:8px"><button class="pri" id="rcgo" type="button">▶ Avvia la gara</button><button class="sec2" id="rcsimgo" type="button">🧪 Prova veloce (simulazione)</button>${(() => { const r = DB.settings.vzSess && DB.settings.vzSess.race; return r && r.on && r.phase !== 'done' && !r.sim ? '<button class="sec2" data-act="rcresume">↩ Riprendi la gara in corso</button>' : ''; })()}</div></div>`, carNameFull());
+  $('rcgo').addEventListener('click', () => rcLaunch(false)); $('rcsimgo').addEventListener('click', () => rcLaunch(true));
   const zr = () => {
     const g = id => $(id).value;
     const dh = numP(g('zdurh') || '0'), dm = numP(g('zdurm') || '0'), D = dh == null || dm == null ? null : dh * 60 + dm, pace = paceP(g('zpace')), cons = numP(g('zcons')), pit = numP(g('zpit')), mand = numP(g('zmand')), tk = numP(g('ztank')), mg = numP(g('zmg'));
@@ -3308,7 +3351,7 @@ function openStrat() {
       UI.zP = null; out.innerHTML = '<p class="meta">Compila i campi vuoti per vedere la strategia.</p>'; return;
     }
     const P = {D: D * 60, pace, cons, pit, mand: Math.floor(mand), tank: tk, mg, mgu: g('zmgu'), form: g('zform'), refuel: g('zref') === '1', ms: ms != null ? ms * 60 : null};
-    const c = stratCalc(P), r = c.r; UI.zP = P; UI.zC = c; if ($('rsLA') && !$('rsLA').value.trim() && r.fuel[1]) $('rsLA').placeholder = Math.round(r.fuel[1]) + ' (dal piano)';
+    const c = stratCalc(P), r = c.r; UI.zP = P; UI.zC = c; 
     let h = c.notes.map(n => `<div class="warn">${esc(n)}</div>`).join('');
     h += `<div class="ztiles"><div class="tile"><div class="k">Giri di gara</div><div class="v">${r.n}</div><div class="s">passo tra ${fPace(r.low)}${r.high != null ? ' e ' + fPace(r.high) : ' e oltre'}</div></div>
       <div class="tile"><div class="k">Durata stimata</div><div class="v">${fDur(r.dur)}</div><div class="s">${r.stops}${r.stops === 1 ? ' sosta' : ' soste'}</div></div></div><div class="rows">`;
@@ -3919,6 +3962,8 @@ const ACT = {
   rccopy: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; try { navigator.clipboard.writeText(rcReport(vz.st)).then(() => toast('Report copiato'), () => toast('Copia non riuscita')); } catch (_) { toast('Copia non riuscita'); } },
   rcsave: () => { const vz = UI.vz; if (!rcOn(vz && vz.st)) return; if (rcSaveRace(vz.st)) { vzPersist(); vzDraw(); toast('Gara salvata nello storico'); } },
   rcresume: () => { closeSheet(); vzStart(); },
+  rcspd: b => { if (UI.sim) { UI.sim.speed = +b.dataset.k || 20; vzDraw(); } },
+  rcsimexit: () => rcSimExit(),
   vzbrmode: b => { vzSt().mode = b.dataset.m; vzPersist(); vzBrief(); },
   vzbrwet: b => { vzSt().wet = b.dataset.w === '1'; vzPersist(); vzBrief(); },
   vzstop: vzStop,
