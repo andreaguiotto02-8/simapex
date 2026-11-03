@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.74';   // versione dell'app
+const APP_V = '0.75';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -3541,6 +3541,7 @@ function openStrat() {
     </div><div id="zout"></div>
     <div class="zs" style="margin-top:14px"><b>Gara con l'ingegnere</b><p class="meta">Segue il piano calcolato qui sopra: benzina di partenza, giri dei box e litri da caricare. Il tempo di sosta lo dici tu quando lo vedi nell'MFD («sosta 38»).</p>
       <div class="btns" style="margin-top:8px"><button class="pri" id="rcgo" type="button">▶ Avvia la gara</button><button class="sec2" id="rcsimgo" type="button">🧪 Prova veloce (simulazione)</button>${(() => { const r = DB.settings.vzSess && DB.settings.vzSess.race; return r && r.on && r.phase !== 'done' && !r.sim ? '<button class="sec2" data-act="rcresume">↩ Riprendi la gara in corso</button>' : ''; })()}</div></div>`, carNameFull());
+  document.querySelectorAll('.zg input:not([type=checkbox])').forEach(el => el.addEventListener('focus', () => setTimeout(() => { try { el.select(); } catch (_) {} }, 0)));   // tocchi il campo e scrivi: il valore vecchio è già selezionato
   $('rcgo').addEventListener('click', () => rcLaunch(false)); $('rcsimgo').addEventListener('click', () => rcLaunch(true));
   const zr = () => {
     const g = id => $(id).value;
