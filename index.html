@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.72';   // versione dell'app
+const APP_V = '0.73';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2182,10 +2182,11 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   const ints = (t.match(/\b\d+\b/g) || []);
   const hasGiro = /\bgiro\b/.test(t);
   if (ints.length || hasGiro) {
-    const direct = t.match(/\b(\d)\.(\d{2})\.(\d{3})\b/) || null;
-    let time = direct ? direct[1] + ':' + direct[2] + '.' + direct[3] : vzTime(ints);
+    const direct = t.match(/\b(\d)\.(\d{2})\.(\d{2,3})\b/) || null;
+    const cs = a => a.length === 3 && /^\d$/.test(a[0]) && +a[1] <= 59 && a[1].length === 2 && a[2].length <= 2 ? a[0] + ':' + a[1] + '.' + a[2].padEnd(3, '0') : null;   // senza millesimi (dal cruscotto): «1 50 34» = 1:50.340
+    let time = direct ? direct[1] + ':' + direct[2] + '.' + direct[3].padEnd(3, '0') : (vzTime(ints) || cs(ints));
     let lap = null;
-    if (!time && hasGiro && ints.length >= 2 && +ints[0] <= 99) { lap = +ints[0]; time = vzTime(ints.slice(1)); }
+    if (!time && hasGiro && ints.length >= 2 && +ints[0] <= 99) { lap = +ints[0]; time = vzTime(ints.slice(1)) || cs(ints.slice(1)); }
     if (time) return Object.assign(r, {k: 'lap_time', time, lap});
     if (hasGiro && ints.length === 1 && +ints[0] <= 99) return Object.assign(r, {k: 'lap_only', lap: +ints[0]});
     if (!hasGiro && ints.length === 1 && ctx.pendLap) { return Object.assign(r, {k: 'partial', ints}); }
@@ -3137,7 +3138,7 @@ function rcLaunch(sim) {
 /* --- Qualifica: solo raccolta dati per sviluppare poi la modalità qualifica (l'ingegnere non parla, non consiglia) --- */
 const qOn = st => !!(st && st.q && st.q.on);
 const Q_SKIP = ['lancio', 'raffreddamento', 'rientro', 'uscita'];
-const Q_KIND = [[/^(giro )?(di )?lancio$/, 'lancio'], [/^(giro )?(buono|valido|veloce|di push|push|di attacco|attacco)$/, 'buono'], [/^(giro )?(di )?(raffreddamento|cool ?down|recupero)$/, 'raffreddamento'], [/^(giro )?(di )?rientro$/, 'rientro'], [/^(giro )?(di )?(uscita|out)$/, 'uscita']];
+const Q_KIND = [[/\b(lancio|preparazione)\b/, 'lancio'], [/\b(raffreddamento|cool ?down|recupero)\b/, 'raffreddamento'], [/\brientro\b/, 'rientro'], [/\b(uscita|uscito|out lap)\b/, 'uscita'], [/\b(buono|valido|veloce|push|attacco)\b/, 'buono']];
 const Q_FLAG = [[/^(traffico|c e traffico|ho trovato traffico)$/, 'traffico'], [/^(errore|ho sbagliato|sbagliato|giro lungo|sono andato lungo|lungo|bloccaggio|ho bloccato)$/, 'errore']];
 function qInit() {
   let st = vzSt(); if (st.mode !== 'qualifica' || rcOn(st)) return;
@@ -3159,7 +3160,9 @@ function qHandle(raw, vz) {
   if (/\bmodalita\b/.test(tn)) return done('«modalità» ignorato in qualifica');
   if (/^(fine qualifica|fine sessione|qualifica finita|sessione finita|finita|fine)$/.test(tn)) { qEnd(st); return done('qualifica conclusa'); }
   if (/^(tempo|manca|mancano|rimasto|tempo rimasto|tempo sessione)\b/.test(tn) && nums.length && nums.length <= 2) { const left = nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0] * 60; Q.sync = {at: now, left}; return done('tempo sessione ' + rcMS(left)); }
-  for (const [re, k] of Q_KIND) if (re.test(tn)) return done(k + ' · ' + qTag(st, 'k', k));
+  const rl = String(raw).toLowerCase();
+  if (!nums.length && tn.split(' ').length <= 6) for (const [re, k] of Q_KIND) if (re.test(tn) || re.test(rl)) return done(k + ' · ' + qTag(st, 'k', k));
+  if (/^(di|di preparazione|di uscita|\d{1,2},?)$/.test(tn)) return done('parziale ignorato');
   for (const [re, k] of Q_FLAG) if (re.test(tn)) return done(k + ' · ' + qTag(st, 'f', k));
   return false;
 }
