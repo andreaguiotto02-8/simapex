@@ -244,7 +244,7 @@ details[open] summary::after{content:"\2212"}
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>Sim<span class="ra">a</span>pex</h1><span style="display:flex;align-items:center;gap:10px"><span class="ver" id="ver"></span><button class="ed" data-act="menu" aria-label="Menu" style="min-height:40px;min-width:44px;padding:0 12px;font-size:20px;line-height:1">⋯</button></span></div>
+  <div class="top"><h1>Sim<span class="ra">a</span>pex</h1><span style="display:flex;align-items:center;gap:10px"><span class="ver" id="ver"></span><button class="ed" data-act="guide" aria-label="Guida" style="min-height:40px;min-width:44px;padding:0 12px;font-size:18px;font-weight:800;line-height:1">?</button><button class="ed" data-act="menu" aria-label="Menu" style="min-height:40px;min-width:44px;padding:0 12px;font-size:20px;line-height:1">⋯</button></span></div>
   <div id="selbar"></div>
   <div id="notice"></div>
   <main id="main"></main>
@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.75';   // versione dell'app
+const APP_V = '0.80';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -356,7 +356,7 @@ function valid(d) {
 }
 
 let saveTimer = null;
-function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); syncSoon(); }
+function save() { DB.u = now(); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 250); syncSoon(); try { ghSoon(); } catch (_) {} }
 function flush() {
   clearTimeout(saveTimer);
   if (memOnly || !idb || !DB) return Promise.resolve();
@@ -497,6 +497,72 @@ function syncCard() {
 window.addEventListener('online', () => syncNow());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
 
+/* ---------- Guida: cosa fa ogni schermata e come si usa ---------- */
+const GUIDE = {
+  intro: ['Come funziona Simapex', `<p>Simapex ti aiuta a migliorare al simulatore senza telemetria. Tu guidi e parli, l'app tiene i dati, fa i conti e ti dice cosa fare.</p><ul><li><b>Percorso:</b> i passi da fare per ogni pista, uno alla volta.</li><li><b>Pista:</b> mappa e staccate.</li><li><b>Microfono al centro:</b> l'ingegnere di pista, a voce.</li><li><b>Setup:</b> assetto, pressioni, note.</li><li><b>Dati:</b> giro veloce, passo gara, consumo, storico e strategia gara.</li></ul><p><b>Regola d'oro:</b> niente viene salvato senza un tuo tocco. Se non tocchi Salva, è come se non fosse mai successo.</p><p>Tocca <b>?</b> in alto in qualsiasi momento per la guida della schermata in cui sei.</p>`],
+  path: ['Percorso', `<p>È la strada consigliata per ogni auto e pista: prima il giro di riferimento, poi consumo e box, il setup e il passo gara. Ogni passo ha spiegazioni su cosa fare.</p><ul><li>Tocca un passo per leggere come si fa.</li><li>«Parti con la voce» apre l'ingegnere già impostato per quel passo.</li><li>Un passo si spunta da solo quando i dati sono salvati.</li><li>«Ricomincia il percorso» azzera solo le spunte, non i dati.</li></ul>`],
+  pista: ['Pista', `<p>La mappa della pista con le curve e le staccate.</p><ul><li><b>+ Curva</b> aggiunge una curva, poi aggiungi i punti di staccata.</li><li><b>Detta</b> ti fa dire le staccate a voce.</li><li><b>Elenco</b> mostra tutte le curve in una lista.</li><li>Le piste del catalogo hanno già il disegno: lo trovi nel menu ⋯.</li></ul>`],
+  setup: ['Setup', `<p>Tutto sull'assetto dell'auto.</p><ul><li><b>Setup asciutto / bagnato:</b> i valori dell'auto, un gruppo di parametri alla volta.</li><li><b>Ingegnere: cosa provare:</b> ti propone una sola modifica alla volta e poi confronta i tempi, così capisci cosa funziona davvero.</li><li><b>Pressioni a caldo:</b> scrivi quelle che leggi a gomme calde e ti dice la correzione da fare a freddo.</li><li><b>Note:</b> appunti per auto e pista, anche a voce.</li></ul>`],
+  dati: ['Dati', `<p>I numeri di riferimento della tua auto su questa pista.</p><ul><li><b>Giro veloce, passo gara, consumo:</b> tocca un riquadro per modificarlo. Il consumo ha un valore per ogni mappa motore.</li><li><b>Dati della sessione:</b> quello che hai detto all'ingegnere nell'ultima sessione.</li><li><b>Storico:</b> tutte le prove e le gare salvate.</li><li><b>Strategia gara:</b> il piano di una gara (vedi la guida dedicata).</li></ul>`],
+  voce: ['Ingegnere di pista (voce)', `<p>Tocca il microfono, scegli la modalità in «Prima di partire» e parla. L'ingegnere ascolta e tiene i conti. Non salva nulla di suo: a fine sessione decidi tu cosa tenere.</p><p><b>Cosa puoi dire</b></p><ul><li><b>Il tempo del giro:</b> «1 52 e 614», oppure senza millesimi «1 52 61» (vale 1:52.610).</li><li><b>Benzina:</b> «benzina 44» dopo il tempo.</li><li><b>«Giro sporco»</b> prima del tempo di un giro da non contare.</li><li><b>«Giro box»</b> prima del tempo del giro in cui entri e di quello in cui esci: misura il tempo perso nella corsia box.</li><li><b>«Gomme nuove»</b> quando le monti.</li><li><b>Pressioni:</b> «pressioni a freddo 26 7 26 8 26 9 26 9» (anteriore sinistra, destra, posteriore sinistra, destra).</li><li><b>«Mappa 2»</b> quando la cambi.</li><li><b>«Per Claude» + nota:</b> una nota per chi sviluppa l'app, per esempio «per Claude il margine mi confonde».</li></ul>`],
+  strat: ['Strategia gara', `<p>Calcola come fare una gara: quanti giri, quando fermarti e con quanta benzina. I dati dell'auto sono già compilati, gli altri li scrivi tu: tocca un campo e il vecchio valore si sostituisce subito.</p><ul><li><b>Sosta effettiva (s):</b> i secondi in cui sei fermo ai box. Il tempo perso in corsia si aggiunge da solo quando è stato misurato.</li><li><b>Piloti e max per pilota:</b> l'app fa guidare tutti i piloti e rispetta il limite di tempo.</li><li><b>Giri max gomme:</b> parte da un valore di base e poi impara dalle tue sessioni.</li><li><b>Margine:</b> quanta benzina in più vuoi tenere, in giri o in litri, solo alla partenza.</li><li>Per ogni sosta vedi cosa fare: pilota, gomme, benzina.</li><li><b>Avvia la gara</b> apre la schermata di gara; <b>Prova veloce</b> la simula in pochi secondi.</li></ul>`],
+  gara: ['Gara con l\'ingegnere', `<p>Schermata per il tablet: grande, senza distrazioni, solo cose da guardare. Parli con la voce.</p><ul><li><b>In alto:</b> tempo di gara a sinistra, giri alla fine a destra.</li><li><b>Al centro:</b> quello che l'ingegnere ti chiede o ti dice (giro, benzina, sosta, box).</li><li><b>In basso:</b> box fra quanti giri, numero del giro, margine in giri e mappa in uso.</li></ul><p><b>Comandi</b></p><ul><li>«Via» alla partenza, «giro» a ogni passaggio sul traguardo, oppure il tempo del giro.</li><li>«Tempo 24 30» per sincronizzare il tempo di gara rimasto.</li><li>«Benzina 24 litri» quando te lo chiede.</li><li>«Box» quando entri e di nuovo quando esci; «sosta 31,06» col tempo di sosta in secondi.</li><li>«Cosa devo fare al prossimo box» e «che mappa ho» rispondono a schermo.</li><li>«Pausa» e «riprendi» fermano e riavviano i conti.</li><li>«Elimina ultimo tempo» se un tempo è sbagliato.</li></ul><p>A fine gara, <b>Salva nello storico</b> aggiorna consumo e tempi box: se non lo tocchi, è come se la gara non fosse mai stata fatta.</p>`],
+  quali: ['Qualifica (raccolta dati)', `<p>Modalità semplice per raccogliere dati: l'ingegnere non parla né consiglia. Dopo ogni tempo dì il tipo di giro.</p><ul><li><b>Tipo:</b> «lancio», «buono», «raffreddamento», «rientro», «uscita».</li><li><b>Note sul giro:</b> «traffico», «errore».</li><li>«Tempo 8 30» per far contare il tempo che resta.</li><li>«Gomme nuove», pressioni «a freddo» o «a caldo».</li><li>«Fine qualifica» e poi <b>Copia il report</b> o <b>Salva nello storico</b>.</li></ul>`],
+  backup: ['Backup e Claude programmatore', `<ul><li><b>Sincronizzazione:</b> stessi dati su telefono, tablet e PC con il tuo account Google.</li><li><b>Copie interne:</b> l'app fa copie di sicurezza da sola.</li><li><b>Backup su file:</b> scarica o condividi tutto in un file.</li><li><b>Claude programmatore:</b> invia in un deposito privato dati, errori e note «per Claude», così l'app può essere migliorata senza che tu debba spiegare niente. Si attiva una volta sola con una chiave di accesso.</li></ul>`]
+};
+function guideSheet(key) {
+  const tab = UI.tab, def = key || (tab === 'dati' || tab === 'setup' || tab === 'pista' || tab === 'path' || tab === 'backup' ? tab : 'intro'), g = GUIDE[def] || GUIDE.intro;
+  const others = Object.keys(GUIDE).filter(k => k !== def).map(k => `<button class="sec2" data-act="guide" data-g="${k}">${esc(GUIDE[k][0])}</button>`).join('');
+  sheet(g[0], g[1] + `<h3 style="margin-top:14px">Altre guide</h3><div class="btns" style="flex-wrap:wrap">${others}</div>`);
+}
+
+/* ---------- Claude programmatore: note, errori e dati dell'app vanno nel deposito privato su GitHub ---------- */
+var GH = {busy: false, err: '', t: 0, timer: null};
+function devLog(kind, o) {   // note per Claude, errori dell'app, frasi non capite: servono a migliorare l'app
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.settings) return;
+    const d = DB.settings.dev = DB.settings.dev || {notes: [], errors: [], unk: []}; d[kind] = d[kind] || [];
+    const e = Object.assign({t: now(), v: APP_V}, o), a = d[kind];
+    if (kind !== 'notes' && a[0] && a[0].msg === e.msg && a[0].heard === e.heard) { a[0].n = (a[0].n || 1) + 1; return; }
+    a.unshift(e); d[kind] = a.slice(0, kind === 'notes' ? 300 : 150); save();
+  } catch (_) {}
+}
+window.addEventListener('error', e => devLog('errors', {msg: String(e.message || '').slice(0, 200), at: String(e.filename || '').split('/').pop() + ':' + e.lineno}));
+window.addEventListener('unhandledrejection', e => devLog('errors', {msg: 'promise: ' + String((e.reason && e.reason.message) || e.reason || '').slice(0, 200)}));
+const ghCfg = () => { const g = DB && DB.settings && DB.settings.gh; return g && g.token && g.repo ? g : null; };
+function ghData() {
+  const out = JSON.parse(JSON.stringify(DB, (k, v) => k === 'photo' || k === 'gh' ? undefined : v));
+  return {data: JSON.stringify({app: 'simapex', v: APP_V, exported: now(), data: out}),
+    diag: JSON.stringify({app: 'simapex', v: APP_V, t: now(), ua: navigator.userAgent, dev: DB.settings.dev || {}, session: DB.settings.vzSess || null, archive: DB.settings.vzArch || []})};
+}
+async function ghPut(g, path, text, msg) {
+  const url = 'https://api.github.com/repos/' + g.repo + '/contents/' + path, h = {Authorization: 'Bearer ' + g.token, Accept: 'application/vnd.github+json'};
+  let sha; const r0 = await fetch(url, {headers: h}); if (r0.ok) sha = (await r0.json()).sha; else if (r0.status !== 404) throw new Error('GitHub ' + r0.status + (r0.status === 401 ? ' (chiave non valida)' : r0.status === 403 ? ' (permessi)' : ''));
+  const body = {message: msg, content: btoa(unescape(encodeURIComponent(text)))}; if (sha) body.sha = sha;
+  const r = await fetch(url, {method: 'PUT', headers: h, body: JSON.stringify(body)}); if (!r.ok) throw new Error('GitHub ' + r.status + (r.status === 404 ? ' (deposito non trovato o chiave senza permesso)' : ''));
+}
+async function ghSync(force) {
+  const g = ghCfg(); if (!g || GH.busy || navigator.onLine === false) return;
+  if (!force && g.lu === DB.u) return;
+  GH.busy = true; GH.err = ''; const u0 = DB.u;
+  try { const p = ghData(); await ghPut(g, 'dati/app-data.json', p.data, 'dati app ' + now()); await ghPut(g, 'dati/diag.json', p.diag, 'diagnostica ' + now()); g.lu = u0; g.t = now(); flush(); }
+  catch (e) { GH.err = String((e && e.message) || e); }
+  GH.busy = false; if (UI.tab === 'backup' && !busyUI()) render();
+}
+function ghSoon() {   // al massimo un invio ogni 10 minuti, dopo che qualcosa è cambiato
+  try { if (!ghCfg()) return; clearTimeout(GH.timer); const g = ghCfg(), wait = Math.max(60000, 600000 - (Date.now() - (g.t ? Date.parse(g.t) : 0))); GH.timer = setTimeout(() => ghSync(false), wait); } catch (_) {}
+}
+window.addEventListener('online', () => ghSoon());
+function devCard() {
+  const g = (DB.settings && DB.settings.gh) || {}, on = !!(g.token && g.repo), d = DB.settings.dev || {}, nn = (d.notes || []).length;
+  return `<div class="card"><h2>Claude programmatore</h2><p class="meta">Invia in un deposito GitHub privato i dati dell'app, gli errori e le note che dici con «per Claude», così Claude può migliorare l'app da solo. Serve una chiave di accesso (la spiega Claude in chat).</p>
+    <label class="f">Deposito<input id="ghRepo" value="${esc(g.repo || 'andreaguiotto02-8/simapex-data')}" autocapitalize="off" spellcheck="false"></label>
+    <label class="f">Chiave di accesso<input id="ghTok" type="password" value="" placeholder="${on ? '•••••• già salvata (lascia vuoto per tenerla)' : 'incolla qui la chiave'}" autocomplete="off"></label>
+    <p class="meta">${on ? (g.t ? 'Ultimo invio: ' + esc(fdt(g.t)) : 'Attivo, nessun invio ancora.') + (GH.busy ? ' · sto inviando...' : '') : 'Non attivo.'} · note per Claude: ${nn}</p>
+    ${GH.err ? `<div class="warn">${esc(GH.err)}</div>` : ''}
+    <div class="btns"><button class="pri" data-bk="ghsave">${on ? 'Salva e invia ora' : 'Attiva'}</button>${on ? '<button class="sec2" data-bk="ghoff">Disattiva</button>' : ''}</div></div>`;
+}
+
 /* ---------- Copie interne ---------- */
 const listCopies = () => idb ? tx('copies', 'readonly', s => s.getAll()).then(l => l.sort((a, b) => a.t < b.t ? 1 : -1)) : Promise.resolve([]);
 function addCopy(why) {
@@ -521,7 +587,7 @@ function maybeCopy() {
 
 /* ---------- Backup su file ---------- */
 const backupName = () => 'backup-simapex-' + today() + '.json';
-const backupText = () => JSON.stringify({app:'simapex', exported: now(), data: DB});
+const backupText = () => JSON.stringify({app:'simapex', exported: now(), data: DB}, (k, v) => k === 'gh' ? undefined : v);   // la chiave di GitHub non finisce nei backup
 function backupFile() { return new File([backupText()], backupName(), {type:'application/json'}); }
 
 function shareBackup() {
@@ -2727,7 +2793,7 @@ function vzBrief(from) {
     <h3>2. A ogni giro, dì</h3>${li(['Il tempo, per esempio «1 52 e 614» (minuto, secondi, «e», millesimi)'].concat(m.fuel ? ['<b>«Benzina 44»</b> subito dopo il tempo: serve per il consumo'] : ['«Benzina 44» dopo il tempo (facoltativo, serve per il consumo)']).concat(['Se esci di pista: «giro sporco» prima del tempo', 'Per misurare la corsia box: «giro box» prima del tempo']).concat(m.extra || []))}
     <h3>3. Alla fine</h3><p>Non devi dire niente. Torni ai box e apri <b>Dati della sessione</b>: controlli i giri, vedi il confronto con i tuoi tempi salvati e scegli cosa salvare.</p>
     <p class="meta">${DB.settings.vzMute ? 'Modalità muta: non senti risposte, vedi tutto sullo schermo.' : 'L\'ingegnere risponde a voce: puoi metterlo muto con il pulsante nella schermata.'} Non salva mai niente senza il tuo tocco.</p>
-    <div class="btns" style="margin-top:12px"><button class="pri" data-act="vzstart">Parti</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
+    <div class="btns" style="margin-top:12px"><button class="pri" data-act="vzstart">Parti</button><button class="sec2" data-act="guide" data-g="${md === 'qualifica' ? 'quali' : 'voce'}">Guida</button><button class="sec2" data-act="close">Annulla</button></div>`, carNameFull());
 }
 function vzStart() {
   if (UI.vz) return;
@@ -2959,6 +3025,11 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
     if (/^(senza|niente|no|non|stesso) (cambio )?pilota$/.test(tn)) { R.pit.act.drv = false; return done('box: stesso pilota'); }
   }
   if (/^(litri|carico|caricati|ho caricato|ho messo|aggiungo)\b/.test(tn) && nums.length === 1 && (R.pit.in || R.forcePit || tn.startsWith('carico'))) { R.pit.litri = nums[0]; return done('carico ' + nums[0] + ' L al box'); }
+  { const sm = tn.match(/^(\d{1,3}) second[oi](?: e (\d{1,3}))?$/);   // «30 secondi e 381» / «trenta secondi» subito dopo il box = tempo di sosta
+    if (sm && R.phase === 'run' && (R.pit.in || R.sostaAsk || (R.pits.length && R.pit.soste == null)) && R.pit.soste == null) { const v = parseFloat(sm[1] + (sm[2] ? '.' + sm[2] : '')); if (v > 0 && v < 300) { R.pit.soste = v; rcStrat(R).sosta = v; return done('sosta ' + v + ' s'); } } }
+  if (/^(elimina|cancella|annulla|togli) (il )?(tempo|ultimo tempo|ultimo giro|tempo ultimo giro|tempo dell ultimo giro|ultimo)( giro| tempo)?$/.test(tn) && R.phase === 'run') {   // sbagliato: cancello il tempo dell'ultimo giro (il passaggio sul traguardo resta)
+    const lp = st.laps[st.laps.length - 1], rl = R.laps[R.laps.length - 1]; if (!lp) return done('nessun tempo da cancellare', true);
+    st.laps.pop(); if (rl && rl.n === lp.n) rl.t = null; return done('tempo del giro ' + lp.n + ' cancellato · dillo di nuovo'); }
   if (/^sosta\b/.test(tn) && nums.length) {   // l'MFD dà secondi e centesimi: «sosta 31,06» = 31,06 s (mai minuti)
     const dm = tn.match(/\d+(?:\.\d+)?/), v = nums.length >= 2 && !/\./.test(dm[0]) ? parseFloat(nums[0] + '.' + String(tn.match(/\d+/g)[1])) : parseFloat(dm[0]);
     if (!(v > 0 && v < 300)) return done('sosta ' + v + ' s · valore strano, ignorato', true);
@@ -3002,8 +3073,9 @@ function rcApply(st, now) {   // solo quando clicchi «Salva nello storico gare�
       if (!sp && n > 0 && a.fuel > b.fuel && (ma === mb || !ma)) (byMap[mb || ma || ''] = byMap[mb || ma || ''] || []).push((a.fuel - b.fuel) / n);
     }
     const skips = [];
-    Object.keys(byMap).forEach(m => {
-      const ds = byMap[m], ref = (rcMapInfo(st, m) || {}).cons || R.cfg.cons;
+    Object.keys(byMap).forEach(m0 => {   // letture senza mappa: valgono per la mappa in uso o per quella principale
+      let m = m0; if (!m) { const p0 = DB.perf[key]; m = String(st.map || ((p0 && p0.cons || []).find(x => x.main) || (p0 && p0.cons || [])[0] || {}).map || '').split(' ')[0]; }
+      const ds = byMap[m0], ref = (rcMapInfo(st, m) || {}).cons || R.cfg.cons;
       if (!m || !A || !V) return;
       if (ds.length < 2 || Math.max(...ds) / Math.min(...ds) > 1.4) { skips.push('mappa ' + m + ': letture troppo diverse o poche, consumo NON aggiornato'); return; }
       const c = ds.reduce((x, y) => x + y, 0) / ds.length; if (ref && (c < ref * 0.5 || c > ref * 2)) { skips.push('mappa ' + m + ': valore assurdo, NON aggiornato'); return; }
@@ -3177,6 +3249,7 @@ function qHandle(raw, vz) {
   if (/\bnuova sessione\b/.test(tn)) return done('«nuova sessione» ignorato in qualifica');
   if (/\bmodalita\b/.test(tn)) return done('«modalità» ignorato in qualifica');
   if (/^(fine qualifica|fine sessione|qualifica finita|sessione finita|finita|fine)$/.test(tn)) { qEnd(st); return done('qualifica conclusa'); }
+  if (/^(elimina|cancella|annulla|togli) (il )?(tempo|ultimo tempo|ultimo giro|tempo ultimo giro|ultimo)( giro| tempo)?$/.test(tn)) { const lp = st.laps[st.laps.length - 1]; if (!lp) return done('nessun tempo da cancellare', true); st.laps.pop(); st.lapNo = Math.max(0, (st.lapNo || 1) - 1); return done('tempo del giro ' + lp.n + ' cancellato · dillo di nuovo'); }
   if (/^(tempo|manca|mancano|rimasto|tempo rimasto|tempo sessione)\b/.test(tn) && nums.length && nums.length <= 2) { const left = nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0] * 60; Q.sync = {at: now, left}; return done('tempo sessione ' + rcMS(left)); }
   const rl = String(raw).toLowerCase();
   if (!nums.length && tn.split(' ').length <= 6) for (const [re, k] of Q_KIND) if (re.test(tn) || re.test(rl)) return done(k + ' · ' + qTag(st, 'k', k));
@@ -3230,7 +3303,13 @@ function qDraw(el, vz) {
   el.innerHTML = `<div class="rcs"><div class="rctop"><div><div class="rcsm">${left != null ? 'TEMPO SESSIONE' : 'QUALIFICA · raccolta dati'}</div><div class="rcbig">${left != null ? rcMS(left) : '—'}</div></div><div class="rcright"><div class="rcsm">PROSSIMO GIRO</div><div class="rcbig">${(st.lapNo || 0) + 1}</div></div></div>
     ${centre}<div class="qrows">${rows}</div>${cmd}${strip}<div class="vzb"><button class="sec2" data-act="qend">${UI.qArm && now - UI.qArm < 4000 ? 'Tocca ancora: fine qualifica' : 'Fine qualifica'}</button><button class="sec2" data-act="qexit">${UI.qArm2 && now - UI.qArm2 < 4000 ? 'Tocca ancora: esci' : 'Esci'}</button></div></div>`;
 }
-function vzHandle(raw) { const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0], pl0 = st0 ? st0.pendLap : null, pr0 = st0 ? JSON.stringify(st0.press || null) : ''; vzHandle0(raw); try { if (st0 && qOn(st0)) { qAfter(st0, nl0, pr0); if (UI.vz && UI.vz.log[0] !== lg0) st0.q.cmdAt = Date.now(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcMapCheck(st0); } catch (_) {} try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0, pl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
+function vzHandle(raw) {
+  { const pc = String(raw).trim().match(/^per claude[\s,:.;-]*(.*)$/i);   // «per Claude» + nota: va nel registro per lo sviluppo, non cambia niente nell'app
+    if (pc && UI.vz && UI.vz.st) { const vz = UI.vz, st = vz.st, txt = pc[1].trim();
+      if (txt.length < 3) { vz.log.unshift({heard: raw, norm: '', k: 'note', line: 'nota vuota: dì «per Claude» e poi la nota', bad: true}); }
+      else { devLog('notes', {text: txt, mode: st.mode || '', lap: st.lapNo || 0, race: rcOn(st) ? 1 : 0, quali: qOn(st) ? 1 : 0, car: (typeof carNameFull === 'function' ? carNameFull() : '')}); vz.log.unshift({heard: raw, norm: '', k: 'note', line: 'nota per Claude salvata'}); }
+      vz.log = vz.log.slice(0, 250); if (rcOn(st)) st.race.cmdAt = rcT(); if (qOn(st)) st.q.cmdAt = Date.now(); vzDraw(); return; } }
+  const st0 = UI.vz && UI.vz.st, ln0 = st0 ? st0.lapNo : 0, nl0 = st0 && st0.laps ? st0.laps.length : 0, lg0 = UI.vz && UI.vz.log[0], pl0 = st0 ? st0.pendLap : null, pr0 = st0 ? JSON.stringify(st0.press || null) : ''; vzHandle0(raw); try { const lg = UI.vz && UI.vz.log[0]; if (lg && lg !== lg0 && (lg.bad || lg.k === 'unknown')) devLog('unk', {heard: String(lg.heard || raw).slice(0, 120), msg: String(lg.line || '').slice(0, 80), mode: (st0 && st0.mode) || '', race: st0 && rcOn(st0) ? 1 : 0, quali: st0 && qOn(st0) ? 1 : 0, lap: st0 ? st0.lapNo : 0}); } catch (_) {} try { if (st0 && qOn(st0)) { qAfter(st0, nl0, pr0); if (UI.vz && UI.vz.log[0] !== lg0) st0.q.cmdAt = Date.now(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcMapCheck(st0); } catch (_) {} try { if (st0 && rcOn(st0) && UI.vz && UI.vz.log[0] !== lg0) { st0.race.cmdAt = rcT(); vzDraw(); } } catch (_) {} try { if (st0 && rcOn(st0)) rcAfter(st0, ln0, nl0, pl0); } catch (_) {} try { vzPersist(); } catch (_) {} pathTick(); }
 setInterval(() => { if (UI.vz) pathTick(); }, 60000);
 setInterval(() => { const vz = UI.vz; if (vz && !vz.rec && !(vz.status === 'err' && /Microfono non consentito/.test(vz.err || ''))) { vz.errs = []; vzListen(); } }, 5000);   // guardiano: se l'ascolto è fermo, riparte da solo
 document.addEventListener('visibilitychange', () => { const vz = UI.vz; if (!document.hidden && vz && !vz.rec) { vz.errs = []; vzListen(); } });
@@ -3541,7 +3620,7 @@ function openStrat() {
     ? `Precompilato dai dati di questa auto: passo gara asciutto ${perf.paceD || 'mancante'}, consumo ${main.v} ${G.unit}, tempo di sosta ${pt.s} s (${pt.st})${pt.lane ? ', corsia box misurata ' + String(pt.lane).replace('.', ',') + ' s (tempo perso senza fermarsi)' : ''}, serbatoio ${tank || 'mancante'}${tank ? ' L' : ''}.`
     : 'Per questa auto su questo circuito mancano passo e consumo. Inseriscili qui sotto o salvali in Dati rapidi.';
   const pstText = dirty => '<b>' + (dirty ? 'Non salvato' : pt.st.charAt(0).toUpperCase() + pt.st.slice(1)) + '</b> · ' + esc(G.name) + ' · ' + esc(varName()) + (!dirty && pt.st === 'copiato' && pt.from ? ' (da ' + esc(pt.from) + ')' : '');
-  sheet('Strategia gara', `<p class="meta">${esc(info)}</p><div class="zg">
+  sheet('Strategia gara', `<p class="meta">${esc(info)} <button class="sec2" data-act="guide" data-g="strat" type="button">Guida</button></p><div class="zg">
       <div class="f">Durata gara<div style="display:flex;gap:6px;align-items:center"><input id="zdurh" inputmode="numeric" value="1" aria-label="Ore" style="min-width:0"><span>h</span><input id="zdurm" inputmode="numeric" value="0" aria-label="Minuti" style="min-width:0"><span>min</span></div></div>
       <label class="f">Passo gara<input id="zpace" value="${esc(perf ? perf.paceD : '')}" placeholder="m:ss.mmm"></label>
       <label class="f">Consumo (${esc(G.unit)})<input id="zcons" inputmode="decimal" value="${esc(main ? main.v : '')}"></label>
@@ -4067,7 +4146,7 @@ function viewBackup() {
       <p style="margin:6px 0">Contiene ${esc(summary(UI.pending.data))}. Sostituisce i dati attuali (${esc(summary(DB))}). Prima salvo una copia interna di quelli attuali.</p>
       <div class="btns" style="margin-top:6px"><button class="pri" data-bk="apply">Sostituisci i dati</button><button class="sec2" data-bk="cancel">Annulla</button></div></div>`;
   }
-  return syncCard() + `<div class="card"><h2>Backup su file</h2>
+  return syncCard() + devCard() + `<div class="card"><h2>Backup su file</h2>
       <p class="meta">Ultimo backup su file: ${esc(fdt(DB.settings.lastExport))}</p>
       ${late ? '<div class="warn">Non fai un backup su file da più di 7 giorni. Salvalo, così non perdi i dati se cambi telefono o il browser li cancella.</div>' : ''}
       <div class="btns">${canShare ? '<button class="pri" data-bk="share">Condividi backup</button>' : ''}<button class="${canShare ? 'sec2' : 'pri'}" data-bk="download">Scarica file</button>${window.showSaveFilePicker ? '<button class="sec2" data-bk="savefile">Salva in una cartella</button>' : ''}<button class="sec2" data-bk="pick">Ripristina da file</button></div>
@@ -4276,6 +4355,7 @@ const ACT = {
   brake: b => editBrake(b.dataset.tid), brakesave: saveBrake,
   brakefull: () => { if ($('bD')) $('bD').value = ''; if ($('bW')) $('bW').value = ''; saveBrake(); const key = kk(V.id, G.id), tid = UI.sh && UI.sh.tid; if (tid) { (DB.brakes[key] = DB.brakes[key] || {})[tid] = {dry: '', wet: null, note: ($('bN') ? $('bN').value.trim() : ''), full: true, u: now()}; save(); render(); } },
   quick: b => { $(b.dataset.to).value = b.dataset.v; },
+  guide: b => guideSheet(b && b.dataset ? b.dataset.g : null),
   menu: () => sheet('Menu', `<div class="btns" style="flex-direction:column;align-items:stretch"><button class="sec2" data-act="catalog">Catalogo piste (disegni già pronti)</button>${DB.variants.some(v => !v.games.includes(GAME.id)) ? '<button class="sec2" data-act="importvar">Aggiungi una pista da un altro gioco</button>' : ''}<button class="sec2" data-act="quickedit">Pulsanti rapidi delle staccate</button><button class="sec2" data-act="gobackup">Backup e sincronizzazione</button><button class="sec2" data-act="forceupd">Forza aggiornamento app (i dati restano)</button></div>`, 'Gioco: ' + GAME.name),
   forceupd: async () => { try { toast('Aggiorno…'); const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (_) {} location.reload(); },
   turnq: () => {
@@ -4355,6 +4435,8 @@ document.addEventListener('click', e => {
   const bk = t.closest('[data-bk]');
   if (bk) {
     const a = bk.dataset.bk;
+    if (a === 'ghsave') { const repo = ($('ghRepo').value || '').trim(), tok = ($('ghTok').value || '').trim(), g = DB.settings.gh = DB.settings.gh || {}; if (repo) g.repo = repo; if (tok) g.token = tok; if (!(g.token && g.repo)) { toast('Mi servono deposito e chiave'); return; } g.lu = null; save(); toast('Invio in corso...'); return ghSync(true).then(() => toast(GH.err ? 'Invio non riuscito: ' + GH.err : 'Dati inviati a GitHub')); }
+    if (a === 'ghoff') { delete DB.settings.gh; save(); render(); return toast('Invio a GitHub disattivato'); }
     if (a === 'syncin') return syncEnable();
     if (a === 'syncout') return syncDisable();
     if (a === 'syncnow') return syncNow();
@@ -4456,6 +4538,7 @@ document.addEventListener('keydown', e => {
    =================================================================== */
 function start() {
   $('ver').textContent = 'v' + APP_V;
+  setTimeout(() => { try { if (DB && DB.settings && !DB.settings.guideSeen) { DB.settings.guideSeen = 1; save(); toast('Novità: tocca «?» in alto per la guida di ogni funzione'); } } catch (_) {} }, 2500);
   openArchive().then(db => { idb = db; return tx('kv', 'readonly', s => s.get('db')); })
     .catch(() => { memOnly = true; showNotice('Il browser non permette di salvare i dati (navigazione privata?). Apri Simapex in una finestra normale.'); return null; })
     .then(txt => {
