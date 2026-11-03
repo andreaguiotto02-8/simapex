@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.73';   // versione dell'app
+const APP_V = '0.74';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2183,10 +2183,11 @@ function vzParse(raw, ctx) {   // frase -> {k: tipo, ...}
   const hasGiro = /\bgiro\b/.test(t);
   if (ints.length || hasGiro) {
     const direct = t.match(/\b(\d)\.(\d{2})\.(\d{2,3})\b/) || null;
-    const cs = a => a.length === 3 && /^\d$/.test(a[0]) && +a[1] <= 59 && a[1].length === 2 && a[2].length <= 2 ? a[0] + ':' + a[1] + '.' + a[2].padEnd(3, '0') : null;   // senza millesimi (dal cruscotto): «1 50 34» = 1:50.340
-    let time = direct ? direct[1] + ':' + direct[2] + '.' + direct[3].padEnd(3, '0') : (vzTime(ints) || cs(ints));
+    const cs = a => a.length === 2 && /^\d{3}$/.test(a[0]) && +a[0].slice(1) <= 59 && a[1].length <= 2 ? a[0][0] + ':' + a[0].slice(1) + '.' + a[1].padEnd(3, '0') : null;   // «229 e 72» = 2:29.720
+    const cs3 = a => a.length === 3 && /^\d$/.test(a[0]) && +a[1] <= 59 && a[1].length === 2 && a[2].length <= 2 ? a[0] + ':' + a[1] + '.' + a[2].padEnd(3, '0') : null;   // senza millesimi (dal cruscotto): «1 50 34» = 1:50.340
+    let time = direct ? direct[1] + ':' + direct[2] + '.' + direct[3].padEnd(3, '0') : (vzTime(ints) || cs3(ints) || cs(ints));
     let lap = null;
-    if (!time && hasGiro && ints.length >= 2 && +ints[0] <= 99) { lap = +ints[0]; time = vzTime(ints.slice(1)) || cs(ints.slice(1)); }
+    if (!time && hasGiro && ints.length >= 2 && +ints[0] <= 99) { lap = +ints[0]; time = vzTime(ints.slice(1)) || cs3(ints.slice(1)) || cs(ints.slice(1)); }
     if (time) return Object.assign(r, {k: 'lap_time', time, lap});
     if (hasGiro && ints.length === 1 && +ints[0] <= 99) return Object.assign(r, {k: 'lap_only', lap: +ints[0]});
     if (!hasGiro && ints.length === 1 && ctx.pendLap) { return Object.assign(r, {k: 'partial', ints}); }
