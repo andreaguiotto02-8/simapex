@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.80';   // versione dell'app
+const APP_V = '0.81';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -2751,7 +2751,9 @@ function vzReply(p, st) {   // cosa risponde (e cosa ricorda per la frase dopo).
     case 'lap_time': {
       { const last = st.laps[st.laps.length - 1]; if (last && last.t === p.time && !p.lap && Date.now() - (st.lastLapAt || 0) < 120000) return {say: 'Questo tempo l\'avevo già registrato. Lo ignoro.', line: 'tempo già registrato (giro ' + last.n + ') · ignorato'}; }   // ripetuto per sicurezza
       const n = p.lap || st.pendLap || ((st.lapNo || 0) + 1);
-      st.lapNo = n; st.pendLap = null;
+      const exLap = st.laps.find(l => l.n === n); st.pendLap = null;   // stesso giro detto due volte = correzione, non un giro doppio
+      if (exLap) { exLap.t = p.time; st.lastLapAt = Date.now(); return {say: 'Giro ' + n + ' corretto, ' + vzSay.time(p.time) + '.', line: 'giro ' + n + ' · ' + p.time + ' (corretto)'}; }
+      st.lapNo = n;
       const lp = {n, t: p.time, air: st.air, road: st.road, map: st.map}; if (st.tyre0 != null) lp.ta = Math.max(0, n - st.tyre0); if (st.dirtyNext) { lp.dirty = true; st.dirtyNext = false; } if (st.pitNext) { lp.dirty = true; lp.pit = true; st.pitNext = false; } st.gaps = (st.gaps || []).filter(g => g.n !== n); st.laps.push(lp); st.lastLapAt = Date.now();   // ogni giro ricorda mappa e temperature valide in quel momento
       if (st.test) return vzLapTest(lp, st);
       return {say: 'Giro ' + n + ', ' + vzSay.time(p.time) + '.', line: 'giro ' + n + ' · ' + p.time};
