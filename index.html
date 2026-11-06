@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.81';   // versione dell'app
+const APP_V = '0.82';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -431,27 +431,40 @@ async function syncDownload(remote) {
   const st = DB.settings.sync; st.ru = remote.u; st.lu = remote.u; st.t = now();
   UI.vb = null; UI.selTurn = null; await flush(); render();
 }
-const busyUI = () => !!(document.querySelector('#layer .sheet') || UI.edit || UI.move || UI.placing || UI.dr);
-async function syncNow() {
-  if (SY.busy || !SY.user || !syncOn() || !DB || navigator.onLine === false) return;
-  SY.busy = true; SY.err = ''; SY.note = ''; paintSync();
+function sessionOn() {   // c'è una sessione, una gara o una qualifica in corso?
   try {
-    const fb = await fbLoad(), st = DB.settings.sync, remote = await fb.get();
+    if (UI.vz) return true;
+    const ss = DB && DB.settings && DB.settings.vzSess; if (!ss) return false;
+    if (ss.q && ss.q.on && ss.q.phase !== 'done') return true;
+    return !!(ss.race && ss.race.on && ['wait', 'form', 'run'].includes(ss.race.phase) && Date.now() - (ss.race.cmdAt || 0) < 3600000);
+  } catch (_) { return false; }
+}
+function fieldActive() { const a = document.activeElement; return !!(a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)); }
+const safeNow = () => !!DB && !sessionOn() && !busyUI() && !fieldActive() && !SY.busy && !GH.busy;
+const busyUI = () => !!(document.querySelector('#layer .sheet') || UI.edit || UI.move || UI.placing || UI.dr);
+async function syncNow(manual) {
+  if (!SY.user || !syncOn() || !DB || navigator.onLine === false) return;
+  if (SY.busy && Date.now() - (SY.t0 || 0) < 25000) return;   // una sincronizzazione ferma da più di 25 secondi viene scartata e ne parte una nuova
+  if (!manual && sessionOn()) { SY.deferred = true; return; }   // mai durante una sessione: si rimanda al primo momento sicuro
+  const me = SY.run = (SY.run || 0) + 1; SY.busy = true; SY.t0 = Date.now(); SY.err = ''; SY.note = ''; SY.deferred = false; paintSync();
+  try {
+    const fb = await withT(fbLoad()), st = DB.settings.sync, remote = await withT(fb.get());
+    if (SY.run !== me) return;
     const localChanged = DB.u !== st.lu;
-    if (!remote) { if (!isEmpty(DB)) await syncUpload(fb); }
+    if (!remote) { if (!isEmpty(DB)) await withT(syncUpload(fb)); }
     else {
       if (remote.v > DATA_V) { SY.err = 'Nel cloud ci sono dati di una versione più nuova. Aggiorna l\'app su questo dispositivo.'; return; }
       const remoteChanged = remote.u !== st.ru;
-      if (!remoteChanged) { if (localChanged) { if (isEmpty(DB) && remote.n > 0) SY.conflict = remote; else await syncUpload(fb); } }
+      if (!remoteChanged) { if (localChanged) { if (isEmpty(DB) && remote.n > 0) SY.conflict = remote; else await withT(syncUpload(fb)); } }
       else if (isEmpty(DB) || (st.ru && !localChanged)) {
-        if (busyUI()) SY.note = 'Ci sono novità nel cloud: le scarico appena chiudi la finestra aperta.'; else await syncDownload(remote);
+        if (busyUI() || sessionOn()) { SY.note = 'Ci sono novità nel cloud: le scarico appena finisci quello che stai facendo.'; SY.deferred = true; } else await syncDownload(remote);
       } else SY.conflict = remote;
     }
     if (!SY.conflict && !SY.note) st.t = now();
     await flush();
   } catch (e) {
-    SY.err = e && e.message === 'troppo grande' ? 'I dati sono troppo grandi per il cloud: fai un backup su file e dimmelo.' : 'Sincronizzazione non riuscita. Riprovo appena possibile.';
-  } finally { SY.busy = false; paintSync(); }
+    if (SY.run === me) SY.err = e && e.message === 'troppo grande' ? 'I dati sono troppo grandi per il cloud: fai un backup su file e dimmelo.' : e && /tempo scaduto/.test(e.message || '') ? 'Il cloud non risponde (oltre 20 secondi). Riprova tra poco con «Sincronizza ora».' : 'Sincronizzazione non riuscita. Riprovo appena possibile.';
+  } finally { if (SY.run === me) { SY.busy = false; paintSync(); } }
 }
 function syncSoon() { if (!SY.user || !syncOn()) return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 6000); }
 async function syncResolve(mine) {
@@ -535,18 +548,27 @@ function ghData() {
   return {data: JSON.stringify({app: 'simapex', v: APP_V, exported: now(), data: out}),
     diag: JSON.stringify({app: 'simapex', v: APP_V, t: now(), ua: navigator.userAgent, dev: DB.settings.dev || {}, session: DB.settings.vzSess || null, archive: DB.settings.vzArch || []})};
 }
+function fetchT(url, opt, ms) {   // richiesta di rete con tempo massimo (20 secondi)
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms || 20000);
+  return fetch(url, Object.assign({}, opt, {signal: ac.signal})).catch(e => { throw (e && e.name === 'AbortError') ? new Error('tempo scaduto: il servizio non risponde (oltre 20 secondi)') : e; }).finally(() => clearTimeout(t));
+}
+function withT(p, ms, msg) {   // attesa con tempo massimo per operazioni che non usano fetch
+  let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg || 'tempo scaduto: il servizio non risponde (oltre 20 secondi)')), ms || 20000); })]).finally(() => clearTimeout(t));
+}
 async function ghPut(g, path, text, msg) {
   const url = 'https://api.github.com/repos/' + g.repo + '/contents/' + path, h = {Authorization: 'Bearer ' + g.token, Accept: 'application/vnd.github+json'};
-  let sha; const r0 = await fetch(url, {headers: h}); if (r0.ok) sha = (await r0.json()).sha; else if (r0.status !== 404) throw new Error('GitHub ' + r0.status + (r0.status === 401 ? ' (chiave non valida)' : r0.status === 403 ? ' (permessi)' : ''));
+  let sha; const r0 = await fetchT(url, {headers: h}); if (r0.ok) sha = (await r0.json()).sha; else if (r0.status !== 404) throw new Error('GitHub ' + r0.status + (r0.status === 401 ? ' (chiave non valida)' : r0.status === 403 ? ' (permessi)' : ''));
   const body = {message: msg, content: btoa(unescape(encodeURIComponent(text)))}; if (sha) body.sha = sha;
-  const r = await fetch(url, {method: 'PUT', headers: h, body: JSON.stringify(body)}); if (!r.ok) throw new Error('GitHub ' + r.status + (r.status === 404 ? ' (deposito non trovato o chiave senza permesso)' : ''));
+  const r = await fetchT(url, {method: 'PUT', headers: h, body: JSON.stringify(body)}); if (!r.ok) throw new Error('GitHub ' + r.status + (r.status === 404 ? ' (deposito non trovato o chiave senza permesso)' : ''));
 }
 async function ghSync(force) {
-  const g = ghCfg(); if (!g || GH.busy || navigator.onLine === false) return;
+  const g = ghCfg(); if (!g || navigator.onLine === false) return;
+  if (GH.busy && Date.now() - (GH.t0 || 0) < 25000) return;   // un invio fermo da più di 25 secondi viene scartato e ne parte uno nuovo
   if (!force && g.lu === DB.u) return;
-  GH.busy = true; GH.err = ''; const u0 = DB.u;
-  try { const p = ghData(); await ghPut(g, 'dati/app-data.json', p.data, 'dati app ' + now()); await ghPut(g, 'dati/diag.json', p.diag, 'diagnostica ' + now()); g.lu = u0; g.t = now(); flush(); }
-  catch (e) { GH.err = String((e && e.message) || e); }
+  const me = GH.run = (GH.run || 0) + 1; GH.busy = true; GH.t0 = Date.now(); GH.err = ''; const u0 = DB.u;
+  try { const p = ghData(); await ghPut(g, 'dati/app-data.json', p.data, 'dati app ' + now()); await ghPut(g, 'dati/diag.json', p.diag, 'diagnostica ' + now()); if (GH.run === me) { g.lu = u0; g.t = now(); flush(); } }
+  catch (e) { if (GH.run === me) GH.err = String((e && e.message) || e); }
+  if (GH.run !== me) return;
   GH.busy = false; if (UI.tab === 'backup' && !busyUI()) render();
 }
 function ghSoon() {   // al massimo un invio ogni 10 minuti, dopo che qualcosa è cambiato
@@ -4441,7 +4463,7 @@ document.addEventListener('click', e => {
     if (a === 'ghoff') { delete DB.settings.gh; save(); render(); return toast('Invio a GitHub disattivato'); }
     if (a === 'syncin') return syncEnable();
     if (a === 'syncout') return syncDisable();
-    if (a === 'syncnow') return syncNow();
+    if (a === 'syncnow') return syncNow(true);
     if (a === 'syncmine') return syncResolve(true);
     if (a === 'synccloud') return syncResolve(false);
     if (a === 'share') return shareBackup();
@@ -4563,10 +4585,27 @@ function start() {
     });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     const had = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    let swReg = null, reloaded = false;
+    navigator.serviceWorker.register('sw.js').then(r => { swReg = r; r.update().catch(() => {}); }).catch(() => {});
+    const swCheck = () => { try { if (swReg && navigator.onLine !== false) swReg.update().catch(() => {}); } catch (_) {} };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') swCheck(); });
+    window.addEventListener('online', swCheck);
+    // ricarica da sola solo quando è sicuro: niente sessione, finestre, campi in modifica o salvataggi in corso
+    const tryReload = async () => {
+      if (!UI.reloadPending || reloaded || !safeNow()) return;
+      reloaded = true; try { await flush(); } catch (_) {} location.reload();
+    };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (had) $('notice').innerHTML = '<div class="banner" style="margin-bottom:12px"><span>Nuova versione pronta.</span><button class="sec2" onclick="location.reload()">Ricarica</button></div>';
+      if (!had || reloaded) return;   // al primo avvio non si ricarica
+      UI.reloadPending = true;
+      if (safeNow()) return tryReload();
+      $('notice').innerHTML = '<div class="banner" style="margin-bottom:12px"><span>Nuova versione pronta: si aggiorna da sola appena finisci quello che stai facendo.</span><button class="sec2" onclick="location.reload()">Ricarica ora</button></div>';
     });
+    // ogni pochi secondi: se c'era qualcosa da fare e ora è sicuro, lo fa (ricarica o sincronizzazione rimandata)
+    setInterval(() => {
+      tryReload();
+      if (SY.deferred && !sessionOn() && !busyUI() && !fieldActive()) syncNow();
+    }, 5000);
   }
 }
 start();
