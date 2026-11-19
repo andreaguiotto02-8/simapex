@@ -195,10 +195,11 @@ class Gestore(BaseHTTPRequestHandler):
                     self._invia(200, json.dumps({"ok": False, "errore": "Manca la chiave di accesso."}), "application/json")
                     return
                 pacchetto = self._corpo_json()
+                automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
                         "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "log": coda_log()}
-                ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag)
+                ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:
                 self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")

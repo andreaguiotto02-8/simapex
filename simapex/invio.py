@@ -60,9 +60,10 @@ def carica_file(repo, token, percorso, testo, messaggio):
         raise RuntimeError("GitHub ha risposto con l'errore %s." % codice)
 
 
-def invia_risultati(repo, token, pacchetto, diagnostica):
+def invia_risultati(repo, token, pacchetto, diagnostica, automatico=False):
     ora = time.strftime("%Y-%m-%d_%H%M%S")
-    carica_file(repo, token, "pc/prove/%s.json" % ora, json.dumps(pacchetto, ensure_ascii=False, indent=1), "prove dal PC " + ora)
+    nome = "ultimo" if automatico else ora
+    carica_file(repo, token, "pc/prove/%s.json" % nome, json.dumps(pacchetto, ensure_ascii=False, indent=1), "prove dal PC " + ora)
     carica_file(repo, token, "pc/diag.json", json.dumps(diagnostica, ensure_ascii=False, indent=1), "diagnostica PC " + ora)
     return ora
 
