@@ -9,7 +9,7 @@ import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import invio
+from . import aggiorna, invio
 from .setup_acc import elenco_setup
 from .telemetria import Lettore
 from .ui import PAGINA
@@ -230,6 +230,10 @@ def main(apri_browser=True):
             apri_finestra("http://127.0.0.1:%d/" % PORTA)
         return
     scrivi_log("avviato versione " + VERSIONE)
+    aggiorna.pulisci_vecchi()
+    if apri_browser and aggiorna.prova(VERSIONE, scrivi_log):
+        srv.server_close()
+        return
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     threading.Thread(target=_guardiano, daemon=True).start()
     if apri_browser:

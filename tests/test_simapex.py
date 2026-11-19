@@ -169,5 +169,12 @@ class TestInvio(unittest.TestCase):
             os.environ.pop("SIMAPEX_GH_API", None)
 
 
+class TestAggiorna(unittest.TestCase):
+    def test_non_aggiorna_fuori_dal_programma(self):
+        from simapex import aggiorna
+        self.assertFalse(aggiorna.prova("0.0.1"))
+        aggiorna.pulisci_vecchi()
+
+
 if __name__ == "__main__":
     unittest.main()
