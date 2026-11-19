@@ -107,6 +107,12 @@ class TestServer(unittest.TestCase):
             self.assertIn("SIMAPEX", html)
             self.assertNotIn("__VERSIONE__", html)
             json.loads(urllib.request.urlopen(u + "/api/setup").read())
+            m = json.loads(urllib.request.urlopen(u + "/manifest.webmanifest").read())
+            self.assertEqual(m["name"], "Simapex")
+            for p in ("/icona-192.png", "/icona-512.png", "/favicon.ico"):
+                r = urllib.request.urlopen(u + p)
+                self.assertGreater(len(r.read()), 500)
+            self.assertIn("serviceWorker", html)
         finally:
             req = urllib.request.Request("http://127.0.0.1:8799/api/chiudi", method="POST")
             urllib.request.urlopen(req)

@@ -2,6 +2,7 @@
 PAGINA = r"""<!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Simapex</title>
+<link rel="icon" href="/favicon.ico"><link rel="icon" type="image/png" href="/icona-192.png"><link rel="apple-touch-icon" href="/icona-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0e1116">
 <style>
 :root{--bg:#0e1116;--card:#171c24;--line:#2a3140;--tx:#e8ecf2;--mu:#98a2b3;--ac:#ff5a1f;--ok:#2ecc71;--ko:#ff4d4d}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,Segoe UI,Arial,sans-serif}
@@ -60,6 +61,7 @@ async function giroSetup(){try{const r=await fetch("/api/setup");setup=await r.j
 $("tg").onclick=()=>{$("gioca").hidden=false;$("svil").hidden=true;$("tg").className="act";$("ts").className=""};
 $("ts").onclick=()=>{$("gioca").hidden=true;$("svil").hidden=false;$("ts").className="act";$("tg").className=""};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
 disegnaProve();giro();giroSetup();setInterval(giro,500);setInterval(giroSetup,5000);
 </script></body></html>
 """
