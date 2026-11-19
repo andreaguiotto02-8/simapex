@@ -9,6 +9,7 @@ import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from . import invio
 from .setup_acc import elenco_setup
 from .telemetria import Lettore
 from .ui import PAGINA
@@ -25,6 +26,31 @@ def cartella_dati():
     p = os.path.join(base, "Simapex")
     os.makedirs(p, exist_ok=True)
     return p
+
+
+def _file_impostazioni():
+    return os.path.join(cartella_dati(), "impostazioni.json")
+
+
+def carica_impostazioni():
+    try:
+        with open(_file_impostazioni(), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def salva_impostazioni(d):
+    with open(_file_impostazioni(), "w", encoding="utf-8") as f:
+        json.dump(d, f)
+
+
+def coda_log(n=40):
+    try:
+        with open(os.path.join(cartella_dati(), "log.txt"), "r", encoding="utf-8") as f:
+            return f.read().splitlines()[-n:]
+    except Exception:
+        return []
 
 
 def scrivi_log(testo):
@@ -102,6 +128,12 @@ class Gestore(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def _corpo_json(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0 or n > 2000000:
+            return {}
+        return json.loads(self.rfile.read(n).decode("utf-8"))
+
     def do_GET(self):
         _ultima_richiesta[0] = time.time()
         try:
@@ -120,7 +152,14 @@ class Gestore(BaseHTTPRequestHandler):
             elif self.path.startswith("/api/stato"):
                 d = _lettore.stato()
                 d["versione"] = VERSIONE
+                d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 self._invia(200, json.dumps(d), "application/json")
+            elif self.path.startswith("/api/aggiornamenti"):
+                try:
+                    r = invio.controlla_aggiornamenti(VERSIONE)
+                except Exception:
+                    r = {"disponibile": False}
+                self._invia(200, json.dumps(r), "application/json")
             elif self.path.startswith("/api/setup"):
                 self._invia(200, json.dumps(elenco_setup()), "application/json")
             else:
@@ -134,6 +173,38 @@ class Gestore(BaseHTTPRequestHandler):
         if self.path == "/api/chiudi":
             self._invia(200, "{}", "application/json")
             _fermati.set()
+        elif self.path == "/api/chiave":
+            try:
+                d = self._corpo_json()
+                t = str(d.get("token", "")).strip()
+                if not t:
+                    self._invia(400, json.dumps({"ok": False, "errore": "La chiave è vuota."}), "application/json")
+                    return
+                imp = carica_impostazioni()
+                imp["gh_token"] = t
+                imp.setdefault("gh_repo", invio.DEPOSITO_PREDEFINITO)
+                salva_impostazioni(imp)
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(500, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/invia":
+            try:
+                imp = carica_impostazioni()
+                if not imp.get("gh_token"):
+                    self._invia(200, json.dumps({"ok": False, "errore": "Manca la chiave di accesso."}), "application/json")
+                    return
+                pacchetto = self._corpo_json()
+                pacchetto["versione_programma"] = VERSIONE
+                diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "log": coda_log()}
+                ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag)
+                self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto durante l'invio."}), "application/json")
         else:
             self._invia(404, "non trovato", "text/plain")
 

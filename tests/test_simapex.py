@@ -119,5 +119,55 @@ class TestServer(unittest.TestCase):
             t.join(timeout=3)
 
 
+class TestInvio(unittest.TestCase):
+    def test_invio_a_github_finto(self):
+        import base64
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from simapex import invio
+        archivio = {}
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def _r(self, c, d):
+                b = json.dumps(d).encode()
+                self.send_response(c)
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+            def do_GET(self):
+                if "/releases/latest" in self.path:
+                    return self._r(200, {"tag_name": "v9.9.9"})
+                if self.headers.get("Authorization") != "Bearer buona":
+                    return self._r(401, {})
+                self._r(404, {})
+
+            def do_PUT(self):
+                if self.headers.get("Authorization") != "Bearer buona":
+                    return self._r(401, {})
+                n = int(self.headers["Content-Length"])
+                c = json.loads(self.rfile.read(n))
+                archivio[self.path] = base64.b64decode(c["content"]).decode()
+                self._r(201, {})
+
+        srv = HTTPServer(("127.0.0.1", 8798), H)
+        th = threading.Thread(target=srv.serve_forever, daemon=True)
+        th.start()
+        os.environ["SIMAPEX_GH_API"] = "http://127.0.0.1:8798"
+        try:
+            invio.invia_risultati("a/b", "buona", {"prove": [1]}, {"x": 2})
+            self.assertEqual(len(archivio), 2)
+            self.assertTrue(any("pc/diag.json" in k for k in archivio))
+            with self.assertRaises(RuntimeError) as cm:
+                invio.invia_risultati("a/b", "sbagliata", {}, {})
+            self.assertIn("chiave", str(cm.exception))
+            self.assertTrue(invio.controlla_aggiornamenti("0.2.0")["disponibile"])
+        finally:
+            srv.shutdown()
+            os.environ.pop("SIMAPEX_GH_API", None)
+
+
 if __name__ == "__main__":
     unittest.main()

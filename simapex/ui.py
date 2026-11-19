@@ -23,6 +23,7 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
 <header><h1>SIMAPEX</h1><span class="v" id="ver">v__VERSIONE__</span><span class="pill" id="acc">ACC non collegato</span><span class="sp"></span><button id="chiudi">Chiudi programma</button></header>
 <nav><button id="tg" class="act">Gioca</button><button id="ts">Sviluppo</button></nav>
 <main>
+<div id="agg" class="card" hidden style="border-color:var(--ac)"><b>C'è una versione nuova di Simapex: <span id="aggv"></span></b><div class="row"><button class="pri" id="aggb">Scarica la versione nuova</button></div><div class="mu">Chiudi Simapex, apri il file scaricato e cancella quello vecchio.</div></div>
 <section id="gioca">
  <div class="card"><h2>Funzioni confermate</h2><p class="mu">Qui compariranno le funzioni che hai provato nella sezione Sviluppo e confermato. Per ora non ce n'è nessuna: quando vuoi solo guidare, usa ACC normalmente.</p></div>
 </section>
@@ -30,7 +31,8 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
  <div class="card"><h2>Dati in diretta</h2><p class="mu" id="msg">Apri ACC ed entra in pista per vedere i dati.</p>
   <div class="grid" id="dati"></div></div>
  <div class="card"><h2>Prove da fare</h2><p class="mu">Fai le prove una alla volta. Per ognuna tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota. Alla fine tocca «Copia risultati» e incollali nella chat con Claude.</p><div id="prove"></div>
-  <div class="row"><button class="pri" id="copia">Copia risultati</button><button id="azzera">Azzera le prove</button><span class="st" id="copiato"></span></div></div>
+  <div class="row"><button class="pri" id="invia">Invia a Claude</button><button id="copia">Copia risultati</button><button id="azzera">Azzera le prove</button></div><div class="st" id="copiato"></div></div>
+ <div class="card" id="chiaveBox" hidden><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve una volta sola. Incolla qui la chiave di GitHub che ti ha dato Claude.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla la chiave" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
 </section>
 </main>
 <script>
@@ -51,6 +53,12 @@ $("prove").addEventListener("click",e=>{const b=e.target.closest("button[data-p]
 $("prove").addEventListener("input",e=>{const t=e.target.closest("textarea[data-n]");if(!t)return;const r=carica();const x=r[t.dataset.n]||{};x.n=t.value;r[t.dataset.n]=x;salva(r)});
 $("azzera").onclick=()=>{salva({});disegnaProve()};
 $("copia").onclick=async()=>{const r=carica();let t="Risultati prove Simapex "+($("ver").textContent)+"\n";PROVE.forEach((p,i)=>{const x=r[p.id]||{};t+=`\n${i+1}. ${p.t}: ${x.s==='ok'?'FUNZIONA':x.s==='ko'?'NON FUNZIONA':'non provata'}`;if(x.n)t+=` — nota: ${x.n}`;if(x.snap&&x.s)t+=`\n   dati al momento: ${JSON.stringify(x.snap)}`});t+="\n";try{await navigator.clipboard.writeText(t);$("copiato").textContent="Copiato: incollalo nella chat"}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();$("copiato").textContent="Copiato: incollalo nella chat"}};
+function raccogli(){const r=carica();return {ora:new Date().toISOString(),versione:$("ver").textContent,prove:PROVE.map(p=>{const x=r[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:x.snap||null}})}}
+$("invia").onclick=async()=>{if(!ultimo.invio_configurato){$("chiaveBox").hidden=false;$("copiato").textContent="Prima serve la chiave di accesso (qui sotto).";return}
+ $("copiato").textContent="Invio in corso...";try{const r=await fetch("/api/invia",{method:"POST",body:JSON.stringify(raccogli())});const j=await r.json();$("copiato").textContent=j.ok?"Inviato a Claude. Scrivi «controlla» nella chat.":"Invio non riuscito: "+j.errore}catch(e){$("copiato").textContent="Invio non riuscito: il programma non risponde."}};
+$("salvaChiave").onclick=async()=>{const v=$("chiave").value.trim();if(!v){$("chiaveMsg").textContent="Incolla prima la chiave.";return}
+ try{const r=await fetch("/api/chiave",{method:"POST",body:JSON.stringify({token:v})});const j=await r.json();if(j.ok){$("chiave").value="";$("chiaveBox").hidden=true;ultimo.invio_configurato=true;$("copiato").textContent="Chiave salvata. Ora tocca «Invia a Claude».";}else $("chiaveMsg").textContent=j.errore}catch(e){$("chiaveMsg").textContent="Non sono riuscito a salvare."}};
+async function controllaAgg(){try{const r=await fetch("/api/aggiornamenti");const j=await r.json();if(j.disponibile){$("aggv").textContent="v"+j.ultima;$("agg").hidden=false;$("aggb").onclick=()=>window.open(j.scarica,"_blank")}}catch(e){}}
 function k(l,v){return `<div class="k"><b>${v===undefined||v===""?"—":v}</b><span>${l}</span></div>`}
 function disegnaDati(){const u=ultimo,a=$("acc");a.textContent=u.collegato?"ACC collegato":"ACC non collegato";a.className="pill"+(u.collegato?" on":"");
  if(!u.collegato){$("msg").textContent="Apri ACC ed entra in pista per vedere i dati.";$("dati").innerHTML="";return}
@@ -62,6 +70,6 @@ $("tg").onclick=()=>{$("gioca").hidden=false;$("svil").hidden=true;$("tg").class
 $("ts").onclick=()=>{$("gioca").hidden=true;$("svil").hidden=false;$("ts").className="act";$("tg").className=""};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
-disegnaProve();giro();giroSetup();setInterval(giro,500);setInterval(giroSetup,5000);
+disegnaProve();giro();giroSetup();controllaAgg();setInterval(controllaAgg,3600000);setInterval(giro,500);setInterval(giroSetup,5000);
 </script></body></html>
 """
