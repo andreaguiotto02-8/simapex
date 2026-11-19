@@ -266,7 +266,7 @@ details[open] summary::after{content:"\2212"}
    eventi, avvio.
    =================================================================== */
 
-const APP_V = '0.82';   // versione dell'app
+const APP_V = '0.83';   // versione dell'app
 const DATA_V = 3;      // versione del formato dei dati
 const DEFAULT_QUICK = ['Cartello 150', 'Cartello 100', 'Cartello 50', 'Fine cordolo'];
 // Quando il formato dei dati cambia: aumenta DATA_V e aggiungi qui la funzione che porta
@@ -3030,8 +3030,8 @@ function rcHandle(raw, vz) {   // comandi di gara; true = gestito
     R.sync = {at: now - 500, left}; R.stint.synced = true;   // il tempo l'hai letto mezzo secondo prima di iniziare a dirlo
     return done('tempo rimasto ' + rcMS(left) + (miss >= 1 ? ' · giri ricostruiti: ' + miss : ''));
   }
-  if (/^(box|boxe|bocs|bos|pit|pit ?stop|stand|(box|boxe|pit|pit ?stop) (dentro|fuori)|(sono )?(dentro|fuori)( box| ai box| dai box)?|entro( nei| in| ai)? (box|pit)|esco( dai| dal)? (box|pit)|entrato|uscito|(sono )?(entrato|uscito)( dai| dal| nei| ai)?( box| pit)?)$/.test(tn)) {
-    const wantIn = /dentro|entro|entrato/.test(tn) ? true : /fuori|esco|uscito/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
+  if (/^(box|boxe|bocs|bos|pit|pit ?stop|stand|(box|boxe|pit|pit ?stop) (dentro|fuori)|(sono )?(dentro|fuori)( box| ai box| dai box)?|entro( nei| in| ai)? (box|pit)|esco( dai| dal)? (box|pit)|entrato|uscito|(sono )?(entrato|uscito)( dai| dal| nei| ai)?( box| pit)?|(entrata|uscita)( (dai|dal|nei|ai|in) ?)?( box| pit)?)$/.test(tn)) {
+    const wantIn = /dentro|entro|entrato|entrata/.test(tn) ? true : /fuori|esco|uscito|uscita/.test(tn) ? false : !R.pit.in, c = rcCalc(st, now);
     if (wantIn === R.pit.in) return done(wantIn ? 'sei già in box' : 'sei già fuori dal box');
     if (wantIn) { R.pit.in = true; R.pit.inAt = now; R.pit.fuelAtIn = c.fuel ? c.fuel.v : null; R.pit.rec = c.litri; R.pit.act = c.act ? Object.assign({}, c.act) : {drv: false, tyre: false, fuel: false}; R.pitLaps.push(R.laps.length + 1); return done('box · ENTRATA'); }
     const s = rcStrat(R), dur = (now - R.pit.inAt) / 1000, cOut = rcCalc(st, now), fOut = cOut.fuel ? cOut.fuel.v : R.pit.fuelAtIn;   // benzina all'uscita: il giro d'entrata è già passato
