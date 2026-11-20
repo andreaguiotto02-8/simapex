@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, claude_api, invio
-from .setup_acc import elenco_setup
+from .setup_acc import contenuti_setup, elenco_setup
 from .telemetria import Lettore
 from .ui import PAGINA
 from .versione import VERSIONE
@@ -225,7 +225,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:

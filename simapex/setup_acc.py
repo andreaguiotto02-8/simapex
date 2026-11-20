@@ -65,3 +65,21 @@ def elenco_setup(cartella=None):
             })
     file.sort(key=lambda x: x["modificato"], reverse=True)
     return {"cartella": cartella, "file": file}
+
+
+def contenuti_setup(cartella=None, massimo=6, dimensione_max=200000):
+    """Testo dei setup più recenti (per mandarli a Claude e capire il formato)."""
+    elenco = elenco_setup(cartella)
+    base = elenco.get("cartella")
+    out = {}
+    if not base:
+        return out
+    for f in elenco["file"][:massimo]:
+        p = os.path.join(base, f["auto"], f["pista"], f["nome"]) if f["auto"] else os.path.join(base, f["nome"])
+        try:
+            if os.path.getsize(p) <= dimensione_max:
+                with open(p, "r", encoding="utf-8-sig") as fh:
+                    out["%s/%s/%s" % (f["auto"], f["pista"], f["nome"])] = fh.read()
+        except Exception:
+            pass
+    return out
