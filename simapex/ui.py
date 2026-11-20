@@ -32,6 +32,11 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
   <div class="grid" id="dati"></div></div>
  <div class="card"><h2>Prove da fare</h2><p class="mu">Fai le prove una alla volta. Per ognuna tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota. Alla fine tocca «Copia risultati» e incollali nella chat con Claude.</p><div id="prove"></div>
   <div class="row"><button class="pri" id="invia">Invia a Claude</button><button id="copia">Copia risultati</button><button id="azzera">Azzera le prove</button></div><div class="st" id="copiato"></div></div>
+ <div class="card" id="assBox"><h2>Assistente setup (prova)</h2><p class="mu">Scegli un setup salvato in ACC, racconta come va la macchina e Claude propone poche modifiche. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
+ <div class="row"><select id="assFile" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></select></div>
+ <div class="row"><textarea id="assSens" rows="3" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea></div>
+ <div class="row"><button id="assMic">🎤 Parla</button><button class="pri" id="assVai">Chiedi a Claude</button></div>
+ <div class="st" id="assMsg"></div><div id="assRis"></div></div>
  <div class="card" id="claudeBox"><h2>Collegamento a Claude (API)</h2><p class="mu" id="claudeSt">Non collegato. Incolla qui la chiave che inizia con sk-ant- (resta solo su questo PC).</p><div class="row"><input id="claudeChiave" type="password" autocomplete="off" placeholder="sk-ant-..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="claudeSalva">Salva</button><button id="claudeProva">Prova</button></div><div class="st" id="claudeMsg"></div></div>
  <div class="card" id="chiaveBox" hidden><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve una volta sola. Incolla qui la chiave di GitHub che ti ha dato Claude.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla la chiave" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
 </section>
@@ -44,6 +49,7 @@ const PROVE=[
  {id:"acc",t:"Riconosce ACC",p:["Apri Assetto Corsa Competizione ed entra in una sessione di pratica, in pista.","Guarda in alto in questa pagina."],a:"La scritta diventa verde («ACC collegato») e sotto «Dati in diretta» compaiono auto e pista giuste."},
  {id:"dati",t:"Legge i dati mentre guidi",p:["Guida qualche secondo.","Confronta velocità, marcia e giri motore con quelli del cruscotto di ACC.","Guarda carburante e pressioni gomme (in psi)."],a:"I numeri coincidono con quelli del gioco, con differenze piccolissime."},
  {id:"giri",t:"Legge i tempi dei giri",p:["Completa almeno un giro intero.","Guarda «Ultimo giro» e «Miglior giro»."],a:"Sono uguali ai tempi mostrati da ACC."},
+ {id:"assistente",t:"L'assistente crea un setup nuovo",p:["Nel riquadro «Assistente setup» scegli il tuo setup base e scrivi (o dì col microfono) come va la macchina.","Tocca «Chiedi a Claude».","In ACC apri la lista dei setup: deve esserci un file nuovo con «Simapex 1» nel nome. Caricalo e guarda se le modifiche si sentono."],a:"Compare il setup nuovo nella lista di ACC, si carica senza errori e l'originale è rimasto uguale."},
  {id:"setup",t:"Trova i tuoi setup",p:["In ACC salva un setup (anche quello di base) per un'auto e una pista.","Torna qui: sotto «Setup trovati» compare l'elenco."],a:"Vedi auto, pista e nome del file che hai salvato."}
 ];
 function carica(){try{return JSON.parse(localStorage.getItem("simapex_prove")||"{}")}catch(e){return {}}}
@@ -64,6 +70,25 @@ function aggiornaClaudeSt(){$("claudeSt").textContent=ultimo.claude_configurato?
 $("claudeSalva").onclick=async()=>{const v=$("claudeChiave").value.trim();if(!v){$("claudeMsg").textContent="Incolla prima la chiave.";return}
  try{const r=await fetch("/api/claude-chiave",{method:"POST",body:JSON.stringify({chiave:v})});const j=await r.json();if(j.ok){$("claudeChiave").value="";ultimo.claude_configurato=true;aggiornaClaudeSt();$("claudeMsg").textContent="Chiave salvata. Ora tocca Prova."}else $("claudeMsg").textContent=j.errore}catch(e){$("claudeMsg").textContent="Non sono riuscito a salvare."}};
 $("claudeProva").onclick=async()=>{$("claudeMsg").textContent="Sto chiamando Claude...";try{const r=await fetch("/api/claude-prova",{method:"POST",body:"{}"});const j=await r.json();$("claudeMsg").textContent=j.ok?"Funziona! Claude risponde: "+j.risposta:"Non funziona: "+j.errore}catch(e){$("claudeMsg").textContent="Il programma non risponde."}};
+let assId=null;
+function riempiAss(){const s=$("assFile");const f=(setup.file||[]).filter(x=>x.valido);const sig=f.map(x=>x.auto+x.pista+x.nome).join("|");if(s.dataset.sig===sig)return;s.dataset.sig=sig;const cur=s.value;s.innerHTML=f.length?f.map(x=>`<option value="${x.auto}/${x.pista}/${x.nome}">${bello(x.auto)} · ${bello(x.pista)} · ${x.nome}</option>`).join(""):'<option value="">Nessun setup trovato</option>';if(cur)s.value=cur}
+$("assVai").onclick=async()=>{const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
+ $("assMsg").textContent="Claude sta lavorando (qualche secondo)...";$("assRis").innerHTML="";try{const r=await fetch("/api/assistente/proponi",{method:"POST",body:JSON.stringify({file:file,sensazioni:$("assSens").value})});const j=await r.json();
+ if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
+ $("assMsg").textContent="";assId=j.id||null;
+ let h=`<div class="k" style="margin-top:8px"><b class="t">${j.problema||"Proposta"}</b><span>${j.spiegazione||""}</span></div>`;
+ if(j.modifiche.length){h+="<table>"+j.modifiche.map(m=>`<tr><td>${m.nome}</td><td>${m.click>0?"+":""}${m.click} click</td><td>${m.motivo}</td></tr>`).join("")+"</table>";
+  h+=`<p><b>Setup creato:</b> ${j.nuovo_file}<br>In ACC apri la lista dei setup, scegli questo nome e caricalo.</p><p class="mu">${j.cosa_aspettarsi||""}</p>
+  <div class="row"><span>Dopo averlo provato:</span><button data-e="meglio">Meglio</button><button data-e="uguale">Uguale</button><button data-e="peggio">Peggio</button></div>`}
+ else h+=`<p>Nessuna modifica proposta.</p><p class="mu">${j.cosa_aspettarsi||""}</p>`;
+ $("assRis").innerHTML=h;
+ }catch(e){$("assMsg").textContent="Il programma non risponde."}};
+$("assRis").addEventListener("click",async e=>{const b=e.target.closest("button[data-e]");if(!b||!assId)return;try{await fetch("/api/assistente/esito",{method:"POST",body:JSON.stringify({id:assId,esito:b.dataset.e})});$("assMsg").textContent="Segnato: "+b.dataset.e+". Il prossimo consiglio ne terrà conto."}catch(x){}});
+(function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){$("assMic").hidden=true;return}let rec=null,on=false;
+ $("assMic").onclick=()=>{if(on){rec&&rec.stop();return}rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
+  rec.onresult=ev=>{let t="";for(let i=ev.resultIndex;i<ev.results.length;i++)t+=ev.results[i][0].transcript+" ";$("assSens").value=($("assSens").value+" "+t).trim()};
+  rec.onerror=ev=>{$("assMsg").textContent="Microfono: "+(ev.error==="not-allowed"?"consenti l'uso del microfono nella finestra.":ev.error)};
+  rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}})();
 async function controllaAgg(){try{const r=await fetch("/api/aggiornamenti");const j=await r.json();if(j.disponibile){$("aggv").textContent="v"+j.ultima;$("agg").hidden=false;$("aggb").onclick=()=>window.open(j.scarica,"_blank")}}catch(e){}}
 function bello(s){if(!s)return s;return String(s).replace(/_/g," ").replace(/\b(gt\d|amg|bmw|ao|evo)\b/gi,m=>m.toUpperCase()).replace(/\b([a-z])/g,m=>m.toUpperCase())}
 function k(l,v,t){return `<div class="k"><b${t?' class="t"':""}>${v===undefined||v===""?"—":v}</b><span>${l}</span></div>`}
@@ -72,7 +97,7 @@ function disegnaDati(){const u=ultimo,a=$("acc");a.textContent=u.collegato?"ACC 
  $("msg").textContent="Stato del gioco: "+(u.stato_gioco||"?");const p=u.pressioni||[],t=u.temp_gomme||[];
  $("dati").innerHTML=k("Auto",bello(u.auto),1)+k("Pista",bello(u.pista),1)+k("Velocità (km/h)",u.velocita)+k("Marcia",u.marcia)+k("Giri motore",u.giri_motore)+k("Carburante (L)",u.carburante)+k("Ultimo giro",u.ultimo_giro)+k("Miglior giro",u.miglior_giro)+k("Giri completati",u.giri_completati)+k("Pressioni psi (AS AD PS PD)",p.join(" · "),1)+k("Temp. gomme °C (AS AD PS PD)",t.join(" · "),1)+(setup.cartella===null?k("Setup trovati","cartella non trovata"):k("Setup trovati",(setup.file||[]).length))+((setup.file||[]).length?`<div class="k" style="grid-column:1/-1"><span>Setup salvati in ACC. Ogni riga: auto · pista · nome del setup · «letto» = il programma ha capito il file</span><table>${setup.file.slice(0,12).map(f=>`<tr><td>${bello(f.auto)}</td><td>${bello(f.pista)}</td><td>${f.nome}</td><td>${f.valido?"letto":"non riconosciuto"}</td></tr>`).join("")}</table></div>`:"")}
 async function giro(){try{const r=await fetch("/api/stato");ultimo=await r.json();disegnaDati();aggiornaClaudeSt()}catch(e){}}
-let sigSetup=null;async function giroSetup(){try{const r=await fetch("/api/setup");setup=await r.json();disegnaDati();if(ultimo.invio_configurato){const sg=(setup.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup!==null&&sg!==sigSetup)autoInvia();if(sigSetup===null)autoInvia();sigSetup=sg}}catch(e){}}
+let sigSetup=null;async function giroSetup(){try{const r=await fetch("/api/setup");setup=await r.json();disegnaDati();riempiAss();if(ultimo.invio_configurato){const sg=(setup.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup!==null&&sg!==sigSetup)autoInvia();if(sigSetup===null)autoInvia();sigSetup=sg}}catch(e){}}
 $("tg").onclick=()=>{$("gioca").hidden=false;$("svil").hidden=true;$("tg").className="act";$("ts").className=""};
 $("ts").onclick=()=>{$("gioca").hidden=true;$("svil").hidden=false;$("ts").className="act";$("tg").className=""};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};

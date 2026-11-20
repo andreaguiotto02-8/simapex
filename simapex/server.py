@@ -9,8 +9,8 @@ import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import aggiorna, claude_api, invio
-from .setup_acc import contenuti_setup, elenco_setup
+from . import aggiorna, assistente, claude_api, invio
+from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .ui import PAGINA
 from .versione import VERSIONE
@@ -51,6 +51,71 @@ def coda_log(n=40):
             return f.read().splitlines()[-n:]
     except Exception:
         return []
+
+
+def _file_quaderno():
+    return os.path.join(cartella_dati(), "quaderno.json")
+
+
+def carica_quaderno():
+    try:
+        with open(_file_quaderno(), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def salva_quaderno(q):
+    with open(_file_quaderno(), "w", encoding="utf-8") as f:
+        json.dump(q, f, ensure_ascii=False, indent=1)
+
+
+_gomme = {"auto": None, "pista": None, "n": 0, "p": [0.0] * 4, "t": [0.0] * 4, "tmax": [0.0] * 4}
+
+
+def campiona_gomme(d):
+    """Accumula pressioni e temperature gomme mentre l'auto si muove (media sulla guida)."""
+    if not d.get("collegato") or (d.get("velocita") or 0) < 60:
+        return
+    if (d.get("auto"), d.get("pista")) != (_gomme["auto"], _gomme["pista"]):
+        _gomme.update(auto=d.get("auto"), pista=d.get("pista"), n=0, p=[0.0] * 4, t=[0.0] * 4, tmax=[0.0] * 4)
+    pr, te = d.get("pressioni") or [], d.get("temp_gomme") or []
+    if len(pr) != 4 or len(te) != 4:
+        return
+    _gomme["n"] += 1
+    for i in range(4):
+        _gomme["p"][i] += pr[i]
+        _gomme["t"][i] += te[i]
+        _gomme["tmax"][i] = max(_gomme["tmax"][i], te[i])
+
+
+def riepilogo_gomme():
+    n = _gomme["n"]
+    if n < 30:
+        return None
+    nomi = ["ant_sx", "ant_dx", "post_sx", "post_dx"]
+    return {"secondi_di_guida": n,
+            "pressione_media_psi": {nomi[i]: round(_gomme["p"][i] / n, 1) for i in range(4)},
+            "temperatura_media_C": {nomi[i]: round(_gomme["t"][i] / n) for i in range(4)},
+            "temperatura_max_C": {nomi[i]: round(_gomme["tmax"][i]) for i in range(4)}}
+
+
+def _campionatore():
+    while not _fermati.is_set():
+        try:
+            campiona_gomme(_lettore.stato())
+        except Exception:
+            pass
+        _fermati.wait(1.0)
+
+
+def _percorso_setup(rel):
+    """Dal nome 'auto/pista/file' al percorso vero, solo se è nell'elenco dei setup trovati."""
+    el = elenco_setup()
+    for f in el["file"]:
+        if "%s/%s/%s" % (f["auto"], f["pista"], f["nome"]) == rel:
+            return el["cartella"], f
+    return None, None
 
 
 def scrivi_log(testo):
@@ -161,6 +226,8 @@ class Gestore(BaseHTTPRequestHandler):
                 except Exception:
                     r = {"disponibile": False}
                 self._invia(200, json.dumps(r), "application/json")
+            elif self.path.startswith("/api/assistente"):
+                self._invia(200, json.dumps({"gomme": riepilogo_gomme(), "quaderno": carica_quaderno()[-8:]}), "application/json")
             elif self.path.startswith("/api/setup"):
                 self._invia(200, json.dumps(elenco_setup()), "application/json")
             else:
@@ -215,6 +282,61 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto."}), "application/json")
+        elif self.path == "/api/assistente/proponi":
+            try:
+                imp = carica_impostazioni()
+                if not imp.get("claude_key"):
+                    self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API)."}), "application/json")
+                    return
+                d = self._corpo_json()
+                cartella, f = _percorso_setup(str(d.get("file", "")))
+                if not f:
+                    self._invia(200, json.dumps({"ok": False, "errore": "Non trovo quel setup."}), "application/json")
+                    return
+                percorso = os.path.join(cartella, f["auto"], f["pista"], f["nome"])
+                with open(percorso, "r", encoding="utf-8-sig") as fh:
+                    setup = json.load(fh)
+                q = [x for x in carica_quaderno() if x.get("auto") == f["auto"] and x.get("pista") == f["pista"]][-5:]
+                ris = assistente.proponi(imp["claude_key"], setup, str(d.get("sensazioni", ""))[:2000],
+                                         riepilogo_gomme(), q, f["auto"], f["pista"])
+                nuovo_nome = None
+                if ris["modifiche"]:
+                    nuovo = assistente.applica(setup, ris["modifiche"])
+                    nuovo_nome = assistente.nome_nuovo_file(os.path.dirname(percorso), f["nome"])
+                    tmp = os.path.join(os.path.dirname(percorso), nuovo_nome + ".tmp")
+                    with open(tmp, "w", encoding="utf-8") as fh:
+                        json.dump(nuovo, fh, indent=4)
+                    os.replace(tmp, os.path.join(os.path.dirname(percorso), nuovo_nome))
+                    voce = {"id": int(time.time()), "ora": time.strftime("%Y-%m-%d %H:%M"), "auto": f["auto"],
+                            "pista": f["pista"], "da": f["nome"], "nuovo": nuovo_nome,
+                            "sensazioni": str(d.get("sensazioni", ""))[:500], "problema": ris["problema"],
+                            "modifiche": [{"parametro": assistente.nome_leggibile(m["percorso"]), "click": m["click"],
+                                           "motivo": m["motivo"]} for m in ris["modifiche"]], "esito": None}
+                    qq = carica_quaderno()
+                    qq.append(voce)
+                    salva_quaderno(qq[-200:])
+                    ris["id"] = voce["id"]
+                for m in ris["modifiche"]:
+                    m["nome"] = assistente.nome_leggibile(m["percorso"])
+                ris["nuovo_file"] = nuovo_nome
+                ris["ok"] = True
+                self._invia(200, json.dumps(ris), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto nell'assistente."}), "application/json")
+        elif self.path == "/api/assistente/esito":
+            try:
+                d = self._corpo_json()
+                qq = carica_quaderno()
+                for x in qq:
+                    if x.get("id") == d.get("id") and d.get("esito") in ("meglio", "uguale", "peggio"):
+                        x["esito"] = d["esito"]
+                salva_quaderno(qq)
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare."}), "application/json")
         elif self.path == "/api/invia":
             try:
                 imp = carica_impostazioni()
@@ -264,6 +386,7 @@ def main(apri_browser=True):
         return
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     threading.Thread(target=_guardiano, daemon=True).start()
+    threading.Thread(target=_campionatore, daemon=True).start()
     if apri_browser:
         apri_finestra("http://127.0.0.1:%d/" % PORTA)
     _fermati.wait()

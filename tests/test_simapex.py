@@ -213,5 +213,86 @@ class TestClaudeApi(unittest.TestCase):
             os.environ.pop("SIMAPEX_CLAUDE_API", None)
 
 
+class TestAssistente(unittest.TestCase):
+    SETUP = {"carName": "x", "basicSetup": {"tyres": {"tyreCompound": 0, "tyrePressure": [45, 45, 41, 41]},
+             "alignment": {"camber": [8, 8, 5, 5], "toe": [21, 21, 52, 52], "staticCamber": [-4.3, -4.3, -4.9, -4.9], "casterLF": 14, "casterRF": 14},
+             "electronics": {"tC1": 2, "tC2": 0, "abs": 1, "eCUMap": 1}, "strategy": {"fuel": 48}},
+             "advancedSetup": {"mechanicalBalance": {"aRBFront": 4, "brakeBias": 45}, "dampers": {"bumpSlow": [8, 8, 5, 5]},
+             "aeroBalance": {"rodLength": [54.3, 54.3, 53.1, 53.1], "rearWing": 12}, "drivetrain": {"preload": 5}}}
+
+    def test_validazione(self):
+        from simapex import assistente as a
+        prop = [{"percorso": "basicSetup.tyres.tyrePressure[0]", "click": -4, "motivo": "a"},
+                {"percorso": "basicSetup.strategy.fuel", "click": 5},
+                {"percorso": "basicSetup.alignment.staticCamber[0]", "click": 1},
+                {"percorso": "advancedSetup.aeroBalance.rearWing", "click": 9},
+                {"percorso": "advancedSetup.drivetrain.preload", "click": -9},
+                {"percorso": "advancedSetup.mechanicalBalance.aRBFront", "click": 1},
+                {"percorso": "advancedSetup.mechanicalBalance.brakeBias", "click": 1},
+                {"percorso": "basicSetup.electronics.abs", "click": 1}]
+        valide, scartate = a.valida_modifiche(self.SETUP, prop)
+        self.assertEqual([m["percorso"] for m in valide], ["basicSetup.tyres.tyrePressure[0]",
+                         "advancedSetup.mechanicalBalance.aRBFront", "advancedSetup.mechanicalBalance.brakeBias"])
+        nuovo = a.applica(self.SETUP, valide)
+        self.assertEqual(nuovo["basicSetup"]["tyres"]["tyrePressure"], [41, 45, 41, 41])
+        self.assertEqual(self.SETUP["basicSetup"]["tyres"]["tyrePressure"][0], 45)
+        self.assertEqual(a.nome_leggibile("basicSetup.tyres.tyrePressure[2]"), "pressione gomme post. sx")
+
+    def test_endpoint_crea_setup_nuovo_senza_toccare_l_originale(self):
+        import urllib.request
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        risposta = {"problema": "Sottosterzo", "spiegazione": "Prova", "cosa_aspettarsi": "Più presa",
+                    "modifiche": [{"percorso": "basicSetup.tyres.tyrePressure[0]", "click": -2, "motivo": "m"}]}
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                b = json.dumps({"content": [{"type": "text", "text": "```json\n" + json.dumps(risposta) + "\n```"}], "usage": {}}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+        srv = HTTPServer(("127.0.0.1", 8795), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        doc = tempfile.mkdtemp()
+        dati = tempfile.mkdtemp()
+        cart = os.path.join(doc, "Assetto Corsa Competizione", "Setups", "auto_x", "monza")
+        os.makedirs(cart)
+        originale = os.path.join(cart, "base.json")
+        with open(originale, "w") as f:
+            json.dump(self.SETUP, f)
+        prima = open(originale).read()
+        os.environ.update(SIMAPEX_DOCUMENTI=doc, SIMAPEX_CLAUDE_API="http://127.0.0.1:8795", LOCALAPPDATA=dati)
+        try:
+            server.salva_impostazioni({"claude_key": "sk-ant-x"})
+            t = threading.Thread(target=server.main, kwargs={"apri_browser": False}, daemon=True)
+            t.start()
+            time.sleep(0.8)
+            u = "http://127.0.0.1:8765"
+            req = urllib.request.Request(u + "/api/assistente/proponi", method="POST",
+                                         data=json.dumps({"file": "auto_x/monza/base.json", "sensazioni": "sottosterza"}).encode())
+            j = json.loads(urllib.request.urlopen(req).read())
+            self.assertTrue(j["ok"], j)
+            self.assertEqual(j["nuovo_file"], "base - Simapex 1.json")
+            self.assertEqual(open(originale).read(), prima)
+            nuovo = json.load(open(os.path.join(cart, "base - Simapex 1.json")))
+            self.assertEqual(nuovo["basicSetup"]["tyres"]["tyrePressure"][0], 43)
+            req = urllib.request.Request(u + "/api/assistente/esito", method="POST", data=json.dumps({"id": j["id"], "esito": "meglio"}).encode())
+            self.assertTrue(json.loads(urllib.request.urlopen(req).read())["ok"])
+            self.assertEqual(server.carica_quaderno()[-1]["esito"], "meglio")
+            bad = urllib.request.Request(u + "/api/assistente/proponi", method="POST", data=json.dumps({"file": "../../x.json"}).encode())
+            self.assertFalse(json.loads(urllib.request.urlopen(bad).read())["ok"])
+        finally:
+            urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8765/api/chiudi", method="POST"))
+            time.sleep(0.5)
+            srv.shutdown()
+            for k in ("SIMAPEX_DOCUMENTI", "SIMAPEX_CLAUDE_API", "LOCALAPPDATA"):
+                os.environ.pop(k, None)
+
+
 if __name__ == "__main__":
     unittest.main()
