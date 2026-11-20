@@ -35,7 +35,7 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
  <div class="card" id="assBox"><h2>Assistente setup (prova)</h2><p class="mu">Scegli un setup salvato in ACC, racconta come va la macchina e Claude propone poche modifiche. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
  <div class="row"><select id="assFile" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></select></div>
  <div class="row"><textarea id="assSens" rows="3" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea></div>
- <div class="row"><button id="assMic">🎤 Parla</button><button class="pri" id="assVai">Chiedi a Claude</button></div>
+ <div class="row"><button id="assMic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai">Migliora (una modifica alla volta)</button></div><p class="mu" id="assStile"></p>
  <div class="st" id="assMsg"></div><div id="assRis"></div></div>
  <div class="card" id="claudeBox"><h2>Collegamento a Claude (API)</h2><p class="mu" id="claudeSt">Non collegato. Incolla qui la chiave che inizia con sk-ant- (resta solo su questo PC).</p><div class="row"><input id="claudeChiave" type="password" autocomplete="off" placeholder="sk-ant-..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="claudeSalva">Salva</button><button id="claudeProva">Prova</button></div><div class="st" id="claudeMsg"></div></div>
  <div class="card" id="chiaveBox" hidden><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve una volta sola. Incolla qui la chiave di GitHub che ti ha dato Claude.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla la chiave" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
@@ -72,8 +72,8 @@ $("claudeSalva").onclick=async()=>{const v=$("claudeChiave").value.trim();if(!v)
 $("claudeProva").onclick=async()=>{$("claudeMsg").textContent="Sto chiamando Claude...";try{const r=await fetch("/api/claude-prova",{method:"POST",body:"{}"});const j=await r.json();$("claudeMsg").textContent=j.ok?"Funziona! Claude risponde: "+j.risposta:"Non funziona: "+j.errore}catch(e){$("claudeMsg").textContent="Il programma non risponde."}};
 let assId=null;
 function riempiAss(){const s=$("assFile");const f=(setup.file||[]).filter(x=>x.valido);const sig=f.map(x=>x.auto+x.pista+x.nome).join("|");if(s.dataset.sig===sig)return;s.dataset.sig=sig;const cur=s.value;s.innerHTML=f.length?f.map(x=>`<option value="${x.auto}/${x.pista}/${x.nome}">${bello(x.auto)} · ${bello(x.pista)} · ${x.nome}</option>`).join(""):'<option value="">Nessun setup trovato</option>';if(cur)s.value=cur}
-$("assVai").onclick=async()=>{const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
- $("assMsg").textContent="Claude sta lavorando (qualche secondo)...";$("assRis").innerHTML="";try{const r=await fetch("/api/assistente/proponi",{method:"POST",body:JSON.stringify({file:file,sensazioni:$("assSens").value})});const j=await r.json();
+async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
+ $("assMsg").textContent="Claude sta lavorando (qualche secondo)...";$("assRis").innerHTML="";try{const r=await fetch("/api/assistente/proponi",{method:"POST",body:JSON.stringify({file:file,sensazioni:$("assSens").value,modo:modo})});const j=await r.json();
  if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
  $("assMsg").textContent="";assId=j.id||null;
  let h=`<div class="k" style="margin-top:8px"><b class="t">${j.problema||"Proposta"}</b><span>${j.spiegazione||""}</span></div>`;
@@ -82,7 +82,9 @@ $("assVai").onclick=async()=>{const file=$("assFile").value;if(!file){$("assMsg"
   <div class="row"><span>Dopo averlo provato:</span><button data-e="meglio">Meglio</button><button data-e="uguale">Uguale</button><button data-e="peggio">Peggio</button></div>`}
  else h+=`<p>Nessuna modifica proposta.</p><p class="mu">${j.cosa_aspettarsi||""}</p>`;
  $("assRis").innerHTML=h;
- }catch(e){$("assMsg").textContent="Il programma non risponde."}};
+ }catch(e){$("assMsg").textContent="Il programma non risponde."}}
+$("assBase").onclick=()=>assChiedi("base");$("assVai").onclick=()=>assChiedi("migliora");
+async function giroStile(){try{const r=await fetch("/api/assistente");const j=await r.json();$("assStile").textContent=j.giri_registrati?"Giri registrati per imparare il tuo stile: "+j.giri_registrati+(j.stile?" (profilo pronto)":" (ne servono almeno 3 puliti)"):"Guida con Simapex aperto: registra in silenzio il tuo stile di guida, giro per giro."}catch(e){}}
 $("assRis").addEventListener("click",async e=>{const b=e.target.closest("button[data-e]");if(!b||!assId)return;try{await fetch("/api/assistente/esito",{method:"POST",body:JSON.stringify({id:assId,esito:b.dataset.e})});$("assMsg").textContent="Segnato: "+b.dataset.e+". Il prossimo consiglio ne terrà conto."}catch(x){}});
 (function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){$("assMic").hidden=true;return}let rec=null,on=false;
  $("assMic").onclick=()=>{if(on){rec&&rec.stop();return}rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
@@ -102,6 +104,6 @@ $("tg").onclick=()=>{$("gioca").hidden=false;$("svil").hidden=true;$("tg").class
 $("ts").onclick=()=>{$("gioca").hidden=true;$("svil").hidden=false;$("ts").className="act";$("tg").className=""};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
-disegnaProve();giro();giroSetup();controllaAgg();setInterval(controllaAgg,3600000);setInterval(giro,500);setInterval(giroSetup,5000);
+disegnaProve();giro();giroSetup();controllaAgg();setInterval(controllaAgg,3600000);setInterval(giro,500);setInterval(giroSetup,5000);giroStile();setInterval(giroStile,15000);
 </script></body></html>
 """

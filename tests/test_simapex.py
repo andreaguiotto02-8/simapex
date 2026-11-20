@@ -294,5 +294,34 @@ class TestAssistente(unittest.TestCase):
                 os.environ.pop(k, None)
 
 
+class TestStile(unittest.TestCase):
+    def test_registra_giri_e_profilo(self):
+        from simapex.stile import RegistroStile
+        f = os.path.join(tempfile.mkdtemp(), "stile.json")
+        r = RegistroStile(f)
+
+        def campione(giri, i):
+            return {"collegato": True, "auto": "a", "pista": "p", "giri_completati": giri, "velocita": 120,
+                    "freno": 0.5 if i % 4 == 0 else 0.0, "acceleratore": 1.0 if i % 4 else 0.0,
+                    "sterzo": 0.1 if i % 3 == 0 else 0.0, "ultimo_giro_ms": 90000 + giri * 100}
+        for giro in range(0, 5):
+            for i in range(300):
+                r.alimenta(campione(giro, i))
+        r.alimenta(campione(5, 0))
+        self.assertEqual(len(r.giri), 5)
+        p = r.profilo("a", "p")
+        self.assertIsNotNone(p)
+        self.assertGreater(p["gas_pieno"], 0.5)
+        self.assertEqual(len(RegistroStile(f).giri), 5)
+        self.assertIsNone(RegistroStile(os.path.join(tempfile.mkdtemp(), "x.json")).profilo())
+
+    def test_modo_base_accetta_piu_modifiche(self):
+        from simapex import assistente as a
+        prop = [{"percorso": "basicSetup.tyres.tyrePressure[%d]" % i, "click": -10, "motivo": "x"} for i in range(2)]
+        prop.append({"percorso": "advancedSetup.aeroBalance.rearWing", "click": 6, "motivo": "x"})
+        self.assertEqual(len(a.valida_modifiche(TestAssistente.SETUP, prop)[0]), 0)
+        self.assertEqual(len(a.valida_modifiche(TestAssistente.SETUP, prop, True)[0]), 3)
+
+
 if __name__ == "__main__":
     unittest.main()

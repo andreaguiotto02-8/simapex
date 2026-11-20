@@ -25,6 +25,9 @@ MODIFICABILI = (
 MAX_MODIFICHE = 3
 MAX_CLICK = 3
 MAX_CLICK_PRESSIONE = 5
+MAX_MODIFICHE_BASE = 30
+MAX_CLICK_BASE = 12
+MAX_CLICK_PRESSIONE_BASE = 15
 
 NOMI = {
     "tyrePressure": "pressione gomme", "camber": "campanatura", "toe": "convergenza",
@@ -86,7 +89,7 @@ def nome_leggibile(percorso):
     return s
 
 
-def valida_modifiche(setup, modifiche):
+def valida_modifiche(setup, modifiche, base=False):
     """Controlla le modifiche proposte. Ritorna (valide, scartate)."""
     consentiti = dict(valori_modificabili(setup))
     valide, scartate, visti = [], [], set()
@@ -97,7 +100,10 @@ def valida_modifiche(setup, modifiche):
         except (KeyError, TypeError, ValueError):
             scartate.append(m)
             continue
-        massimo = MAX_CLICK_PRESSIONE if "tyrePressure" in perc else MAX_CLICK
+        if base:
+            massimo = MAX_CLICK_PRESSIONE_BASE if "tyrePressure" in perc else MAX_CLICK_BASE
+        else:
+            massimo = MAX_CLICK_PRESSIONE if "tyrePressure" in perc else MAX_CLICK
         if perc not in consentiti or perc in visti or delta == 0 or abs(delta) > massimo:
             scartate.append(m)
             continue
@@ -107,7 +113,7 @@ def valida_modifiche(setup, modifiche):
         visti.add(perc)
         valide.append({"percorso": perc, "click": delta, "motivo": str(m.get("motivo", ""))[:300],
                        "prima": consentiti[perc], "dopo": consentiti[perc] + delta})
-        if len(valide) >= MAX_MODIFICHE:
+        if len(valide) >= (MAX_MODIFICHE_BASE if base else MAX_MODIFICHE):
             break
     return valide, scartate
 
@@ -145,8 +151,28 @@ SISTEMA = (
 )
 
 
-def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista):
+SISTEMA_BASE = (
+    "Sei un ingegnere di pista esperto di Assetto Corsa Competizione (GT3). Parli con un pilota italiano "
+    "principiante-intermedio che guida con un volante Logitech G29. Devi creare il suo PRIMO SETUP PERSONALIZZATO: "
+    "parti dal setup base di ACC e cambia tutto quello che serve e quanto serve (pressioni gomme, bilanciamento freni, "
+    "carico aerodinamico, campanatura, convergenza, barre antirollio, ammortizzatori, differenziale, elettronica...) "
+    "per risolvere i problemi che il pilota descrive, adattarlo al suo stile di guida (se i dati dello stile sono "
+    "presenti) e renderlo valido sia per qualifica sia per gara, facile da guidare subito. I valori del setup sono "
+    "indici interi (click): indica di quanti click spostare ogni valore (positivo o negativo), mai valori assoluti. "
+    "Massimo 12 click per parametro (15 per le pressioni; un click di pressione = 0,1 psi circa). Usa solo i parametri "
+    "dell'elenco. Cambia solo ciò che ha un motivo chiaro. Rispondi SOLO con un JSON, senza testo fuori dal JSON: "
+    '{"problema":"frase breve","spiegazione":"4-8 frasi semplici in italiano, senza gergo","cosa_aspettarsi":"cosa deve '
+    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}]}'
+)
+
+
+def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile=None):
     righe = ["Auto: %s - Pista: %s" % (auto, pista), "", "Sensazioni del pilota:", sensazioni.strip() or "(nessuna)", ""]
+    if stile:
+        righe += ["Stile di guida del pilota (medie sui suoi ultimi giri puliti; valori 0-1 tranne dove indicato): "
+                  "freno_medio, tempo_in_frenata, frenata_con_sterzo (quanto frena mentre sterza), gas_pieno, coasting "
+                  "(tempo senza gas né freno), nervosismo_sterzo e nervosismo_gas (più alti = più movimenti bruschi), "
+                  "costanza_tempi_ms (differenza fra giro migliore e peggiore).", json.dumps(stile, ensure_ascii=False), ""]
     if riepilogo_gomme:
         righe += ["Dati gomme misurati in guida (media sui giri guidati):", json.dumps(riepilogo_gomme, ensure_ascii=False), ""]
     if quaderno_recente:
@@ -166,14 +192,15 @@ def estrai_json(testo):
     return json.loads(testo[i:f + 1])
 
 
-def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None):
-    domanda = costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista)
-    testo, uso = claude_api.chiedi(chiave, domanda, modello or claude_api.MODELLO, sistema=SISTEMA, max_token=900)
+def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None, base=False, stile=None):
+    domanda = costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile)
+    testo, uso = claude_api.chiedi(chiave, domanda, modello or claude_api.MODELLO,
+                                   sistema=SISTEMA_BASE if base else SISTEMA, max_token=1800 if base else 900)
     try:
         r = estrai_json(testo)
     except ValueError:
         raise RuntimeError("Claude ha risposto in un formato che non capisco. Riprova.")
-    valide, scartate = valida_modifiche(setup, r.get("modifiche", []))
+    valide, scartate = valida_modifiche(setup, r.get("modifiche", []), base)
     return {"problema": str(r.get("problema", ""))[:200], "spiegazione": str(r.get("spiegazione", ""))[:800],
             "cosa_aspettarsi": str(r.get("cosa_aspettarsi", ""))[:400], "modifiche": valide,
             "scartate": len(scartate), "token": uso}

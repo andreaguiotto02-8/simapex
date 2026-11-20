@@ -10,6 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
+from .stile import RegistroStile
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .ui import PAGINA
@@ -100,13 +101,27 @@ def riepilogo_gomme():
             "temperatura_max_C": {nomi[i]: round(_gomme["tmax"][i]) for i in range(4)}}
 
 
+_stile = [None]
+
+
+def registro_stile():
+    if _stile[0] is None:
+        _stile[0] = RegistroStile(os.path.join(cartella_dati(), "stile.json"))
+    return _stile[0]
+
+
 def _campionatore():
+    tick = 0
     while not _fermati.is_set():
         try:
-            campiona_gomme(_lettore.stato())
+            d = _lettore.stato()
+            registro_stile().alimenta(d)
+            if tick % 10 == 0:
+                campiona_gomme(d)
         except Exception:
             pass
-        _fermati.wait(1.0)
+        tick += 1
+        _fermati.wait(0.1)
 
 
 def _percorso_setup(rel):
@@ -227,7 +242,7 @@ class Gestore(BaseHTTPRequestHandler):
                     r = {"disponibile": False}
                 self._invia(200, json.dumps(r), "application/json")
             elif self.path.startswith("/api/assistente"):
-                self._invia(200, json.dumps({"gomme": riepilogo_gomme(), "quaderno": carica_quaderno()[-8:]}), "application/json")
+                self._invia(200, json.dumps({"gomme": riepilogo_gomme(), "quaderno": carica_quaderno()[-8:], "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri)}), "application/json")
             elif self.path.startswith("/api/setup"):
                 self._invia(200, json.dumps(elenco_setup()), "application/json")
             else:
@@ -297,8 +312,10 @@ class Gestore(BaseHTTPRequestHandler):
                 with open(percorso, "r", encoding="utf-8-sig") as fh:
                     setup = json.load(fh)
                 q = [x for x in carica_quaderno() if x.get("auto") == f["auto"] and x.get("pista") == f["pista"]][-5:]
+                base = d.get("modo") == "base"
                 ris = assistente.proponi(imp["claude_key"], setup, str(d.get("sensazioni", ""))[:2000],
-                                         riepilogo_gomme(), q, f["auto"], f["pista"])
+                                         riepilogo_gomme(), q, f["auto"], f["pista"], base=base,
+                                         stile=registro_stile().profilo(f["auto"], f["pista"]))
                 nuovo_nome = None
                 if ris["modifiche"]:
                     nuovo = assistente.applica(setup, ris["modifiche"])
@@ -347,7 +364,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:
