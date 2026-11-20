@@ -176,5 +176,42 @@ class TestAggiorna(unittest.TestCase):
         aggiorna.pulisci_vecchi()
 
 
+class TestClaudeApi(unittest.TestCase):
+    def test_chiamata_finta(self):
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from simapex import claude_api
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                n = int(self.headers["Content-Length"])
+                self.rfile.read(n)
+                if self.headers.get("x-api-key") != "sk-ant-ok":
+                    self.send_response(401)
+                    self.send_header("Content-Length", "2")
+                    self.end_headers()
+                    self.wfile.write(b"{}")
+                    return
+                b = json.dumps({"content": [{"type": "text", "text": "Pronto!"}], "usage": {"input_tokens": 5, "output_tokens": 2}}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+        srv = HTTPServer(("127.0.0.1", 8796), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        os.environ["SIMAPEX_CLAUDE_API"] = "http://127.0.0.1:8796"
+        try:
+            self.assertEqual(claude_api.chiedi("sk-ant-ok", "ciao")[0], "Pronto!")
+            with self.assertRaises(RuntimeError) as cm:
+                claude_api.chiedi("sk-ant-no", "ciao")
+            self.assertIn("chiave", str(cm.exception))
+        finally:
+            srv.shutdown()
+            os.environ.pop("SIMAPEX_CLAUDE_API", None)
+
+
 if __name__ == "__main__":
     unittest.main()

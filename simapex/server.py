@@ -9,7 +9,7 @@ import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import aggiorna, invio
+from . import aggiorna, claude_api, invio
 from .setup_acc import elenco_setup
 from .telemetria import Lettore
 from .ui import PAGINA
@@ -153,6 +153,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d = _lettore.stato()
                 d["versione"] = VERSIONE
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
+                d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
                 self._invia(200, json.dumps(d), "application/json")
             elif self.path.startswith("/api/aggiornamenti"):
                 try:
@@ -188,6 +189,32 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(500, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/claude-chiave":
+            try:
+                t = str(self._corpo_json().get("chiave", "")).strip()
+                if not t.startswith("sk-ant-"):
+                    self._invia(200, json.dumps({"ok": False, "errore": "Quella non sembra la chiave giusta: deve iniziare con sk-ant-"}), "application/json")
+                    return
+                imp = carica_impostazioni()
+                imp["claude_key"] = t
+                salva_impostazioni(imp)
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/claude-prova":
+            try:
+                k = carica_impostazioni().get("claude_key")
+                if not k:
+                    self._invia(200, json.dumps({"ok": False, "errore": "Manca la chiave."}), "application/json")
+                    return
+                testo, uso = claude_api.chiedi(k, "Rispondi in italiano con una sola frase breve: sei pronto ad aiutare un pilota di simulatori a sistemare il setup?", claude_api.MODELLO_PROVA, max_token=60)
+                self._invia(200, json.dumps({"ok": True, "risposta": testo, "token": uso}), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto."}), "application/json")
         elif self.path == "/api/invia":
             try:
                 imp = carica_impostazioni()
