@@ -62,6 +62,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".popup")&&!e.target.
 /* ---------- navigazione ---------- */
 function vai(s){schermo=s;document.querySelectorAll(".schermo").forEach(x=>x.hidden=x.id!=="s-"+s);document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("act",b.dataset.s===s));
  if(s==="sessioni")giroSessioni();if(s==="setup"){giroQuaderno();riempiAss()}if(s==="prove")disegnaProve();if(s==="guida")disegnaGuida()}
+$("aiutoVai").onclick=()=>{try{localStorage.setItem("simapex_aiuto_visto","1")}catch(e){}vai("guida")};
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)vai(b.dataset.s)};
 $("intero").onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen()}catch(e){}};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};
@@ -206,6 +207,7 @@ $("claudeProva").onclick=async()=>{$("claudeMsg").textContent="Sto chiamando Cla
 async function controllaAgg(){try{const j=await api("/api/aggiornamenti");if(j.disponibile){$("aggv").textContent="v"+j.ultima;$("agg").hidden=false;$("aggb").onclick=()=>window.open(j.scarica,"_blank")}}catch(e){}}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
 
-costruisciGomme();applicaModo();disegnaProve();giro();giroSetup();controllaAgg();
+costruisciGomme();applicaModo();try{if(!localStorage.getItem("simapex_aiuto_visto"))vai("aiuto")}catch(e){}
+disegnaProve();giro();giroSetup();controllaAgg();
 setInterval(giro,200);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);

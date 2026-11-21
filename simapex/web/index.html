@@ -12,6 +12,7 @@
   <button data-s="sessioni">Sessioni</button>
   <button data-s="setup">Setup</button>
   <button data-s="prove" class="solo-dev">Percorso</button>
+  <button data-s="aiuto">Aiuto</button>
   <button data-s="impostazioni">Impostazioni</button>
  </nav>
  <span class="sp"></span>
@@ -97,6 +98,67 @@
  <div class="prove">
   <div class="card"><h2>Percorso: una giornata in pista come la userai davvero</h2><p><b>Auto:</b> Ferrari 296 GT3, ripartendo da zero. <b>Pista consigliata: Misano.</b> È corta (circa 1'35"), divertente, con tante frenate decise (si vedono bene i blocchi) e curve facili da memorizzare: in un'ora fai molti giri e il circuito si disegna presto.</p><p class="mu">Non devi fare niente di speciale: guida normalmente e usa il programma come faresti in gara. Fai le fasi in ordine. Per ogni punto tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota: i risultati arrivano a Claude da soli. Puoi segnarlo anche direttamente sulle schermate, con il pallino in alto a destra di ogni riquadro.</p><div class="st" id="invioSt"></div></div>
   <div id="proveLista"></div>
+ </div>
+</section>
+
+<!-- AIUTO -->
+<section id="s-aiuto" class="schermo" hidden>
+ <div class="imp">
+  <div class="card"><h2>Benvenuto in Simapex</h2><p>Simapex legge i dati di Assetto Corsa Competizione mentre guidi e ti aiuta in tre cose: <b>vedere cosa succede</b> (Guida), <b>capire come sei andato</b> (Sessioni) e <b>sistemare la macchina</b> (Setup). Qui sotto trovi a cosa serve ogni parte. Puoi riaprire questa pagina quando vuoi dal tasto «Aiuto».</p></div>
+
+  <div class="card"><h2>Guida (la schermata mentre guidi)</h2><p class="mu">Va tenuta aperta di fianco al gioco, per esempio sul tablet o su un secondo schermo.</p>
+   <table>
+    <tr><td><b>Gomme (a sinistra)</b></td><td>Temperatura e pressione delle 4 gomme. Blu = fredda, verde = giusta, gialla = calda, rossa = rovente.</td></tr>
+    <tr><td><b>Marcia, velocità, giri motore</b></td><td>Come il cruscotto dell'auto. La barra dei giri passa da verde a giallo a rosso.</td></tr>
+    <tr><td><b>Pedali e sterzo</b></td><td>Quanto stai premendo freno (rosso) e acceleratore (verde), e dove hai girato il volante.</td></tr>
+    <tr><td><b>Giro attuale, ultimo, migliore</b></td><td>I tuoi tempi. Il giro attuale parte solo quando sei in pista.</td></tr>
+    <tr><td><b>Delta</b></td><td>Il numero grande. Verde con il meno: in questo punto sei più veloce del tuo giro migliore. Rosso: sei più lento.</td></tr>
+    <tr><td><b>Mappa</b></td><td>Il disegno del circuito con un puntino che segue l'auto. Si disegna da solo dopo il primo giro pulito e poi resta salvato.</td></tr>
+    <tr><td><b>Carburante</b></td><td>Litri nel serbatoio, consumo medio per giro e quanti giri puoi ancora fare.</td></tr>
+    <tr><td><b>Scritta rossa BLOCCO</b></td><td>Compare quando una ruota si blocca in frenata, con il nome della ruota. Vuol dire che hai frenato troppo forte o troppo di colpo.</td></tr>
+   </table></div>
+
+  <div class="card"><h2>Sessioni (dopo aver guidato)</h2>
+   <table>
+    <tr><td><b>Elenco</b></td><td>Ogni volta che guidi, il programma salva da solo il turno con auto, pista, data e numero di giri.</td></tr>
+    <tr><td><b>Report</b></td><td>Toccando un turno vedi la mappa del circuito, i giri, i blocchi e la tabella dei tempi.</td></tr>
+    <tr><td><b>Mappa colorata</b></td><td>Scegli «Sessione precedente» o «Tuo record»: verde dove vai più forte, rosso dove perdi tempo. Sotto trovi scritti i punti principali.</td></tr>
+   </table></div>
+
+  <div class="card"><h2>Setup (la macchina)</h2>
+   <table>
+    <tr><td><b>Setup trovati in ACC</b></td><td>I setup che hai salvato nel gioco, divisi per auto e pista. Prima di iniziare salva in ACC il tuo setup con un nome che riconosci, per esempio «Base».</td></tr>
+    <tr><td><b>Crea il mio setup base</b></td><td>Scegli il setup, scrivi (o racconta con 🎤 Parla) cosa non ti piace della macchina. Claude propone le modifiche, con il motivo, e salva un file nuovo con il nome «… Simapex 1». Il tuo setup originale non viene toccato. In ACC lo trovi nella lista dei setup.</td></tr>
+    <tr><td><b>Migliora</b></td><td>Dopo aver guidato con un setup, scrivi il problema che ti dà più fastidio. Propone poche modifiche (al massimo 3) legate a quel problema, così capisci cosa cambia.</td></tr>
+    <tr><td><b>ABS, controllo trazione, mappa motore</b></td><td>Il programma non li cambia mai: te li può solo suggerire, e li regoli tu.</td></tr>
+    <tr><td><b>Setup provati</b></td><td>Dopo almeno 4 giri puliti con il setup nuovo, il programma decide da solo se è meglio, uguale o peggio, confrontando i tempi e i dati.</td></tr>
+   </table></div>
+
+  <div class="card"><h2>Comandi del volante (Logitech G29)</h2>
+   <table>
+    <tr><td>Palette destra / sinistra</td><td>Marcia su / giù</td></tr>
+    <tr><td>Tasto + / −</td><td>Bilanciamento freni più / meno</td></tr>
+    <tr><td>Manettino a destra / sinistra</td><td>Controllo trazione più / meno</td></tr>
+    <tr><td>Croce su / giù</td><td>ABS più / meno</td></tr>
+    <tr><td>Croce sinistra / destra</td><td>Guardi a sinistra / destra</td></tr>
+    <tr><td>Share / Options</td><td>Mappa motore più / meno</td></tr>
+    <tr><td>Tasto centrale del manettino</td><td>Fari (cambia modalità)</td></tr>
+    <tr><td>R2</td><td>Flash dei fari</td></tr>
+    <tr><td>Cerchio</td><td>Limitatore box</td></tr>
+    <tr><td>Triangolo</td><td>Cambio visuale</td></tr>
+    <tr><td>L2 / L3</td><td>Schermata MFD avanti / indietro (box, gomme, carburante)</td></tr>
+    <tr><td>R3</td><td>Tergicristalli</td></tr>
+    <tr><td>X / Quadrato</td><td>Avviamento motore / accensione</td></tr>
+    <tr><td>Nei menu del gioco</td><td>X conferma, Cerchio indietro, L3 / R3 cambiano scheda, croce per muoverti</td></tr>
+   </table></div>
+
+  <div class="card"><h2>Gioca e Sviluppo</h2>
+   <p><b>Gioca</b> mostra solo le funzioni che abbiamo già verificato. <b>Sviluppo</b> mostra anche quelle ancora da provare: ogni riquadro ha un pallino in alto a destra, e toccandolo segni se funziona o no e puoi scrivere una nota. In Sviluppo c'è anche la sezione <b>Percorso</b>, la giornata di prova guidata. Il tasto in alto a destra cambia modalità.</p></div>
+
+  <div class="card"><h2>Impostazioni e aggiornamenti</h2>
+   <p>In Impostazioni incolli le chiavi che servono per parlare con Claude e per mandare i risultati. Quando c'è una versione nuova, il programma si aggiorna da solo all'apertura: compare «Sto aggiornando…» e si riapre. Il numero della versione è in alto, accanto al nome.</p></div>
+
+  <div class="card"><button class="pri" id="aiutoVai">Ho capito, vai alla Guida</button></div>
  </div>
 </section>
 
