@@ -5,21 +5,21 @@ PAGINA = r"""<!doctype html>
 <link rel="icon" href="/favicon.ico"><link rel="icon" type="image/png" href="/icona-192.png"><link rel="apple-touch-icon" href="/icona-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0e1116">
 <style>
 :root{--bg:#0e1116;--card:#171c24;--line:#2a3140;--tx:#e8ecf2;--mu:#98a2b3;--ac:#ff5a1f;--ok:#2ecc71;--ko:#ff4d4d}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,Segoe UI,Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:clamp(16px,1.3vw,22px)/1.45 system-ui,Segoe UI,Arial,sans-serif}
 header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
-h1{font-size:20px;margin:0;letter-spacing:.5px}.v{color:var(--mu);font-size:13px}
-.pill{padding:4px 10px;border-radius:99px;font-size:13px;background:#2a3140}.pill.on{background:#12391f;color:var(--ok)}
+h1{font-size:1.25em;margin:0;letter-spacing:.5px}.v{color:var(--mu);font-size:.8em}
+.pill{padding:4px 10px;border-radius:99px;font-size:.8em;background:#2a3140}.pill.on{background:#12391f;color:var(--ok)}
 .sp{flex:1}button{font:inherit;color:var(--tx);background:#232a36;border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
 button.pri{background:var(--ac);border-color:var(--ac);color:#fff}button.ok{background:#12391f;border-color:#1f6b3b}button.ko{background:#3d1717;border-color:#7a2a2a}
 button.sel{outline:2px solid var(--tx)}
 nav{display:flex;gap:8px;padding:12px 16px 0}nav button{border-radius:10px 10px 0 0}nav button.act{background:var(--ac);border-color:var(--ac);color:#fff}
-main{padding:16px;max-width:900px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
-.card h2{font-size:17px;margin:0 0 6px}.mu{color:var(--mu)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-.k{background:#10141b;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.k b{display:block;font-size:22px;overflow-wrap:anywhere;line-height:1.15}.k b.t{font-size:16px}.k{min-width:0}.k span{color:var(--mu);font-size:12px}
+main{padding:16px 20px;max-width:none}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.card h2{font-size:1.1em;margin:0 0 6px}.mu{color:var(--mu)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.k{background:#10141b;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.k b{display:block;font-size:1.4em;overflow-wrap:anywhere;line-height:1.15}.k b.t{font-size:1em}.k{min-width:0}.k span{color:var(--mu);font-size:.75em}
 textarea{width:100%;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;min-height:44px}
-ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}table{width:100%;border-collapse:collapse;font-size:.9em}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
 .st{font-size:13px;margin-left:8px}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}
-</style></head><body>
+.cols{display:grid;grid-template-columns:1fr;gap:0 18px;align-items:start}@media(min-width:900px){.cols{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}.cols>div{min-width:0}.grid{grid-template-columns:repeat(auto-fit,minmax(9em,1fr))}</style></head><body>
 <header><h1>SIMAPEX</h1><span class="v" id="ver">v__VERSIONE__</span><span class="pill" id="acc">ACC non collegato</span><span class="sp"></span><button id="chiudi">Chiudi programma</button></header>
 <nav><button id="tg" class="act">Gioca</button><button id="ts">Sviluppo</button></nav>
 <main>
@@ -28,10 +28,12 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
  <div class="card"><h2>Funzioni confermate</h2><p class="mu">Qui compariranno le funzioni che hai provato nella sezione Sviluppo e confermato. Per ora non ce n'è nessuna: quando vuoi solo guidare, usa ACC normalmente.</p></div>
 </section>
 <section id="svil" hidden>
+<div class="cols"><div>
  <div class="card"><h2>Dati in diretta</h2><p class="mu" id="msg">Apri ACC ed entra in pista per vedere i dati.</p>
   <div class="grid" id="dati"></div></div>
  <div class="card"><h2>Programma di prova (una giornata in pista)</h2><p class="mu">Fai le fasi in ordine, come se fosse una normale giornata di guida: non serve guardare il programma mentre guidi. Per ognuna tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota. I risultati arrivano a Claude da soli.</p><div id="prove"></div>
   <div class="row"><button class="pri" id="invia">Invia a Claude</button><button id="copia">Copia risultati</button><button id="azzera">Azzera le prove</button></div><div class="st" id="copiato"></div></div>
+ </div><div>
  <div class="card" id="assBox"><h2>Assistente setup (prova)</h2><p class="mu">Scegli un setup salvato in ACC, racconta come va la macchina e Claude propone poche modifiche. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
  <div class="row"><select id="assFile" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></select></div>
  <div class="row"><textarea id="assSens" rows="3" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea></div>
@@ -40,13 +42,14 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
  <div class="card" id="sesBox"><h2>Sessioni</h2><p class="mu">Si salvano da sole mentre guidi. Tocca una sessione per vedere il report.</p><div id="sesLista" class="mu">Nessuna sessione ancora: guida qualche giro.</div><div id="rep"></div></div>
  <div class="card" id="claudeBox"><h2>Collegamento a Claude (API)</h2><p class="mu" id="claudeSt">Non collegato. Incolla qui la chiave che inizia con sk-ant- (resta solo su questo PC).</p><div class="row"><input id="claudeChiave" type="password" autocomplete="off" placeholder="sk-ant-..." style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="claudeSalva">Salva</button><button id="claudeProva">Prova</button></div><div class="st" id="claudeMsg"></div></div>
  <div class="card" id="chiaveBox" hidden><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve una volta sola. Incolla qui la chiave di GitHub che ti ha dato Claude.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla la chiave" style="flex:1;min-width:220px;background:#10141b;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
+</div></div>
 </section>
 </main>
 <script>
 const $=id=>document.getElementById(id);
 let ultimo={}, setup={};
 const PROVE=[
- {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.11.1."},
+ {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.11.2."},
  {"id": "setup", "t": "Salva il tuo setup di partenza", "p": ["In ACC salva il setup che usi adesso con un nome che riconosci, per esempio «Base».", "Torna qui e guarda «Setup trovati» nel riquadro dell'assistente (sotto)."], "a": "Il tuo setup compare nella lista con auto e pista giuste."},
  {"id": "acc", "g": "2 · PRIMO TURNO: IMPARI IL CIRCUITO", "t": "Simapex riconosce ACC", "p": ["Lascia Simapex aperto, apri ACC ed entra in pista (pratica) con il tuo setup «Base».", "Guida normalmente, senza pensare al programma.", "Dopo qualche secondo guarda i dati in diretta."], "a": "In alto compare «ACC collegato» e velocità, marcia, giri motore e carburante coincidono con il cruscotto di ACC."},
  {"id": "giri", "t": "Legge i tempi dei giri", "p": ["Fai almeno 8 giri, senza passare dai box (così si disegna anche il circuito).", "Ogni tanto guarda «Ultimo giro» e «Miglior giro»."], "a": "I tempi sono uguali a quelli di ACC."},
