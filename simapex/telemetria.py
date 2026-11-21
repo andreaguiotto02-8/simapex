@@ -8,7 +8,7 @@ NOMI_PAGINE = {
     "graphics": "Local\\acpmf_graphics",
     "static": "Local\\acpmf_static",
 }
-BYTE_LETTI = 256
+BYTE_LETTI = 512
 STATI = {0: "spento", 1: "replay", 2: "in pista", 3: "pausa"}
 
 
@@ -72,7 +72,7 @@ def formatta_tempo(ms):
 
 def decodifica_physics(b):
     marcia = _i(b, 16)
-    return {
+    out = {
         "acceleratore": round(_f(b, 4), 3),
         "freno": round(_f(b, 8), 3),
         "carburante": round(_f(b, 12), 2),
@@ -83,6 +83,16 @@ def decodifica_physics(b):
         "pressioni": [round(x, 1) for x in _4f(b, 88)],       # psi: AS, AD, PS, PD
         "temp_gomme": [round(x, 1) for x in _4f(b, 152)],     # gradi C
     }
+    if len(b) >= 416:  # letture aggiuntive (offset da verificare con guida reale)
+        out["vel_ruote"] = [round(x, 2) for x in _4f(b, 104)]   # rad/s
+        out["abs"] = round(_f(b, 252), 2)
+        out["temp_aria"] = round(_f(b, 288), 1)
+        out["temp_asfalto"] = round(_f(b, 292), 1)
+        out["temp_freni"] = [round(x, 0) for x in _4f(b, 348)]
+        out["temp_zone"] = {"interna": [round(x, 1) for x in _4f(b, 368)],
+                            "centro": [round(x, 1) for x in _4f(b, 384)],
+                            "esterna": [round(x, 1) for x in _4f(b, 400)]}
+    return out
 
 
 def decodifica_graphics(b):

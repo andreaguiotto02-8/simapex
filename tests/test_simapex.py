@@ -323,5 +323,47 @@ class TestStile(unittest.TestCase):
         self.assertEqual(len(a.valida_modifiche(TestAssistente.SETUP, prop, True)[0]), 3)
 
 
+class TestBlocchiReport(unittest.TestCase):
+    def test_ruota_bloccata(self):
+        from simapex.stile import ruota_bloccata
+        d = {"vel_ruote": [80, 80, 80, 80], "freno": 0.9, "velocita": 200}
+        self.assertIsNone(ruota_bloccata(d))
+        d["vel_ruote"] = [80, 30, 80, 80]
+        self.assertEqual(ruota_bloccata(d), 1)
+        d["freno"] = 0.0
+        self.assertIsNone(ruota_bloccata(d))
+        self.assertIsNone(ruota_bloccata({"vel_ruote": [0, 0, 0, 0], "freno": 1, "velocita": 100}))
+
+    def test_decodifica_estesa_e_report(self):
+        import struct
+        from simapex.telemetria import decodifica_physics
+        from simapex.stile import RegistroStile
+        from simapex.report import crea_report
+        b = bytearray(512)
+        struct.pack_into("<4f", b, 104, 70, 71, 72, 73)
+        struct.pack_into("<4f", b, 368, 90, 90, 90, 90)
+        struct.pack_into("<4f", b, 384, 80, 80, 80, 80)
+        struct.pack_into("<4f", b, 400, 70, 70, 70, 70)
+        d = decodifica_physics(bytes(b))
+        self.assertEqual(d["vel_ruote"][0], 70.0)
+        self.assertEqual(d["temp_zone"]["interna"][3], 90.0)
+        r = RegistroStile(os.path.join(tempfile.mkdtemp(), "s.json"))
+        def c(giri, i, blocco=False):
+            return {"collegato": True, "auto": "a", "pista": "p", "giri_completati": giri, "velocita": 120,
+                    "freno": 0.9 if i % 4 == 0 else 0.0, "acceleratore": 0.5, "sterzo": 0.0,
+                    "vel_ruote": [80, 30, 80, 80] if blocco and i == 4 else [80] * 4,
+                    "ultimo_giro_ms": 90000 + giri * 100}
+        for giro in range(3):
+            for i in range(300):
+                r.alimenta(c(giro, i, blocco=(giro == 1)))
+        r.alimenta(c(3, 0))
+        rep = crea_report(r.giri)
+        self.assertEqual(rep["giri"], 3)
+        self.assertEqual(rep["blocchi_totali"], 1)
+        self.assertEqual(rep["blocchi_per_ruota"], {"ant_dx": 1})
+        self.assertTrue(any("bloccato" in n for n in rep["note"]))
+        self.assertIsNone(crea_report([]))
+
+
 if __name__ == "__main__":
     unittest.main()

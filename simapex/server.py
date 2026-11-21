@@ -10,6 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
+from .report import crea_report
 from .stile import RegistroStile
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
@@ -71,7 +72,7 @@ def salva_quaderno(q):
         json.dump(q, f, ensure_ascii=False, indent=1)
 
 
-_gomme = {"auto": None, "pista": None, "n": 0, "p": [0.0] * 4, "t": [0.0] * 4, "tmax": [0.0] * 4}
+_gomme = {"auto": None, "pista": None, "n": 0, "p": [0.0] * 4, "t": [0.0] * 4, "tmax": [0.0] * 4, "z": [[0.0] * 4 for _ in range(3)], "nz": 0}
 
 
 def campiona_gomme(d):
@@ -79,7 +80,7 @@ def campiona_gomme(d):
     if not d.get("collegato") or (d.get("velocita") or 0) < 60:
         return
     if (d.get("auto"), d.get("pista")) != (_gomme["auto"], _gomme["pista"]):
-        _gomme.update(auto=d.get("auto"), pista=d.get("pista"), n=0, p=[0.0] * 4, t=[0.0] * 4, tmax=[0.0] * 4)
+        _gomme.update(auto=d.get("auto"), pista=d.get("pista"), n=0, p=[0.0] * 4, t=[0.0] * 4, tmax=[0.0] * 4, z=[[0.0] * 4 for _ in range(3)], nz=0)
     pr, te = d.get("pressioni") or [], d.get("temp_gomme") or []
     if len(pr) != 4 or len(te) != 4:
         return
@@ -88,6 +89,12 @@ def campiona_gomme(d):
         _gomme["p"][i] += pr[i]
         _gomme["t"][i] += te[i]
         _gomme["tmax"][i] = max(_gomme["tmax"][i], te[i])
+    z = d.get("temp_zone")
+    if z and all(len(z.get(k, [])) == 4 for k in ("interna", "centro", "esterna")):
+        _gomme["nz"] += 1
+        for j, k in enumerate(("interna", "centro", "esterna")):
+            for i in range(4):
+                _gomme["z"][j][i] += z[k][i]
 
 
 def riepilogo_gomme():
@@ -98,7 +105,10 @@ def riepilogo_gomme():
     return {"secondi_di_guida": n,
             "pressione_media_psi": {nomi[i]: round(_gomme["p"][i] / n, 1) for i in range(4)},
             "temperatura_media_C": {nomi[i]: round(_gomme["t"][i] / n) for i in range(4)},
-            "temperatura_max_C": {nomi[i]: round(_gomme["tmax"][i]) for i in range(4)}}
+            "temperatura_max_C": {nomi[i]: round(_gomme["tmax"][i]) for i in range(4)},
+            "temperatura_zone_C": ({nomi[i]: {k: round(_gomme["z"][j][i] / _gomme["nz"])
+                                              for j, k in enumerate(("interna", "centro", "esterna"))}
+                                    for i in range(4)} if _gomme["nz"] >= 30 else None)}
 
 
 _stile = [None]
@@ -235,6 +245,8 @@ class Gestore(BaseHTTPRequestHandler):
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
                 self._invia(200, json.dumps(d), "application/json")
+            elif self.path.startswith("/api/report"):
+                self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, riepilogo_gomme(), registro_stile().profilo())}), "application/json")
             elif self.path.startswith("/api/aggiornamenti"):
                 try:
                     r = invio.controlla_aggiornamenti(VERSIONE)
@@ -364,7 +376,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "report": crea_report(registro_stile().giri, riepilogo_gomme(), registro_stile().profilo()), "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:

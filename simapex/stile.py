@@ -1,7 +1,25 @@
 # -*- coding: utf-8 -*-
 """Registra in silenzio come guidi, giro per giro, e ne ricava un profilo (solo sul tuo PC)."""
 import json
+import math
 import os
+import time
+
+NOMI_RUOTE = ["ant_sx", "ant_dx", "post_sx", "post_dx"]
+
+
+def ruota_bloccata(d):
+    """Indice della ruota che gira troppo piano mentre freni (blocco), oppure None."""
+    w = d.get("vel_ruote")
+    if not w or len(w) != 4 or (d.get("freno") or 0) < 0.3 or (d.get("velocita") or 0) < 50:
+        return None
+    if any((not isinstance(x, (int, float))) or math.isnan(x) or x < 0 for x in w):
+        return None
+    rif = max(w)
+    if rif < 20:  # ruote quasi ferme: dato non valido
+        return None
+    i = min(range(4), key=lambda k: w[k])
+    return i if w[i] < rif * 0.65 else None
 
 
 class RegistroStile:
@@ -34,6 +52,8 @@ class RegistroStile:
         self.v_min = 999.0
         self.v_max = 0.0
         self.prec = None
+        self.blocchi = []
+        self.t_blocco = [0.0] * 4
         self.auto = d.get("auto") if d else None
         self.pista = d.get("pista") if d else None
         self.giro = d.get("giri_completati") if d else None
@@ -51,6 +71,11 @@ class RegistroStile:
             self._chiudi(d)
             self._azzera(d)
             return
+        r = ruota_bloccata(d)
+        if r is not None and time.time() - self.t_blocco[r] > 1.0:
+            self.blocchi.append({"ruota": NOMI_RUOTE[r], "vel": round(d.get("velocita") or 0), "freno": round(d.get("freno") or 0, 2)})
+        if r is not None:
+            self.t_blocco[r] = time.time()
         v = d.get("velocita") or 0
         if v < 20:
             return
@@ -81,7 +106,8 @@ class RegistroStile:
             return
         n = float(self.n)
         self.giri.append({
-            "auto": self.auto, "pista": self.pista, "tempo_ms": tempo,
+            "auto": self.auto, "pista": self.pista, "tempo_ms": tempo, "ts": int(time.time()),
+            "giro": self.giro + 1, "blocchi": self.blocchi[:20],
             "freno_medio": round(self.s["freno"] / n, 3), "freno_max": round(self.max_freno, 2),
             "tempo_in_frenata": round(self.c["freno"] / n, 3),
             "frenata_con_sterzo": round(self.c["trail"] / max(1, self.c["freno"]), 3),
