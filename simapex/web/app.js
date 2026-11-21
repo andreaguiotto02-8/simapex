@@ -6,7 +6,7 @@ let MODO="dev";try{MODO=localStorage.getItem("simapex_modo")||"dev"}catch(e){}
 
 /* ---------- funzioni da provare (le stesse in Gioca e Sviluppo) ---------- */
 const PROVE=[
- {id:"apre",g:"1 · PRIMA DI PARTIRE",t:"Il programma è aggiornato",p:["Apri Simapex.exe: se c'è una versione nuova compare «Sto aggiornando...» e si riapre da solo.","Guarda il numero di versione in alto."],a:"Vedi v__VERSIONE__."},
+ {id:"apre",g:"1 · PRIMA DI PARTIRE (Ferrari 296 GT3, Misano)",t:"Il programma è aggiornato",p:["Apri Simapex.exe: se c'è una versione nuova compare «Sto aggiornando...» e si riapre da solo.","Guarda il numero di versione in alto."],a:"Vedi v__VERSIONE__."},
  {id:"setup",t:"Salva il tuo setup di partenza",p:["In ACC salva il setup che usi adesso con un nome che riconosci, per esempio «Base».","Apri la schermata Setup: guarda «Setup trovati in ACC»."],a:"Il tuo setup compare nella lista con auto e pista giuste."},
  {id:"acc",g:"2 · PRIMO TURNO: IMPARI IL CIRCUITO",t:"Schermata Guida: dati in diretta",p:["Lascia Simapex aperto sulla schermata Guida, apri ACC ed entra in pista con il tuo setup «Base».","Guida normalmente: ogni tanto guarda marcia, velocità, giri motore e pedali."],a:"«ACC collegato» in alto e i numeri coincidono con il cruscotto di ACC."},
  {id:"gomme",t:"Gomme: temperature e pressioni",p:["Guarda i 4 riquadri delle gomme a sinistra."],a:"Temperatura e pressione coincidono con quelle di ACC e il colore cambia (blu freddo, verde giusto, giallo caldo, rosso rovente)."},
@@ -80,8 +80,8 @@ function disegnaGuida(){
  const k=u.auto||"";rpmMax[k]=Math.max(rpmMax[k]||7000,u.giri_motore||0);$("gRpm").style.width=Math.min(100,(u.giri_motore||0)/rpmMax[k]*100)+"%";$("gRpmN").textContent=(u.giri_motore||0)+" giri";
  $("pFreno").style.height=Math.round((u.freno||0)*100)+"%";$("pGas").style.height=Math.round((u.acceleratore||0)*100)+"%";
  $("pSterzo").style.left=(50+Math.max(-1,Math.min(1,u.sterzo||0))*46)+"%";
- const att=u.giro_corrente_ms>0?u.giro_corrente_ms:u.giro_attuale_ms;
- $("tAttuale").textContent=tempoMs(att);$("tUltimo").textContent=u.ultimo_giro||"—";$("tMigliore").textContent=u.miglior_giro||"—";$("tGiro").textContent=(u.giri_completati||0)+1;
+ const inPista=u.stato_codice===2&&!u.in_box;
+ $("tAttuale").textContent=inPista&&u.giro_corrente_ms>0?tempoMs(u.giro_corrente_ms):"—";$("tUltimo").textContent=u.ultimo_giro||"—";$("tMigliore").textContent=u.miglior_giro||"—";$("tGiro").textContent=(u.giri_completati||0)+1;
  const d=$("gDelta");if(u.delta_ms==null){d.textContent="—";d.className=""}else{d.textContent=sec(u.delta_ms,true);d.className=u.delta_ms<0?"meglio":u.delta_ms>0?"peggio":""}
  $("cLitri").textContent=u.carburante!=null?u.carburante.toFixed(1)+" L":"—";$("cCons").textContent=u.consumo_giro?u.consumo_giro.toFixed(2)+" L":"—";$("cGiri").textContent=u.giri_stimati!=null?u.giri_stimati.toFixed(1):"—";
  const b=$("gBlocco");if(u.blocco_ruota){b.textContent="BLOCCO "+u.blocco_ruota.replace("_"," ").replace("ant","ANT.").replace("post","POST.").toUpperCase();b.classList.add("on")}else b.classList.remove("on");
@@ -178,21 +178,25 @@ $("quad").onclick=async e=>{const b=e.target.closest("button[data-e]");if(!b)ret
   rec.onerror=ev=>{const e=ev.error;M(e==="not-allowed"||e==="service-not-allowed"?"Il microfono è bloccato: nella finestra clicca sul lucchetto in alto, consenti il microfono, poi riprova. Intanto puoi dettare con Windows + H nella casella.":e==="audio-capture"?"Non trovo nessun microfono collegato.":e==="network"?"Il riconoscimento vocale non riesce a collegarsi a internet. Intanto puoi dettare con Windows + H nella casella.":e==="no-speech"?"Non ho sentito niente: riprova e parla più vicino al microfono.":"Microfono: errore "+e+". Puoi dettare con Windows + H nella casella.")};
   rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}catch(x){on=false;M("Microfono: "+x.message+". Puoi dettare con Windows + H nella casella.")}}})();
 
+/* ---------- PERCORSO ---------- */
+const AUTO={acc:()=>!!ST.collegato&&ST.stato_codice===2,gomme:()=>(ST.temp_gomme||[]).some(x=>x>0),giri:()=>(ST.giri_completati||0)>=3,delta:()=>ST.delta_ms!=null,carburante:()=>!!ST.consumo_giro,mappa:()=>!!tracciato,sessioni:()=>!!ultimaSes,apre:()=>!!ST.versione};
+function statoAuto(){const o={};for(const k in AUTO){try{o[k]=!!AUTO[k]()}catch(e){o[k]=false}}return o}
 /* ---------- PROVE ---------- */
 function disegnaProve(){const el=$("proveLista");if(!el)return;let h="";
  PROVE.forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
-  h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span><ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol><div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
+  const au=AUTO[p.id]&&AUTO[p.id]();h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span>${au?`<span class="pill on" style="margin-left:.5em">visto dal programma</span>`:""}<ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol><div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
+ h=`<div class="prova"><b>Commento generale</b><div class="mu">Scrivi qui qualsiasi cosa che non va o che vorresti diverso, anche non legata a un punto preciso.</div><textarea data-n="generale" placeholder="Commento libero">${esc((FUN.generale||{}).n||"")}</textarea></div>`+h;
  if(el.dataset.h!==h){const f=document.activeElement;if(f&&f.dataset&&f.dataset.n)return;el.innerHTML=h;el.dataset.h=h}}
 $("proveLista").onclick=e=>{const b=e.target.closest("button[data-p]");if(b)setFun(b.dataset.p,{s:b.dataset.s})};
 $("proveLista").addEventListener("change",e=>{const t=e.target.closest("textarea[data-n]");if(t)setFun(t.dataset.n,{n:t.value})});
 
 /* ---------- invio a Claude ---------- */
 function istantanea(){const u=ST;return {collegato:u.collegato,auto:u.auto,pista:u.pista,velocita:u.velocita,marcia:u.marcia,giri_motore:u.giri_motore,carburante:u.carburante,pressioni:u.pressioni,temp_gomme:u.temp_gomme,ultimo_giro:u.ultimo_giro,miglior_giro:u.miglior_giro,delta_ms:u.delta_ms}}
-function raccogli(){return {ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,prove:PROVE.map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
+function raccogli(){return {ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:PROVE.map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
 let tAuto=null;function autoInvia(){if(!ST.invio_configurato)return;clearTimeout(tAuto);tAuto=setTimeout(async()=>{try{const p=raccogli();p.automatico=true;p.istantanea=istantanea();const j=await api("/api/invia",p);if($("invioSt"))$("invioSt").textContent=j.ok?"Inviato a Claude da solo alle "+new Date().toLocaleTimeString("it-IT"):"Invio non riuscito: "+j.errore}catch(e){}},4000)}
 $("invia").onclick=async()=>{if(!ST.invio_configurato){$("copiato").textContent="Prima serve la chiave di accesso (qui sopra).";return}
  $("copiato").textContent="Invio in corso...";try{const j=await api("/api/invia",raccogli());$("copiato").textContent=j.ok?"Inviato a Claude. Scrivi «controlla» nella chat.":"Invio non riuscito: "+j.errore}catch(e){$("copiato").textContent="Invio non riuscito: il programma non risponde."}};
-$("azzera").onclick=async()=>{for(const p of PROVE)await api("/api/funzione",{id:p.id,s:null,n:""});await giro();disegnaProve()};
+$("azzera").onclick=async()=>{for(const p of PROVE.concat([{id:"generale"}]))await api("/api/funzione",{id:p.id,s:null,n:""});await giro();disegnaProve()};
 $("salvaChiave").onclick=async()=>{const v=$("chiave").value.trim();if(!v){$("chiaveMsg").textContent="Incolla prima la chiave.";return}
  try{const j=await api("/api/chiave",{token:v});if(j.ok){$("chiave").value="";ST.invio_configurato=true;$("chiaveMsg").textContent="Chiave salvata."}else $("chiaveMsg").textContent=j.errore}catch(e){$("chiaveMsg").textContent="Non sono riuscito a salvare."}};
 function aggiornaClaudeSt(){$("claudeSt").textContent=ST.claude_configurato?"Chiave salvata su questo PC. Tocca Prova per controllare che funzioni.":"Non collegato. Incolla qui la chiave che inizia con sk-ant- (resta solo su questo PC)."}
@@ -203,5 +207,5 @@ async function controllaAgg(){try{const j=await api("/api/aggiornamenti");if(j.d
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
 
 costruisciGomme();applicaModo();disegnaProve();giro();giroSetup();controllaAgg();
-setInterval(giro,200);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
+setInterval(giro,200);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);

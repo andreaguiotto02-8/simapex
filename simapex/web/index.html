@@ -11,7 +11,7 @@
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
   <button data-s="setup">Setup</button>
-  <button data-s="prove" class="solo-dev">Prove</button>
+  <button data-s="prove" class="solo-dev">Percorso</button>
   <button data-s="impostazioni">Impostazioni</button>
  </nav>
  <span class="sp"></span>
@@ -92,10 +92,10 @@
  </div>
 </section>
 
-<!-- PROVE (solo Sviluppo) -->
+<!-- PERCORSO (solo Sviluppo) -->
 <section id="s-prove" class="schermo" hidden>
  <div class="prove">
-  <div class="card"><h2>Programma di prova (una giornata in pista)</h2><p class="mu">Fai le fasi in ordine, come una normale giornata di guida. Per ogni punto tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota: i risultati arrivano a Claude da soli. Puoi segnarlo anche direttamente sulle schermate, con il pallino in alto a destra di ogni riquadro.</p><div class="st" id="invioSt"></div></div>
+  <div class="card"><h2>Percorso: una giornata in pista come la userai davvero</h2><p><b>Auto:</b> Ferrari 296 GT3, ripartendo da zero. <b>Pista consigliata: Misano.</b> È corta (circa 1'35"), divertente, con tante frenate decise (si vedono bene i blocchi) e curve facili da memorizzare: in un'ora fai molti giri e il circuito si disegna presto.</p><p class="mu">Non devi fare niente di speciale: guida normalmente e usa il programma come faresti in gara. Fai le fasi in ordine. Per ogni punto tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota: i risultati arrivano a Claude da soli. Puoi segnarlo anche direttamente sulle schermate, con il pallino in alto a destra di ogni riquadro.</p><div class="st" id="invioSt"></div></div>
   <div id="proveLista"></div>
  </div>
 </section>
@@ -105,7 +105,7 @@
  <div class="imp">
   <div class="card" id="claudeBox"><h2>Collegamento a Claude (API)</h2><p class="mu" id="claudeSt"></p><div class="row"><input id="claudeChiave" type="password" autocomplete="off" placeholder="Incolla qui la chiave sk-ant-..."><button class="pri" id="claudeSalva">Salva</button><button id="claudeProva">Prova</button></div><div class="st" id="claudeMsg"></div></div>
   <div class="card" id="chiaveBox"><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve per mandare i risultati a Claude. Incolla la chiave di GitHub.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla qui la chiave"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
-  <div class="card"><h2>Invio dei risultati</h2><div class="row"><button class="pri" id="invia">Invia a Claude adesso</button><button id="azzera">Azzera le prove</button></div><div class="st" id="copiato"></div></div>
+  <div class="card"><h2>Invio dei risultati</h2><div class="row"><button class="pri" id="invia">Invia a Claude adesso</button><button id="azzera">Azzera il percorso</button></div><div class="st" id="copiato"></div></div>
  </div>
 </section>
 </main>
