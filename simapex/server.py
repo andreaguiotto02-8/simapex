@@ -365,7 +365,7 @@ class Gestore(BaseHTTPRequestHandler):
                 base = d.get("modo") == "base"
                 ris = assistente.proponi(imp["claude_key"], setup, str(d.get("sensazioni", ""))[:2000],
                                          riepilogo_gomme(), q, f["auto"], f["pista"], base=base,
-                                         stile=registro_stile().profilo(f["auto"], f["pista"]))
+                                         stile=registro_stile().profilo(f["auto"], f["pista"]), log=scrivi_log)
                 nuovo_nome = None
                 if ris["modifiche"]:
                     nuovo = assistente.applica(setup, ris["modifiche"])

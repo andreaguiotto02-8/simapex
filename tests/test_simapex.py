@@ -434,5 +434,16 @@ class TestCircuito(unittest.TestCase):
         self.assertEqual(g["pos_norm"], 0.25)
 
 
+class TestRispostaTagliata(unittest.TestCase):
+    def test_recupera_modifiche_complete(self):
+        from simapex.assistente import estrai_json
+        testo = '{"problema":"p","spiegazione":"s","cosa_aspettarsi":"c","modifiche":[{"percorso":"a","click":1,"motivo":"m"},{"percorso":"b","click":-2,"motivo":"n"},{"percorso":"c","cl'
+        r = estrai_json(testo)
+        self.assertEqual(len(r["modifiche"]), 2)
+        self.assertEqual(r["problema"], "p")
+        with self.assertRaises(ValueError):
+            estrai_json("{rotto")
+
+
 if __name__ == "__main__":
     unittest.main()

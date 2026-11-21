@@ -147,7 +147,7 @@ SISTEMA = (
     "dei parametri modificabili. Se i dati non bastano per cambiare qualcosa con sicurezza, proponi una sola modifica "
     "prudente oppure nessuna e spiega cosa serve. Rispondi SOLO con un JSON, senza testo fuori dal JSON, in questa forma: "
     '{"problema":"frase breve","spiegazione":"2-4 frasi semplici in italiano, senza gergo","cosa_aspettarsi":"cosa deve '
-    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}]}'
+    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}]}. Sii compatto: massimo 25 modifiche, ogni motivo di al massimo 12 parole.'
 )
 
 
@@ -189,16 +189,50 @@ def estrai_json(testo):
     i, f = testo.find("{"), testo.rfind("}")
     if i < 0 or f < 0:
         raise ValueError("risposta senza JSON")
-    return json.loads(testo[i:f + 1])
+    try:
+        return json.loads(testo[i:f + 1])
+    except ValueError:
+        return _ripara(testo[i:])
 
 
-def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None, base=False, stile=None):
+def _ripara(testo):
+    """Se la risposta è stata tagliata a metà, recupera le modifiche complete già scritte."""
+    k = testo.find('"modifiche"')
+    if k < 0:
+        raise ValueError("risposta incompleta")
+    testa = testo[:k].rstrip().rstrip(",")
+    try:
+        r = json.loads(testa + "}")
+    except ValueError:
+        r = {}
+    dec = json.JSONDecoder()
+    j = testo.find("[", k) + 1
+    mod = []
+    while True:
+        j = testo.find("{", j)
+        if j < 0:
+            break
+        try:
+            o, fine = dec.raw_decode(testo, j)
+        except ValueError:
+            break
+        mod.append(o)
+        j = fine
+    if not mod:
+        raise ValueError("risposta incompleta")
+    r["modifiche"] = mod
+    return r
+
+
+def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None, base=False, stile=None, log=None):
     domanda = costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile)
     testo, uso = claude_api.chiedi(chiave, domanda, modello or claude_api.MODELLO,
-                                   sistema=SISTEMA_BASE if base else SISTEMA, max_token=1800 if base else 900)
+                                   sistema=SISTEMA_BASE if base else SISTEMA, max_token=6000 if base else 2500, tempo_max=120 if base else 60)
     try:
         r = estrai_json(testo)
     except ValueError:
+        if log:
+            log("risposta Claude non leggibile (%s): %s" % (uso.get("stop_reason"), testo[:1500]))
         raise RuntimeError("Claude ha risposto in un formato che non capisco. Riprova.")
     valide, scartate = valida_modifiche(setup, r.get("modifiche", []), base)
     return {"problema": str(r.get("problema", ""))[:200], "spiegazione": str(r.get("spiegazione", ""))[:800],
