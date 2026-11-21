@@ -446,5 +446,28 @@ class TestRispostaTagliata(unittest.TestCase):
             estrai_json("{rotto")
 
 
+class TestEsito(unittest.TestCase):
+    def test_meglio_peggio_uguale(self):
+        from simapex.esito import valuta, aggiorna
+        def giro(ts, t, bl=0):
+            return {"auto": "a", "pista": "p", "tempo_ms": t, "ts": ts, "blocchi": [{}] * bl}
+        prima = [giro(100 + i, 92000 + (i % 3) * 100) for i in range(6)]
+        voce = {"id": 1000, "auto": "a", "pista": "p"}
+        meglio = [giro(1100 + i, 91400 + (i % 3) * 100) for i in range(6)]
+        peggio = [giro(1100 + i, 92700 + (i % 3) * 100) for i in range(6)]
+        uguale = [giro(1100 + i, 92000 + (i % 3) * 100) for i in range(6)]
+        self.assertEqual(valuta(prima + meglio, voce)["esito"], "meglio")
+        self.assertEqual(valuta(prima + peggio, voce)["esito"], "peggio")
+        self.assertEqual(valuta(prima + uguale, voce)["esito"], "uguale")
+        self.assertIsNone(valuta(prima + meglio[:2], voce))
+        q = [dict(voce, esito=None)]
+        self.assertTrue(aggiorna(q, prima + meglio))
+        self.assertEqual(q[0]["esito"], "meglio")
+        q[0]["esito_auto"] = False
+        q[0]["esito"] = "peggio"
+        aggiorna(q, prima + meglio)
+        self.assertEqual(q[0]["esito"], "peggio")  # la scelta a mano non si tocca
+
+
 if __name__ == "__main__":
     unittest.main()

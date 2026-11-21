@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito
+from . import circuito, esito
 from .report import crea_report, dettaglio_sessione, elenco_sessioni
 from .stile import RegistroStile
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -115,6 +115,15 @@ def riepilogo_gomme():
 _stile = [None]
 
 
+def aggiorna_esiti():
+    try:
+        q = carica_quaderno()
+        if esito.aggiorna(q, registro_stile().giri):
+            salva_quaderno(q)
+    except Exception:
+        pass
+
+
 def registro_stile():
     if _stile[0] is None:
         _stile[0] = RegistroStile(os.path.join(cartella_dati(), "stile.json"))
@@ -151,6 +160,8 @@ def _campionatore():
             registratore().alimenta(d)
             if tick % 10 == 0:
                 campiona_gomme(d)
+            if tick % 300 == 150:
+                aggiorna_esiti()
         except Exception:
             pass
         tick += 1
@@ -292,6 +303,7 @@ class Gestore(BaseHTTPRequestHandler):
                     r = {"disponibile": False}
                 self._invia(200, json.dumps(r), "application/json")
             elif self.path.startswith("/api/assistente"):
+                aggiorna_esiti()
                 self._invia(200, json.dumps({"gomme": riepilogo_gomme(), "quaderno": carica_quaderno()[-8:], "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri)}), "application/json")
             elif self.path.startswith("/api/setup"):
                 self._invia(200, json.dumps(elenco_setup()), "application/json")
@@ -400,6 +412,7 @@ class Gestore(BaseHTTPRequestHandler):
                 for x in qq:
                     if x.get("id") == d.get("id") and d.get("esito") in ("meglio", "uguale", "peggio"):
                         x["esito"] = d["esito"]
+                        x["esito_auto"] = False
                 salva_quaderno(qq)
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
