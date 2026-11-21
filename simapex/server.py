@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from .report import crea_report
+from .report import crea_report, dettaglio_sessione, elenco_sessioni
 from .stile import RegistroStile
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
@@ -245,8 +245,19 @@ class Gestore(BaseHTTPRequestHandler):
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
                 self._invia(200, json.dumps(d), "application/json")
+            elif self.path.startswith("/api/sessioni"):
+                self._invia(200, json.dumps({"sessioni": elenco_sessioni(registro_stile().giri)[:50]}), "application/json")
+            elif self.path.startswith("/api/sessione?"):
+                try:
+                    sid = int(self.path.split("id=")[1].split("&")[0])
+                except Exception:
+                    sid = -1
+                det = dettaglio_sessione(registro_stile().giri, sid, registro_stile().profilo())
+                if det:
+                    det["quaderno"] = [x for x in carica_quaderno() if x.get("auto") == det["auto"] and x.get("pista") == det["pista"]][-6:]
+                self._invia(200, json.dumps({"sessione": det}), "application/json")
             elif self.path.startswith("/api/report"):
-                self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, riepilogo_gomme(), registro_stile().profilo())}), "application/json")
+                self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, None, registro_stile().profilo())}), "application/json")
             elif self.path.startswith("/api/aggiornamenti"):
                 try:
                     r = invio.controlla_aggiornamenti(VERSIONE)
@@ -376,7 +387,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "report": crea_report(registro_stile().giri, riepilogo_gomme(), registro_stile().profilo()), "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:

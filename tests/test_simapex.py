@@ -365,5 +365,35 @@ class TestBlocchiReport(unittest.TestCase):
         self.assertIsNone(crea_report([]))
 
 
+class TestSessioni(unittest.TestCase):
+    def test_elenco_e_dettaglio(self):
+        from simapex.report import elenco_sessioni, dettaglio_sessione
+        base = 1000000
+        g = lambda n, ts, a="a", t=90000: {"auto": a, "pista": "p", "tempo_ms": t, "ts": ts, "giro": n, "blocchi": [],
+                                           "carburante": 50 - n, "gomme": {"p": [27.0] * 4, "t": [80] * 4, "z": [[90] * 4, [80] * 4, [70] * 4]}}
+        giri = [g(1, base), g(2, base + 100, t=91000), g(1, base + 5000), g(2, base + 5100)]
+        el = elenco_sessioni(giri)
+        self.assertEqual(len(el), 2)
+        self.assertEqual(el[0]["id"], base + 5000)
+        d = dettaglio_sessione(giri, base)
+        self.assertEqual(d["giri"], 2)
+        self.assertEqual(d["carburante_inizio"], 49)
+        self.assertEqual(d["gomme"]["temperatura_zone_C"]["ant_sx"]["interna"], 90)
+        self.assertTrue(any("interno" in n for n in d["note"]))
+        self.assertIsNone(dettaglio_sessione(giri, 5))
+
+    def test_stile_salva_gomme_e_carburante(self):
+        from simapex.stile import RegistroStile
+        r = RegistroStile(os.path.join(tempfile.mkdtemp(), "s.json"))
+        c = lambda giri: {"collegato": True, "auto": "a", "pista": "p", "giri_completati": giri, "velocita": 120,
+                          "freno": 0.0, "acceleratore": 0.5, "sterzo": 0.0, "carburante": 40.0,
+                          "pressioni": [27.0] * 4, "temp_gomme": [80.0] * 4, "ultimo_giro_ms": 90000}
+        for _ in range(300):
+            r.alimenta(c(0))
+        r.alimenta(c(1))
+        self.assertEqual(r.giri[0]["carburante"], 40.0)
+        self.assertEqual(r.giri[0]["gomme"]["t"], [80] * 4)
+
+
 if __name__ == "__main__":
     unittest.main()

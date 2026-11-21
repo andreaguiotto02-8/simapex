@@ -22,8 +22,65 @@ def ultima_sessione(giri, auto=None, pista=None):
     return list(reversed(out))
 
 
-def crea_report(giri, gomme=None, stile=None):
-    s = ultima_sessione(giri)
+NOMI_RUOTE = ["ant_sx", "ant_dx", "post_sx", "post_dx"]
+
+
+def gomme_da_giri(s):
+    """Medie gomme della sessione, ricavate dai giri salvati (nello stesso formato del riepilogo live)."""
+    g = [x["gomme"] for x in s if x.get("gomme")]
+    if not g:
+        return None
+    n = len(g)
+    out = {"giri_con_dati": n,
+           "pressione_media_psi": {NOMI_RUOTE[i]: round(sum(x["p"][i] for x in g) / n, 1) for i in range(4)},
+           "temperatura_media_C": {NOMI_RUOTE[i]: round(sum(x["t"][i] for x in g) / n) for i in range(4)}}
+    gz = [x["z"] for x in g if x.get("z")]
+    if gz:
+        out["temperatura_zone_C"] = {NOMI_RUOTE[i]: {k: round(sum(z[j][i] for z in gz) / len(gz))
+                                                     for j, k in enumerate(("interna", "centro", "esterna"))}
+                                     for i in range(4)}
+    return out
+
+
+def tutte_le_sessioni(giri):
+    """Divide tutti i giri registrati in sessioni (cambia auto/pista o pausa lunga). Dalla più recente."""
+    sess, cur = [], []
+    for x in giri:
+        if cur and (x["auto"] != cur[-1]["auto"] or x["pista"] != cur[-1]["pista"] or
+                    (x.get("ts") and cur[-1].get("ts") and x["ts"] - cur[-1]["ts"] > PAUSA_SESSIONE_S)):
+            sess.append(cur)
+            cur = []
+        cur.append(x)
+    if cur:
+        sess.append(cur)
+    return list(reversed(sess))
+
+
+def elenco_sessioni(giri):
+    out = []
+    for s in tutte_le_sessioni(giri):
+        tempi = [x["tempo_ms"] for x in s]
+        out.append({"id": s[0].get("ts") or 0, "auto": s[0]["auto"], "pista": s[0]["pista"], "data": s[0].get("ts"),
+                    "giri": len(s), "miglior_giro": formatta_tempo(min(tempi)),
+                    "blocchi": sum(len(x.get("blocchi", [])) for x in s)})
+    return out
+
+
+def dettaglio_sessione(giri, id_sessione, stile=None):
+    for s in tutte_le_sessioni(giri):
+        if (s[0].get("ts") or 0) == id_sessione:
+            r = crea_report(giri, None, stile, sessione=s)
+            carb = [x["carburante"] for x in s if x.get("carburante") is not None]
+            r["carburante_inizio"], r["carburante_fine"] = (carb[0], carb[-1]) if carb else (None, None)
+            r["data"] = s[0].get("ts")
+            return r
+    return None
+
+
+def crea_report(giri, gomme=None, stile=None, sessione=None):
+    s = sessione if sessione is not None else ultima_sessione(giri)
+    if gomme is None:
+        gomme = gomme_da_giri(s)
     if not s:
         return None
     tempi = [x["tempo_ms"] for x in s]
@@ -41,7 +98,8 @@ def crea_report(giri, gomme=None, stile=None):
          "costanza_ms": max(x["tempo_ms"] for x in puliti) - min(x["tempo_ms"] for x in puliti) if puliti else 0,
          "giri_lenti_o_sporchi": lenti,
          "dettaglio_giri": [{"giro": x.get("giro"), "tempo": formatta_tempo(x["tempo_ms"]),
-                   "blocchi": len(x.get("blocchi", []))} for x in s],
+                   "blocchi": len(x.get("blocchi", [])), "carburante": x.get("carburante"),
+                   "pulito": x["tempo_ms"] <= migliore * 1.07} for x in s],
          "blocchi_totali": len(blocchi), "blocchi_per_ruota": per_ruota,
          "giri_con_blocchi": sorted({g for g, _ in blocchi if g}),
          "gomme": gomme, "stile": stile}

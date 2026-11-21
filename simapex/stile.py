@@ -53,6 +53,12 @@ class RegistroStile:
         self.v_max = 0.0
         self.prec = None
         self.blocchi = []
+        self.gn = 0
+        self.gp = [0.0] * 4
+        self.gt = [0.0] * 4
+        self.gz = [[0.0] * 4 for _ in range(3)]
+        self.gzn = 0
+        self.carb = None
         self.t_blocco = [0.0] * 4
         self.auto = d.get("auto") if d else None
         self.pista = d.get("pista") if d else None
@@ -77,6 +83,8 @@ class RegistroStile:
         if r is not None:
             self.t_blocco[r] = time.time()
         v = d.get("velocita") or 0
+        self.carb = d.get("carburante", self.carb)
+        self._gomme(d, v)
         if v < 20:
             return
         f, g, st = d.get("freno") or 0, d.get("acceleratore") or 0, d.get("sterzo") or 0
@@ -100,6 +108,29 @@ class RegistroStile:
         if g < 0.05 and f < 0.05:
             self.c["coasting"] += 1
 
+    def _gomme(self, d, v):
+        pr, te = d.get("pressioni") or [], d.get("temp_gomme") or []
+        if v < 60 or len(pr) != 4 or len(te) != 4:
+            return
+        self.gn += 1
+        for i in range(4):
+            self.gp[i] += pr[i]
+            self.gt[i] += te[i]
+        z = d.get("temp_zone")
+        if z and all(len(z.get(k, [])) == 4 for k in ("interna", "centro", "esterna")):
+            self.gzn += 1
+            for j, k in enumerate(("interna", "centro", "esterna")):
+                for i in range(4):
+                    self.gz[j][i] += z[k][i]
+
+    def _gomme_giro(self):
+        if self.gn < 20:
+            return None
+        g = {"p": [round(x / self.gn, 1) for x in self.gp], "t": [round(x / self.gn) for x in self.gt]}
+        if self.gzn >= 20:
+            g["z"] = [[round(x / self.gzn) for x in riga] for riga in self.gz]
+        return g
+
     def _chiudi(self, d):
         tempo = d.get("ultimo_giro_ms") or 0
         if self.n < 200 or tempo <= 0:
@@ -107,7 +138,7 @@ class RegistroStile:
         n = float(self.n)
         self.giri.append({
             "auto": self.auto, "pista": self.pista, "tempo_ms": tempo, "ts": int(time.time()),
-            "giro": self.giro + 1, "blocchi": self.blocchi[:20],
+            "giro": self.giro + 1, "carburante": round(self.carb, 1) if self.carb is not None else None, "gomme": self._gomme_giro(), "blocchi": self.blocchi[:20],
             "freno_medio": round(self.s["freno"] / n, 3), "freno_max": round(self.max_freno, 2),
             "tempo_in_frenata": round(self.c["freno"] / n, 3),
             "frenata_con_sterzo": round(self.c["trail"] / max(1, self.c["freno"]), 3),
