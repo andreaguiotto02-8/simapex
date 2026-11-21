@@ -59,7 +59,6 @@ const PROVE=[
  {"id": "mic", "t": "Microfono", "p": ["Nell'assistente tocca 🎤 Parla, consenti il microfono e racconta come va la macchina."], "a": "Quello che dici compare scritto nella casella. Se non funziona, scrivi a mano e segna «Non funziona»."},
  {"id": "guida1", "g": "4 · SECONDO TURNO: CON IL SETUP NUOVO", "t": "Guida con il setup nuovo", "p": ["Esci in pista con il setup «Simapex 1» e fai almeno 8 giri, sempre senza box.", "Il programma valuta da solo se è andato meglio, uguale o peggio (compare sotto le modifiche dell'assistente dopo almeno 4 giri puliti).", "Nella nota scrivi cosa senti di diverso."], "a": "Il programma indica l'esito da solo e, se non sei d'accordo, puoi correggerlo; la macchina deve essere più guidabile di prima. Se no, scrivi cosa non va."},
  {"id": "blocchi", "t": "Rileva i blocchi in frenata", "p": ["In questo turno frena una volta ogni tanto più forte del solito, fino a bloccare una ruota (almeno 3 volte).", "Guarda il report della sessione."], "a": "Il report dice che hai bloccato, con la ruota giusta. Se dice zero blocchi o ne segna troppi, scrivilo."},
- {"id": "zone", "t": "Temperature gomme a 3 zone", "p": ["Nel report guarda la temperatura delle gomme: interna, centro, esterna."], "a": "Compaiono le 3 zone di ogni gomma, con valori sensati (tra 60 e 110 gradi dopo qualche giro)."},
  {"id": "migliora1", "g": "5 · MIGLIORAMENTO DEL SETUP", "t": "Primo miglioramento (una modifica alla volta)", "p": ["Scrivi il problema che ti dà più fastidio adesso.", "Tocca «Migliora» e carica in ACC il file nuovo.", "Fai 5 o più giri: il programma valuta da solo l'esito."], "a": "L'assistente propone poche modifiche (massimo 3) legate al problema che hai scritto."},
  {"id": "migliora2", "t": "Secondo miglioramento", "p": ["Ripeti con il problema successivo."], "a": "Come sopra: poche modifiche, e l'assistente tiene conto dell'esito precedente."},
  {"id": "sessioni", "g": "6 · A FINE GIORNATA", "t": "Le sessioni si sono salvate da sole", "p": ["Apri il riquadro «Sessioni».", "Controlla che ci siano i turni che hai fatto, con auto, pista, data e giri."], "a": "Ogni turno è nell'elenco, con il miglior giro giusto."},
@@ -88,7 +87,7 @@ function riempiAss(){const s=$("assFile");const f=(setup.file||[]).filter(x=>x.v
 async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
  $("assMsg").textContent="Claude sta lavorando (qualche secondo)...";$("assRis").innerHTML="";try{const r=await fetch("/api/assistente/proponi",{method:"POST",body:JSON.stringify({file:file,sensazioni:$("assSens").value,modo:modo})});const j=await r.json();
  if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
- $("assMsg").textContent="";assId=j.id||null;
+ $("assMsg").textContent="";assId=j.id||null;if(j.modifiche&&j.modifiche.length)$("assSens").value="";
  let h=`<div class="k" style="margin-top:8px"><b class="t">${j.problema||"Proposta"}</b><span>${j.spiegazione||""}</span></div>`;
  if(j.modifiche.length){h+="<table>"+j.modifiche.map(m=>`<tr><td>${m.nome}</td><td>${m.click>0?"+":""}${m.click} click</td><td>${m.motivo}</td></tr>`).join("")+"</table>";
   h+=`<p><b>Setup creato:</b> ${j.nuovo_file}<br>In ACC apri la lista dei setup, scegli questo nome e caricalo.</p><p class="mu">${j.cosa_aspettarsi||""}</p>

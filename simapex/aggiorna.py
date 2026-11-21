@@ -36,7 +36,7 @@ def _scarica(url, dest, tempo_max=90):
     return ok
 
 
-def prova(versione, log=lambda t: None):
+def prova(versione, log=lambda t: None, inizio=None, prima_di_riavviare=None):
     """True se ha installato una versione nuova e ha riavviato il programma (chi chiama deve uscire)."""
     e = _exe()
     if not e or os.environ.get("SIMAPEX_NO_AGG") or os.environ.get("SIMAPEX_APPENA_AGGIORNATO"):
@@ -46,6 +46,8 @@ def prova(versione, log=lambda t: None):
         if not info.get("disponibile"):
             return False
         log("aggiornamento da %s a %s" % (versione, info.get("ultima")))
+        if inizio:
+            inizio(info.get("ultima"))
         nuovo = e + ".nuovo"
         if not _scarica(info["scarica"], nuovo):
             try:
@@ -60,6 +62,8 @@ def prova(versione, log=lambda t: None):
         except OSError:
             os.replace(e + ".vecchio", e)
             raise
+        if prima_di_riavviare:
+            prima_di_riavviare()  # libera la porta prima che parta la versione nuova
         amb = dict(os.environ)
         amb["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
         amb["SIMAPEX_APPENA_AGGIORNATO"] = "1"

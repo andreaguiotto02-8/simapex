@@ -348,6 +348,8 @@ class TestBlocchiReport(unittest.TestCase):
         d = decodifica_physics(bytes(b))
         self.assertEqual(d["vel_ruote"][0], 70.0)
         self.assertEqual(d["temp_zone"]["interna"][3], 90.0)
+        z0 = bytearray(512)
+        self.assertNotIn("temp_zone", decodifica_physics(bytes(z0)))
         r = RegistroStile(os.path.join(tempfile.mkdtemp(), "s.json"))
         def c(giri, i, blocco=False):
             return {"collegato": True, "auto": "a", "pista": "p", "giri_completati": giri, "velocita": 120,

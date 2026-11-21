@@ -259,6 +259,12 @@ class Gestore(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n).decode("utf-8"))
 
     def do_GET(self):
+        if _aggiornando[0]:
+            if self.path.startswith("/api/stato"):
+                self._invia(200, json.dumps({"aggiornando": True}), "application/json")
+            else:
+                self._invia(200, SPLASH.replace("__V__", str(_aggiornando[0])), "text/html")
+            return
         _ultima_richiesta[0] = time.time()
         try:
             if self.path in ("/", "/index.html"):
@@ -447,28 +453,56 @@ def _guardiano():
             _fermati.set()
 
 
+_aggiornando = [None]
+
+SPLASH = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Simapex</title>
+<body style="margin:0;background:#0e1116;color:#e8ecf2;font:22px system-ui,Arial;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center">
+<div><div style="font-size:42px;font-weight:700;letter-spacing:1px">SIMAPEX</div><p>Sto aggiornando alla versione __V__...</p><p style="color:#98a2b3;font-size:16px">Si riapre da solo tra pochi secondi. Non serve fare niente.</p></div>
+<script>setInterval(async()=>{try{const r=await fetch("/api/stato");const j=await r.json();if(!j.aggiornando)location.reload()}catch(e){}},1500)</script>"""
+
+
 def main(apri_browser=True):
     if sys.stdout is None:
         sys.stdout = open(os.devnull, "w")
     if sys.stderr is None:
         sys.stderr = open(os.devnull, "w")
-    try:
-        srv = ThreadingHTTPServer(("127.0.0.1", PORTA), Gestore)
-    except OSError:
+    srv = None
+    for _ in range(12):  # se il programma vecchio sta ancora chiudendo, aspetta un attimo
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", PORTA), Gestore)
+            break
+        except OSError:
+            time.sleep(0.5)
+    if srv is None:
         # già aperto: si mostra solo la pagina
         if apri_browser:
             apri_finestra("http://127.0.0.1:%d/" % PORTA)
         return
     scrivi_log("avviato versione " + VERSIONE)
     aggiorna.pulisci_vecchi()
-    if apri_browser and aggiorna.prova(VERSIONE, scrivi_log):
+    avviato = [False]
+
+    def inizio(ver):
+        _aggiornando[0] = ver
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        avviato[0] = True
+        apri_finestra("http://127.0.0.1:%d/" % PORTA)
+
+    def prima_di_riavviare():
+        srv.shutdown()
         srv.server_close()
+
+    if apri_browser and aggiorna.prova(VERSIONE, scrivi_log, inizio, prima_di_riavviare):
         return
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    if _aggiornando[0]:  # aggiornamento non riuscito: si continua con questa versione
+        _aggiornando[0] = None
+        _ultima_richiesta[0] = time.time()
+    if not avviato[0]:
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        if apri_browser:
+            apri_finestra("http://127.0.0.1:%d/" % PORTA)
     threading.Thread(target=_guardiano, daemon=True).start()
     threading.Thread(target=_campionatore, daemon=True).start()
-    if apri_browser:
-        apri_finestra("http://127.0.0.1:%d/" % PORTA)
     _fermati.wait()
     srv.shutdown()
     scrivi_log("chiuso")

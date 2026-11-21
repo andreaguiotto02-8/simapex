@@ -90,9 +90,11 @@ def decodifica_physics(b):
         out["temp_aria"] = round(_f(b, 288), 1)
         out["temp_asfalto"] = round(_f(b, 292), 1)
         out["temp_freni"] = [round(x, 0) for x in _4f(b, 348)]
-        out["temp_zone"] = {"interna": [round(x, 1) for x in _4f(b, 368)],
-                            "centro": [round(x, 1) for x in _4f(b, 384)],
-                            "esterna": [round(x, 1) for x in _4f(b, 400)]}
+        zone = {"interna": [round(x, 1) for x in _4f(b, 368)],
+                "centro": [round(x, 1) for x in _4f(b, 384)],
+                "esterna": [round(x, 1) for x in _4f(b, 400)]}
+        if any(v > 0 for riga in zone.values() for v in riga):  # ACC spesso lascia queste zone a zero
+            out["temp_zone"] = zone
     return out
 
 
