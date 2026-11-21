@@ -79,7 +79,7 @@ class RegistroStile:
             return
         r = ruota_bloccata(d)
         if r is not None and time.time() - self.t_blocco[r] > 1.0:
-            self.blocchi.append({"ruota": NOMI_RUOTE[r], "vel": round(d.get("velocita") or 0), "freno": round(d.get("freno") or 0, 2)})
+            self.blocchi.append({"ruota": NOMI_RUOTE[r], "vel": round(d.get("velocita") or 0), "freno": round(d.get("freno") or 0, 2), "pos": d.get("pos_norm")})
         if r is not None:
             self.t_blocco[r] = time.time()
         v = d.get("velocita") or 0

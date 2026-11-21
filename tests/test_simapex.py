@@ -112,7 +112,11 @@ class TestServer(unittest.TestCase):
             for p in ("/icona-192.png", "/icona-512.png", "/favicon.ico"):
                 r = urllib.request.urlopen(u + p)
                 self.assertGreater(len(r.read()), 500)
-            self.assertIn("serviceWorker", html)
+            js = urllib.request.urlopen(u + "/app.js").read().decode("utf-8")
+            self.assertIn("serviceWorker", js)
+            self.assertIn("--ac", urllib.request.urlopen(u + "/app.css").read().decode("utf-8"))
+            for p in ("/api/sessioni", "/api/report", "/api/pista?nome=x", "/api/sessione?id=1"):
+                json.loads(urllib.request.urlopen(u + p).read())
         finally:
             req = urllib.request.Request("http://127.0.0.1:8799/api/chiudi", method="POST")
             urllib.request.urlopen(req)
@@ -469,6 +473,45 @@ class TestEsito(unittest.TestCase):
         q[0]["esito"] = "peggio"
         aggiorna(q, prima + meglio)
         self.assertEqual(q[0]["esito"], "peggio")  # la scelta a mano non si tocca
+
+
+class TestTracce(unittest.TestCase):
+    def _giro(self, rallenta=False):
+        camp, pos, t = [], 0.0, 0.0
+        while pos < 1:
+            v = 150 - (40 if rallenta and 0.3 < pos < 0.4 else 0)
+            camp.append((pos, t * 1000, v, 0.0, 0.5))
+            pos += v / 150.0 / 750.0
+            t += 0.02
+        return camp, int(t * 1000)
+
+    def test_costruisci_confronta_e_delta(self):
+        from simapex import tracce as tr
+        c1, t1 = self._giro()
+        c2, t2 = self._giro(rallenta=True)
+        a, b = tr.costruisci(c1, t1, t1), tr.costruisci(c2, t2, t2)
+        self.assertEqual(len(a["t"]), tr.N + 1)
+        self.assertGreater(t2, t1)
+        seg = tr.confronta(b, a)           # b (lento) rispetto ad a: perde nei tratti 6-7
+        self.assertGreater(sum(seg), 0)
+        perd = tr.tratti_principali(seg)[1]
+        self.assertTrue(set(perd) & {6, 7})
+        self.assertIsNone(tr.costruisci(c1[:50], t1, t1))
+
+    def test_registra_e_delta_live(self):
+        import time as _t
+        from simapex.tracce import Tracce
+        tr = Tracce(tempfile.mkdtemp())
+        base = {"collegato": True, "auto": "a", "pista": "p", "in_box": False, "velocita": 100, "freno": 0, "acceleratore": 1}
+        # giro simulato in fretta: forzo il tempo del giro
+        tr._azzera(dict(base, giri_completati=0))
+        for i in range(400):
+            tr.t0 = _t.time() - i * 0.05
+            tr.alimenta(dict(base, giri_completati=0, pos_norm=i / 400.0))
+        tr.alimenta(dict(base, giri_completati=1, pos_norm=0.0, ultimo_giro_ms=20000))
+        self.assertIsNotNone(tr.carica("a", "p")["migliore"])
+        self.assertEqual(tr.carica("a", "p")["migliore"]["tempo_ms"], 20000)
+        self.assertIsNone(tr.delta_live(dict(base, pos_norm=0.0)))
 
 
 if __name__ == "__main__":

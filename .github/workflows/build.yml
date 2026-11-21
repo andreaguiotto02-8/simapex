@@ -18,7 +18,7 @@ jobs:
       - name: Costruzione del programma
         run: |
           pip install pyinstaller
-          pyinstaller --onefile --noconsole --name Simapex --icon simapex/icone/icona.ico --add-data "simapex/icone;simapex/icone" --add-data "simapex/piste;simapex/piste" avvia.py
+          pyinstaller --onefile --noconsole --name Simapex --icon simapex/icone/icona.ico --add-data "simapex/icone;simapex/icone" --add-data "simapex/piste;simapex/piste" --add-data "simapex/web;simapex/web" avvia.py
       - name: Pubblicazione
         shell: bash
         env:

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simapex</title>
+<link rel="icon" href="/favicon.ico"><link rel="icon" type="image/png" href="/icona-192.png"><link rel="apple-touch-icon" href="/icona-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0e13">
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<header id="top">
+ <b class="logo">SIMAPEX</b><span class="v" id="ver">v__VERSIONE__</span>
+ <span class="pill" id="acc">ACC non collegato</span>
+ <nav id="nav">
+  <button data-s="guida" class="act">Guida</button>
+  <button data-s="sessioni">Sessioni</button>
+  <button data-s="setup">Setup</button>
+  <button data-s="prove" class="solo-dev">Prove</button>
+  <button data-s="impostazioni">Impostazioni</button>
+ </nav>
+ <span class="sp"></span>
+ <button id="modo" class="modo" title="Cambia tra Gioca e Sviluppo">SVILUPPO</button>
+ <button id="intero" title="Schermo intero">⛶</button>
+ <button id="chiudi">Chiudi</button>
+</header>
+<div id="agg" class="banner" hidden><b>Versione nuova: <span id="aggv"></span></b> <button class="pri" id="aggb">Scarica</button></div>
+
+<main>
+<!-- GUIDA: schermata da tenere aperta mentre guidi -->
+<section id="s-guida" class="schermo">
+ <div class="guida">
+  <div class="w g-gomme" data-f="gomme" data-t="Gomme">
+   <div class="gomme4" id="gomme4"></div>
+  </div>
+  <div class="w g-marcia" data-f="acc" data-t="Dati in diretta">
+   <div class="marcia" id="gMarcia">N</div>
+   <div class="vel"><b id="gVel">0</b><span>km/h</span></div>
+   <div class="rpm"><div id="gRpm"></div><i id="gRpmN"></i></div>
+  </div>
+  <div class="w g-pedali" data-f="acc" data-t="Pedali e sterzo">
+   <div class="ped"><div class="barra"><div id="pFreno" class="rosso"></div></div><span>Freno</span></div>
+   <div class="ped"><div class="barra"><div id="pGas" class="verde"></div></div><span>Gas</span></div>
+   <div class="sterzo"><div class="sbarra"><i id="pSterzo"></i></div><span>Sterzo</span></div>
+  </div>
+  <div class="w g-giri" data-f="giri" data-t="Tempi">
+   <div class="tempi">
+    <div><span>Giro in corso</span><b id="tAttuale">—</b></div>
+    <div><span>Ultimo</span><b id="tUltimo">—</b></div>
+    <div><span>Migliore</span><b id="tMigliore">—</b></div>
+    <div><span>Giro n.</span><b id="tGiro">0</b></div>
+   </div>
+  </div>
+  <div class="w g-delta" data-f="delta" data-t="Delta sul tuo migliore">
+   <span class="etic">Rispetto al tuo giro migliore</span>
+   <b id="gDelta">—</b>
+  </div>
+  <div class="w g-mappa" data-f="mappa" data-t="Mappa">
+   <svg id="gMappa" viewBox="0 0 300 300"></svg>
+   <span class="vuoto" id="gMappaV">La mappa si disegna dopo un giro pulito.</span>
+  </div>
+  <div class="w g-carb" data-f="carburante" data-t="Carburante">
+   <div class="tempi">
+    <div><span>Carburante</span><b id="cLitri">—</b></div>
+    <div><span>Consumo/giro</span><b id="cCons">—</b></div>
+    <div><span>Giri che restano</span><b id="cGiri">—</b></div>
+   </div>
+  </div>
+  <div class="w g-blocco" data-f="blocchi" data-t="Blocco in frenata"><div id="gBlocco" class="blocco">BLOCCO</div></div>
+ </div>
+</section>
+
+<!-- SESSIONI: report dopo la guida -->
+<section id="s-sessioni" class="schermo" hidden>
+ <div class="sessioni">
+  <aside class="w lista" data-f="sessioni" data-t="Elenco sessioni"><h3>Sessioni</h3><div id="sesLista" class="mu">Nessuna sessione ancora: guida qualche giro.</div></aside>
+  <div class="rep" id="rep"><p class="mu">Scegli una sessione dall'elenco.</p></div>
+ </div>
+</section>
+
+<!-- SETUP -->
+<section id="s-setup" class="schermo" hidden>
+ <div class="setup">
+  <div class="w sc1" data-f="base" data-t="Setup con l'assistente">
+   <h3>Setup</h3>
+   <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
+   <select id="assFile"></select>
+   <textarea id="assSens" rows="4" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..."></textarea>
+   <div class="row"><button id="assMic" data-f="mic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai" data-f="migliora1">Migliora (una modifica alla volta)</button></div>
+   <p class="mu" id="assStile"></p>
+   <div class="st" id="assMsg"></div><div id="assRis"></div>
+  </div>
+  <div class="sc2">
+   <div class="w" data-f="esito" data-t="Esito automatico del setup"><h3>Setup provati</h3><div id="quad" class="mu">Ancora nessun setup creato.</div></div>
+   <div class="w" data-f="setup" data-t="Setup trovati in ACC"><h3>Setup trovati in ACC</h3><div id="setupLista" class="mu">Apri ACC e salva un setup.</div></div>
+  </div>
+ </div>
+</section>
+
+<!-- PROVE (solo Sviluppo) -->
+<section id="s-prove" class="schermo" hidden>
+ <div class="prove">
+  <div class="card"><h2>Programma di prova (una giornata in pista)</h2><p class="mu">Fai le fasi in ordine, come una normale giornata di guida. Per ogni punto tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota: i risultati arrivano a Claude da soli. Puoi segnarlo anche direttamente sulle schermate, con il pallino in alto a destra di ogni riquadro.</p><div class="st" id="invioSt"></div></div>
+  <div id="proveLista"></div>
+ </div>
+</section>
+
+<!-- IMPOSTAZIONI -->
+<section id="s-impostazioni" class="schermo" hidden>
+ <div class="imp">
+  <div class="card" id="claudeBox"><h2>Collegamento a Claude (API)</h2><p class="mu" id="claudeSt"></p><div class="row"><input id="claudeChiave" type="password" autocomplete="off" placeholder="Incolla qui la chiave sk-ant-..."><button class="pri" id="claudeSalva">Salva</button><button id="claudeProva">Prova</button></div><div class="st" id="claudeMsg"></div></div>
+  <div class="card" id="chiaveBox"><h2>Chiave di accesso per l'invio</h2><p class="mu">Serve per mandare i risultati a Claude. Incolla la chiave di GitHub.</p><div class="row"><input id="chiave" type="password" autocomplete="off" placeholder="Incolla qui la chiave"><button class="pri" id="salvaChiave">Salva</button></div><div class="st" id="chiaveMsg"></div></div>
+  <div class="card"><h2>Invio dei risultati</h2><div class="row"><button class="pri" id="invia">Invia a Claude adesso</button><button id="azzera">Azzera le prove</button></div><div class="st" id="copiato"></div></div>
+ </div>
+</section>
+</main>
+<script src="/app.js"></script>
+</body></html>

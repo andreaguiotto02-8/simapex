@@ -117,6 +117,7 @@ def _decodifica_graphics_base(b, ultimo, migliore):
         "stato_gioco": STATI.get(_i(b, 4), "?"),
         "sessione": _i(b, 8),
         "giri_completati": _i(b, 132),
+        "giro_corrente_ms": _i(b, 140),
         "posizione": _i(b, 136),
         "ultimo_giro_ms": ultimo,
         "miglior_giro_ms": migliore,

@@ -10,12 +10,11 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito
-from .report import crea_report, dettaglio_sessione, elenco_sessioni
-from .stile import RegistroStile
+from . import circuito, esito, tracce
+from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni
+from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
-from .ui import PAGINA
 from .versione import VERSIONE
 
 PORTA = 8765
@@ -141,6 +140,35 @@ def _carica_pista_online(pista, t):
         pass
 
 
+_tr = [None]
+
+
+def tracce_giri():
+    if _tr[0] is None:
+        _tr[0] = tracce.Tracce(os.path.join(cartella_dati(), "tracce"))
+    return _tr[0]
+
+
+_blocco = {"t": 0.0, "ruota": None}
+
+
+def consumo_per_giro(auto, pista):
+    g = [x for x in registro_stile().giri if x["auto"] == auto and x["pista"] == pista and x.get("carburante") is not None][-4:]
+    d = [g[i - 1]["carburante"] - g[i]["carburante"] for i in range(1, len(g)) if g[i].get("ts", 0) - g[i - 1].get("ts", 0) < 600]
+    d = [x for x in d if x > 0]
+    return round(sum(d) / len(d), 2) if d else None
+
+
+FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi")
+
+
+def funzioni():
+    f = dict(carica_impostazioni().get("funzioni") or {})
+    for k in FUNZIONI_OK_DI_PARTENZA:
+        f.setdefault(k, {"s": "ok", "n": ""})
+    return f
+
+
 _registratore = [None]
 
 
@@ -158,6 +186,10 @@ def _campionatore():
             d = _lettore.stato()
             registro_stile().alimenta(d)
             registratore().alimenta(d)
+            tracce_giri().alimenta(d)
+            r = ruota_bloccata(d)
+            if r is not None:
+                _blocco.update(t=time.time(), ruota=r)
             if tick % 10 == 0:
                 campiona_gomme(d)
             if tick % 300 == 150:
@@ -183,6 +215,14 @@ def scrivi_log(testo):
             f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + testo + "\n")
     except Exception:
         pass
+
+
+def percorso_web(nome):
+    if getattr(sys, "frozen", False):
+        base = os.path.join(sys._MEIPASS, "simapex", "web")
+    else:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+    return os.path.join(base, nome)
 
 
 def percorso_icona(nome):
@@ -242,6 +282,16 @@ class Gestore(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def _invia_web(self, nome):
+        with open(percorso_web(nome), "rb") as f:
+            b = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", ("text/css" if nome.endswith(".css") else "application/javascript") + "; charset=utf-8")
+        self.send_header("Content-Length", str(len(b)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(b)
+
     def _invia_file(self, nome, tipo):
         with open(percorso_icona(nome), "rb") as f:
             b = f.read()
@@ -268,7 +318,8 @@ class Gestore(BaseHTTPRequestHandler):
         _ultima_richiesta[0] = time.time()
         try:
             if self.path in ("/", "/index.html"):
-                self._invia(200, PAGINA.replace("__VERSIONE__", VERSIONE), "text/html")
+                with open(percorso_web("index.html"), "r", encoding="utf-8") as fh:
+                    self._invia(200, fh.read().replace("__VERSIONE__", VERSIONE), "text/html")
             elif self.path == "/manifest.webmanifest":
                 self._invia(200, json.dumps(MANIFEST), "application/manifest+json")
             elif self.path == "/sw.js":
@@ -284,7 +335,18 @@ class Gestore(BaseHTTPRequestHandler):
                 d["versione"] = VERSIONE
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
+                if d.get("collegato"):
+                    d["delta_ms"] = tracce_giri().delta_live(d)
+                    d["blocco_ruota"] = (["ant_sx", "ant_dx", "post_sx", "post_dx"][_blocco["ruota"]]
+                                         if _blocco["ruota"] is not None and time.time() - _blocco["t"] < 2.5 else None)
+                    cons = consumo_per_giro(d.get("auto"), d.get("pista"))
+                    d["consumo_giro"] = cons
+                    d["giri_stimati"] = round((d.get("carburante") or 0) / cons, 1) if cons else None
+                    d["giro_attuale_ms"] = round(tracce_giri().trascorso_ms())
+                d["funzioni"] = funzioni()
                 self._invia(200, json.dumps(d), "application/json")
+            elif self.path in ("/app.css", "/app.js"):
+                self._invia_web(self.path[1:])
             elif self.path.startswith("/api/pista?"):
                 from urllib.parse import unquote
                 nome = unquote(self.path.split("nome=")[1].split("&")[0]) if "nome=" in self.path else ""
@@ -298,6 +360,13 @@ class Gestore(BaseHTTPRequestHandler):
                     sid = -1
                 det = dettaglio_sessione(registro_stile().giri, sid, registro_stile().profilo())
                 if det:
+                    sess = tutte_le_sessioni(registro_stile().giri)
+                    cur = next((x for x in sess if (x[0].get("ts") or 0) == sid), [])
+                    prec = next((x for x in sess if x and x[0]["auto"] == det["auto"] and x[0]["pista"] == det["pista"]
+                                 and (x[0].get("ts") or 0) < sid), [])
+                    det["confronto"] = tracce.confronto_sessione(tracce_giri(), det["auto"], det["pista"], cur, prec)
+                    det["blocchi_pos"] = [{"giro": x.get("giro"), "pos": b.get("pos"), "ruota": b["ruota"]}
+                                          for x in cur for b in x.get("blocchi", []) if b.get("pos") is not None]
                     det["quaderno"] = [x for x in carica_quaderno() if x.get("auto") == det["auto"] and x.get("pista") == det["pista"]][-6:]
                 self._invia(200, json.dumps({"sessione": det}), "application/json")
             elif self.path.startswith("/api/report"):
@@ -411,6 +480,24 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto nell'assistente."}), "application/json")
+        elif self.path == "/api/funzione":
+            try:
+                d = self._corpo_json()
+                imp = carica_impostazioni()
+                f = dict(imp.get("funzioni") or {})
+                fid = str(d.get("id", ""))[:40]
+                if fid:
+                    x = dict(f.get(fid) or funzioni().get(fid) or {})
+                    if "s" in d and d["s"] in ("ok", "ko", None):
+                        x["s"] = d["s"]
+                    if "n" in d:
+                        x["n"] = str(d["n"])[:500]
+                    f[fid] = x
+                    imp["funzioni"] = f
+                    salva_impostazioni(imp)
+                self._invia(200, json.dumps({"ok": True, "funzioni": funzioni()}), "application/json")
+            except Exception:
+                self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/assistente/esito":
             try:
                 d = self._corpo_json()
@@ -433,7 +520,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:
