@@ -14,11 +14,13 @@ def _url():
     return os.environ.get("SIMAPEX_CLAUDE_API", "https://api.anthropic.com") + "/v1/messages"
 
 
-def chiedi(chiave, domanda, modello=MODELLO, sistema=None, max_token=600, tempo_max=None):
+def chiedi(chiave, domanda, modello=MODELLO, sistema=None, max_token=600, tempo_max=None, strumenti=None):
     corpo = {"model": modello, "max_tokens": max_token,
              "messages": [{"role": "user", "content": domanda}]}
     if sistema:
         corpo["system"] = sistema
+    if strumenti:
+        corpo["tools"] = strumenti
     req = urllib.request.Request(_url(), data=json.dumps(corpo).encode("utf-8"), method="POST", headers={
         "x-api-key": chiave, "anthropic-version": "2023-06-01", "content-type": "application/json"})
     try:
@@ -47,4 +49,11 @@ def chiedi(chiave, domanda, modello=MODELLO, sistema=None, max_token=600, tempo_
     testo = "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")
     uso = dict(d.get("usage", {}))
     uso["stop_reason"] = d.get("stop_reason")
+    fonti = []
+    for b in d.get("content", []):
+        if b.get("type") == "web_search_tool_result" and isinstance(b.get("content"), list):
+            for r in b["content"]:
+                if r.get("url") and r["url"] not in fonti:
+                    fonti.append(r["url"])
+    uso["fonti"] = fonti[:8]
     return testo, uso

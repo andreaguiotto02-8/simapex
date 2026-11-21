@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito, tracce
+from . import circuito, esito, mappe, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni
 from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -347,6 +347,10 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps(d), "application/json")
             elif self.path in ("/app.css", "/app.js"):
                 self._invia_web(self.path[1:])
+            elif self.path.startswith("/api/mappe?"):
+                from urllib.parse import unquote
+                a = unquote(self.path.split("auto=")[1].split("&")[0]) if "auto=" in self.path else ""
+                self._invia(200, json.dumps({"mappe": mappe.leggi(cartella_dati(), a) if a else None}), "application/json")
             elif self.path.startswith("/api/pista?"):
                 from urllib.parse import unquote
                 nome = unquote(self.path.split("nome=")[1].split("&")[0]) if "nome=" in self.path else ""
@@ -421,6 +425,22 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/mappe/cerca":
+            try:
+                k = carica_impostazioni().get("claude_key")
+                a = str(self._corpo_json().get("auto", ""))[:80]
+                if not k:
+                    self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API) nelle Impostazioni."}), "application/json")
+                elif not a:
+                    self._invia(200, json.dumps({"ok": False, "errore": "Non so ancora con che auto sei: entra in pista."}), "application/json")
+                else:
+                    r = mappe.cerca(k, cartella_dati(), a, log=scrivi_log)
+                    self._invia(200, json.dumps({"ok": True, "mappe": r}), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Claude ha risposto in un formato che non capisco: riprova."}), "application/json")
         elif self.path == "/api/claude-prova":
             try:
                 k = carica_impostazioni().get("claude_key")
@@ -520,7 +540,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:

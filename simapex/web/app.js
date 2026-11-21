@@ -8,24 +8,42 @@ let MODO="dev";try{MODO=localStorage.getItem("simapex_modo")||"dev"}catch(e){}
 const PROVE=[
  {id:"apre",g:"1 · PRIMA DI PARTIRE (Ferrari 296 GT3, Misano)",t:"Il programma è aggiornato",p:["Apri Simapex.exe: se c'è una versione nuova compare «Sto aggiornando...» e si riapre da solo.","Guarda il numero di versione in alto."],a:"Vedi v__VERSIONE__."},
  {id:"setup",t:"Salva il tuo setup di partenza",p:["In ACC salva il setup che usi adesso con un nome che riconosci, per esempio «Base».","Apri la schermata Setup: guarda «Setup trovati in ACC»."],a:"Il tuo setup compare nella lista con auto e pista giuste."},
- {id:"acc",g:"2 · PRIMO TURNO: IMPARI IL CIRCUITO",t:"Schermata Guida: dati in diretta",p:["Lascia Simapex aperto sulla schermata Guida, apri ACC ed entra in pista con il tuo setup «Base».","Guida normalmente: ogni tanto guarda marcia, velocità, giri motore e pedali."],a:"«ACC collegato» in alto e i numeri coincidono con il cruscotto di ACC."},
+ {id:"acc",r:"Primi giri di riscaldamento: ritmo tranquillo, senza attaccare. Mappa motore: __MAPPA_C__.",g:"2 · PRIMO TURNO: IMPARI IL CIRCUITO",t:"Schermata Guida: dati in diretta",p:["Lascia Simapex aperto sulla schermata Guida, apri ACC ed entra in pista con il tuo setup «Base».","Guida normalmente: ogni tanto guarda marcia, velocità, giri motore e pedali."],a:"«ACC collegato» in alto e i numeri coincidono con il cruscotto di ACC."},
  {id:"gomme",t:"Gomme: temperature e pressioni",p:["Guarda i 4 riquadri delle gomme a sinistra."],a:"Temperatura e pressione coincidono con quelle di ACC e il colore cambia (blu freddo, verde giusto, giallo caldo, rosso rovente)."},
- {id:"giri",t:"Tempi dei giri",p:["Fai almeno 8 giri, senza passare dai box (così si disegna anche il circuito).","Guarda «Ultimo» e «Migliore»."],a:"I tempi sono uguali a quelli di ACC."},
+ {id:"giri",r:"Passo costante: tutti i giri allo stesso ritmo, senza uscire di pista, circa al 95% di quello che sai fare. Mappa motore: __MAPPA_C__. Non cambiarla tra un giro e l'altro.",t:"Tempi dei giri",p:["Fai almeno 8 giri, senza passare dai box (così si disegna anche il circuito).","Guarda «Ultimo» e «Migliore»."],a:"I tempi sono uguali a quelli di ACC."},
  {id:"delta",t:"Delta sul tuo giro migliore",p:["Dal secondo giro guarda il numero grande «Rispetto al tuo giro migliore»."],a:"È verde (con il segno meno) quando sei più veloce del tuo giro migliore in quel punto, rosso quando sei più lento."},
  {id:"carburante",t:"Carburante e giri che restano",p:["Dopo qualche giro guarda il riquadro del carburante."],a:"Consumo per giro e giri che restano sono credibili."},
  {id:"mappa",t:"Si disegna il circuito",p:["Finito il primo giro pulito guarda la mappa nella schermata Guida: compare un puntino che segue l'auto."],a:"Il disegno somiglia al circuito vero e il puntino è nel posto giusto."},
  {id:"base",g:"3 · IL SETUP BASE CON L'IA",t:"Crea il tuo setup base",p:["Nella schermata Setup scegli il setup «Base».","Scrivi (o parla con 🎤) cosa non va. Più sei preciso meglio è.","Tocca «Crea il mio setup base» e aspetta."],a:"Compaiono le modifiche con il motivo e il nome di un file nuovo («... Simapex 1»). I suggerimenti su ABS, controllo trazione e mappa motore compaiono a parte."},
  {id:"carica",t:"ACC accetta il setup nuovo",p:["In ACC, nella lista dei setup, cerca il file nuovo e caricalo."],a:"Il file si vede e si carica senza errori."},
  {id:"mic",t:"Microfono",p:["Nella schermata Setup tocca 🎤 Parla e racconta come va la macchina."],a:"Quello che dici compare scritto nella casella."},
- {id:"guida1",g:"4 · SECONDO TURNO: CON IL SETUP NUOVO",t:"Guida con il setup nuovo",p:["Esci in pista con il setup «Simapex 1» e fai almeno 8 giri, senza box.","Nella schermata Setup, sotto «Setup provati», guarda l'esito deciso dal programma."],a:"Dopo almeno 4 giri puliti il programma scrive meglio, uguale o peggio con il motivo. La macchina deve essere più guidabile."},
+ {id:"guida1",r:"Passo costante, come il primo turno, con la stessa mappa motore (__MAPPA_C__): solo così il programma può dire se il setup è meglio o peggio.",g:"4 · SECONDO TURNO: CON IL SETUP NUOVO",t:"Guida con il setup nuovo",p:["Esci in pista con il setup «Simapex 1» e fai almeno 8 giri, senza box.","Nella schermata Setup, sotto «Setup provati», guarda l'esito deciso dal programma."],a:"Dopo almeno 4 giri puliti il programma scrive meglio, uguale o peggio con il motivo. La macchina deve essere più guidabile."},
  {id:"esito",t:"L'esito del setup è giusto",p:["Confronta l'esito del programma con quello che hai sentito."],a:"Il programma e le tue sensazioni vanno nella stessa direzione."},
- {id:"blocchi",t:"Rileva i blocchi in frenata",p:["Ogni tanto frena più forte del solito fino a bloccare una ruota (almeno 3 volte)."],a:"Compare la scritta rossa BLOCCO con la ruota giusta, e nel report i blocchi sono contati."},
- {id:"migliora1",g:"5 · MIGLIORAMENTO DEL SETUP",t:"Primo miglioramento (una modifica alla volta)",p:["Scrivi il problema che ti dà più fastidio adesso.","Tocca «Migliora» e carica in ACC il file nuovo. Fai 5 o più giri."],a:"L'assistente propone poche modifiche (massimo 3) legate al problema. L'esito arriva da solo."},
- {id:"migliora2",t:"Secondo miglioramento",p:["Ripeti con il problema successivo."],a:"Come sopra: poche modifiche, e l'assistente tiene conto dell'esito precedente."},
+ {id:"blocchi",r:"Qui puoi spingere: frena più forte del solito solo nei punti sicuri, poi torna al passo costante. Mappa motore: __MAPPA_C__.",t:"Rileva i blocchi in frenata",p:["Ogni tanto frena più forte del solito fino a bloccare una ruota (almeno 3 volte)."],a:"Compare la scritta rossa BLOCCO con la ruota giusta, e nel report i blocchi sono contati."},
+ {id:"migliora1",r:"Passo costante per 5 o più giri puliti, con la stessa mappa (__MAPPA_C__). Le uscite di prova e le qualifiche si fanno solo dopo, con __MAPPA_S__.",g:"5 · MIGLIORAMENTO DEL SETUP",t:"Primo miglioramento (una modifica alla volta)",p:["Scrivi il problema che ti dà più fastidio adesso.","Tocca «Migliora» e carica in ACC il file nuovo. Fai 5 o più giri."],a:"L'assistente propone poche modifiche (massimo 3) legate al problema. L'esito arriva da solo."},
+ {id:"migliora2",r:"Come prima: passo costante e stessa mappa (__MAPPA_C__). Spingere al massimo (__MAPPA_S__) si fa solo a setup finito.",t:"Secondo miglioramento",p:["Ripeti con il problema successivo."],a:"Come sopra: poche modifiche, e l'assistente tiene conto dell'esito precedente."},
  {id:"sessioni",g:"6 · A FINE GIORNATA",t:"Le sessioni si salvano da sole",p:["Apri la schermata Sessioni."],a:"Ci sono i turni che hai fatto, con auto, pista, data e giri."},
  {id:"dettaglio",t:"Report della sessione",p:["Tocca una sessione: guarda la mappa, i tratti dove sei migliorato e peggiorato, i blocchi e la tabella dei giri."],a:"I tempi coincidono con ACC e il report si capisce e ti è utile."},
  {id:"confronto",t:"Confronto con la sessione precedente",p:["Nel report scegli «Sessione precedente» o «Tuo record»."],a:"La mappa si colora: verde dove sei più veloce, rosso dove perdi. I tratti principali sono scritti."}
 ];
+let MAPPE=null,mappeAuto=null,mappeTentata={};
+function testoMappa(n){return n?"mappa "+n:"la mappa consigliata nella nota qui sopra (se non c'è, quella di partenza)"}
+async function giroMappe(){const a=ST.auto;if(!a||mappeAuto===a)return;mappeAuto=a;MAPPE=null;
+ try{MAPPE=(await api("/api/mappe?auto="+encodeURIComponent(a))).mappe}catch(e){}
+ disegnaMappe();if(!MAPPE&&ST.claude_configurato&&MODO==="dev"&&!mappeTentata[a]){mappeTentata[a]=1;cercaMappe()}}
+async function cercaMappe(){const a=ST.auto;if(!a)return;$("mappeTesto").textContent="Sto cercando online cosa fa ogni mappa motore di questa auto... (può volerci un minuto)";$("mappeCerca").disabled=true;
+ try{const j=await api("/api/mappe/cerca",{auto:a});if(j.ok){MAPPE=j.mappe}else{$("mappeTesto").textContent="Non sono riuscito: "+j.errore;$("mappeCerca").disabled=false;return}}catch(e){$("mappeTesto").textContent="Il programma non risponde."}
+ $("mappeCerca").disabled=false;disegnaMappe();disegnaProve()}
+function disegnaMappe(){const el=$("mappeTesto");if(!el)return;const m=MAPPE;
+ if(!m){el.textContent=ST.auto?"Non ho ancora le mappe di questa auto. "+(ST.claude_configurato?"Tocca il tasto qui sotto.":"Prima collega Claude nelle Impostazioni."):"Entra in pista: appena il programma sa con che auto sei, cerca online cosa fa ogni mappa motore e te lo scrive qui.";return}
+ const aff={alta:"affidabile",media:"abbastanza affidabile",bassa:"poco affidabile: controlla tu in pista"}[m.affidabilita]||"";
+ el.innerHTML=`<div><b>${esc(m.auto_nome||m.auto)}</b> · <span class="mu">${esc(aff)}${m.ricerca_online?"":" · senza ricerca su internet"}</span></div>`+
+ `<ul>${(m.mappe||[]).map(x=>`<li><b>Mappa ${x.numero}:</b> ${esc(x.cosa_fa)}</li>`).join("")}</ul>`+
+ `<div><b>Passo costante:</b> ${m.mappa_giri_costanti?"mappa "+m.mappa_giri_costanti+". ":""}${esc(m.quando_passo_costante)}</div>`+
+ `<div><b>Spingere:</b> ${m.mappa_spinta?"mappa "+m.mappa_spinta+". ":""}${esc(m.quando_spingere)}</div>`+
+ (m.come_si_cambia?`<div><b>Come si cambia:</b> ${esc(m.come_si_cambia)}</div>`:"")+(m.nota?`<div class="mu">Nota: ${esc(m.nota)}</div>`:"")+
+ `<div class="mu">Sono solo consigli: la mappa la cambi sempre tu.${(m.fonti||[]).length?" Fonti: "+m.fonti.map(u=>esc(u.replace(/^https?:\/\//,"").split("/")[0])).join(", "):""}</div>`}
+$("mappeCerca").onclick=cercaMappe;
 const TITOLI={};PROVE.forEach(p=>TITOLI[p.id]=p.t);
 
 /* ---------- utilità ---------- */
@@ -185,7 +203,7 @@ function statoAuto(){const o={};for(const k in AUTO){try{o[k]=!!AUTO[k]()}catch(
 /* ---------- PROVE ---------- */
 function disegnaProve(){const el=$("proveLista");if(!el)return;let h="";
  PROVE.forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
-  const au=AUTO[p.id]&&AUTO[p.id]();h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span>${au?`<span class="pill on" style="margin-left:.5em">visto dal programma</span>`:""}<ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol><div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
+  const au=AUTO[p.id]&&AUTO[p.id]();h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span>${au?`<span class="pill on" style="margin-left:.5em">visto dal programma</span>`:""}<ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>${p.r?`<div class="st" style="color:var(--ye)"><b>Ritmo e mappa:</b> ${esc(p.r.replace(/__MAPPA_C__/g,testoMappa(MAPPE&&MAPPE.mappa_giri_costanti)).replace(/__MAPPA_S__/g,testoMappa(MAPPE&&MAPPE.mappa_spinta)))}</div>`:""}<div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
  h=`<div class="prova"><b>Commento generale</b><div class="mu">Scrivi qui qualsiasi cosa che non va o che vorresti diverso, anche non legata a un punto preciso.</div><textarea data-n="generale" placeholder="Commento libero">${esc((FUN.generale||{}).n||"")}</textarea></div>`+h;
  if(el.dataset.h!==h){const f=document.activeElement;if(f&&f.dataset&&f.dataset.n)return;el.innerHTML=h;el.dataset.h=h}}
 $("proveLista").onclick=e=>{const b=e.target.closest("button[data-p]");if(b)setFun(b.dataset.p,{s:b.dataset.s})};
@@ -209,5 +227,5 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catc
 
 costruisciGomme();applicaModo();try{if(!localStorage.getItem("simapex_aiuto_visto"))vai("aiuto")}catch(e){}
 disegnaProve();giro();giroSetup();controllaAgg();
-setInterval(giro,200);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
+setInterval(giro,200);setInterval(giroMappe,2000);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);

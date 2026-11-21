@@ -514,5 +514,40 @@ class TestTracce(unittest.TestCase):
         self.assertIsNone(tr.delta_live(dict(base, pos_norm=0.0)))
 
 
+
+class TestMappe(unittest.TestCase):
+    RISP = json.dumps({"auto": "Ferrari 296 GT3", "mappe": [{"numero": 1, "cosa_fa": "piena potenza"}, {"numero": 2, "cosa_fa": "meno potenza"}, {"numero": 99, "cosa_fa": "x"}],
+                       "mappa_giri_costanti": 2, "mappa_spinta": 1, "quando_spingere": "in qualifica", "quando_passo_costante": "in gara",
+                       "come_si_cambia": "tasto", "affidabilita": "alta", "nota": ""})
+
+    def test_cerca_salva_e_rilegge(self):
+        import tempfile
+        from simapex import mappe
+        d = tempfile.mkdtemp()
+        chiamate = []
+
+        def finto(k, dom, **kw):
+            chiamate.append(kw.get("strumenti"))
+            return self.RISP, {"fonti": ["https://esempio.it/a"]}
+        r = mappe.cerca("k", d, "ferrari_296_gt3", chiedi=finto)
+        self.assertEqual([m["numero"] for m in r["mappe"]], [1, 2])
+        self.assertTrue(r["ricerca_online"])
+        self.assertEqual(mappe.leggi(d, "ferrari_296_gt3")["mappa_giri_costanti"], 2)
+        self.assertIsNone(mappe.leggi(d, "altra_auto"))
+
+    def test_senza_ricerca_web_riprova(self):
+        import tempfile
+        from simapex import mappe
+        d = tempfile.mkdtemp()
+
+        def finto(k, dom, **kw):
+            if kw.get("strumenti"):
+                raise RuntimeError("richiesta rifiutata (web search non abilitata).")
+            return self.RISP, {"fonti": []}
+        r = mappe.cerca("k", d, "ferrari_296_gt3", chiedi=finto)
+        self.assertFalse(r["ricerca_online"])
+        self.assertEqual(r["affidabilita"], "media")
+
+
 if __name__ == "__main__":
     unittest.main()
