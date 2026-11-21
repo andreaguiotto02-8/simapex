@@ -49,7 +49,7 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
 const $=id=>document.getElementById(id);
 let ultimo={}, setup={};
 const PROVE=[
- {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.11.3."},
+ {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.11.4."},
  {"id": "setup", "t": "Salva il tuo setup di partenza", "p": ["In ACC salva il setup che usi adesso con un nome che riconosci, per esempio «Base».", "Torna qui e guarda «Setup trovati» nel riquadro dell'assistente (sotto)."], "a": "Il tuo setup compare nella lista con auto e pista giuste."},
  {"id": "acc", "g": "2 · PRIMO TURNO: IMPARI IL CIRCUITO", "t": "Simapex riconosce ACC", "p": ["Lascia Simapex aperto, apri ACC ed entra in pista (pratica) con il tuo setup «Base».", "Guida normalmente, senza pensare al programma.", "Dopo qualche secondo guarda i dati in diretta."], "a": "In alto compare «ACC collegato» e velocità, marcia, giri motore e carburante coincidono con il cruscotto di ACC."},
  {"id": "giri", "t": "Legge i tempi dei giri", "p": ["Fai almeno 8 giri, senza passare dai box (così si disegna anche il circuito).", "Ogni tanto guarda «Ultimo giro» e «Miglior giro»."], "a": "I tempi sono uguali a quelli di ACC."},
@@ -117,11 +117,15 @@ async function mappa(pista){try{const r=await fetch("/api/pista?nome="+encodeURI
 $("sesLista").addEventListener("click",e=>{const t=e.target.closest("tr[data-s]");if(t)apriSessione(parseInt(t.dataset.s))});
 async function giroStile(){try{const r=await fetch("/api/assistente");const j=await r.json();$("assStile").textContent=j.giri_registrati?"Giri registrati per imparare il tuo stile: "+j.giri_registrati+(j.stile?" (profilo pronto)":" (ne servono almeno 3 puliti)"):"Guida con Simapex aperto: registra in silenzio il tuo stile di guida, giro per giro."}catch(e){}}
 $("assRis").addEventListener("click",async e=>{const b=e.target.closest("button[data-e]");if(!b||!assId)return;try{await fetch("/api/assistente/esito",{method:"POST",body:JSON.stringify({id:assId,esito:b.dataset.e})});$("assMsg").textContent="Segnato: "+b.dataset.e+". Il prossimo consiglio ne terrà conto."}catch(x){}});
-(function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){$("assMic").hidden=true;return}let rec=null,on=false;
- $("assMic").onclick=()=>{if(on){rec&&rec.stop();return}rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
+(function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;const M=t=>{$("assMsg").textContent=t};
+ if(!R){$("assMic").onclick=()=>M("Questo browser non ha il riconoscimento vocale. Clicca nella casella e premi Windows + H per dettare.");return}
+ let rec=null,on=false;
+ $("assMic").onclick=()=>{if(on){rec&&rec.stop();return}
+  try{rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
+  rec.onstart=()=>{M("Sto ascoltando... parla pure.")};
   rec.onresult=ev=>{let t="";for(let i=ev.resultIndex;i<ev.results.length;i++)t+=ev.results[i][0].transcript+" ";$("assSens").value=($("assSens").value+" "+t).trim()};
-  rec.onerror=ev=>{$("assMsg").textContent="Microfono: "+(ev.error==="not-allowed"?"consenti l'uso del microfono nella finestra.":ev.error)};
-  rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}})();
+  rec.onerror=ev=>{const e=ev.error;M(e==="not-allowed"||e==="service-not-allowed"?"Il microfono è bloccato: nella finestra clicca sul lucchetto in alto, consenti il microfono, poi riprova. Intanto puoi dettare con Windows + H nella casella.":e==="audio-capture"?"Non trovo nessun microfono collegato.":e==="network"?"Il riconoscimento vocale non riesce a collegarsi a internet. Intanto puoi dettare con Windows + H nella casella.":e==="no-speech"?"Non ho sentito niente: riprova e parla più vicino al microfono.":"Microfono: errore "+e+". Puoi dettare con Windows + H nella casella.")};
+  rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}catch(x){on=false;M("Microfono: "+x.message+". Puoi dettare con Windows + H nella casella.")}}})();
 async function controllaAgg(){try{const r=await fetch("/api/aggiornamenti");const j=await r.json();if(j.disponibile){$("aggv").textContent="v"+j.ultima;$("agg").hidden=false;$("aggb").onclick=()=>window.open(j.scarica,"_blank")}}catch(e){}}
 function bello(s){if(!s)return s;return String(s).replace(/_/g," ").replace(/\b(gt\d|amg|bmw|ao|evo)\b/gi,m=>m.toUpperCase()).replace(/\b([a-z])/g,m=>m.toUpperCase())}
 function k(l,v,t){return `<div class="k"><b${t?' class="t"':""}>${v===undefined||v===""?"—":v}</b><span>${l}</span></div>`}

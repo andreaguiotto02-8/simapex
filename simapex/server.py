@@ -211,7 +211,7 @@ def apri_finestra(url):
         for c in candidati:
             if c and os.path.isfile(c):
                 try:
-                    subprocess.Popen([c, "--app=" + url, "--window-size=1100,900"])
+                    subprocess.Popen([c, "--app=" + url, "--window-size=1100,900", "--use-fake-ui-for-media-stream"])
                     return
                 except Exception:
                     scrivi_log(traceback.format_exc())
