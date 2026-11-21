@@ -9,6 +9,7 @@ NOMI_PAGINE = {
     "static": "Local\\acpmf_static",
 }
 BYTE_LETTI = 512
+BYTE_PAGINA = {"physics": 512, "graphics": 1280, "static": 256}
 STATI = {0: "spento", 1: "replay", 2: "in pista", 3: "pausa"}
 
 
@@ -36,7 +37,7 @@ def leggi_pagina_windows(nome):
         if not p:
             return None
         try:
-            return ctypes.string_at(p, BYTE_LETTI)
+            return ctypes.string_at(p, BYTE_PAGINA.get(nome, BYTE_LETTI))
         finally:
             k.UnmapViewOfFile(p)
     finally:
@@ -97,6 +98,18 @@ def decodifica_physics(b):
 
 def decodifica_graphics(b):
     ultimo, migliore = _i(b, 144), _i(b, 148)
+    out = _decodifica_graphics_base(b, ultimo, migliore)
+    if len(b) >= 1220:  # posizione sul giro e coordinate dell'auto (offset da verificare con guida reale)
+        out["pos_norm"] = round(_f(b, 248), 5)
+        out["in_box"] = bool(_i(b, 160))
+        ids = list(struct.unpack_from("<60i", b, 976))
+        mio = _i(b, 1216)
+        idx = ids.index(mio) if mio in ids else 0
+        out["coordinate"] = [round(x, 1) for x in struct.unpack_from("<3f", b, 256 + idx * 12)]
+    return out
+
+
+def _decodifica_graphics_base(b, ultimo, migliore):
     return {
         "stato_codice": _i(b, 4),
         "stato_gioco": STATI.get(_i(b, 4), "?"),

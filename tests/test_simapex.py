@@ -395,5 +395,44 @@ class TestSessioni(unittest.TestCase):
         self.assertEqual(r.giri[0]["gomme"]["t"], [80] * 4)
 
 
+class TestCircuito(unittest.TestCase):
+    def test_registra_giro_e_ricarica(self):
+        import math
+        from simapex.circuito import Registratore, carica_tracciato
+        cart = tempfile.mkdtemp()
+        creati = []
+        r = Registratore(cart, lambda p, t: creati.append(p))
+        def d(giri, i):
+            a = 2 * math.pi * i / 600
+            return {"collegato": True, "pista": "monza", "giri_completati": giri, "pos_norm": i / 600.0,
+                    "coordinate": [500 * math.cos(a), 0, 300 * math.sin(a)], "velocita": 100 + i % 50}
+        for i in range(600):
+            r.alimenta(d(0, i))
+        for i in range(600):
+            r.alimenta(d(1, i))
+        r.alimenta(d(2, 0))
+        t = carica_tracciato("monza", cart)
+        self.assertIsNotNone(t)
+        self.assertEqual(len(t["x"]), 400)
+        self.assertEqual(creati, ["monza"])
+        self.assertIsNone(carica_tracciato("altra", cart))
+
+    def test_dati_non_validi_scartati(self):
+        from simapex.circuito import costruisci
+        self.assertIsNone(costruisci([(i / 500.0, 0.0, 0.0, 50) for i in range(500)]))
+
+    def test_decodifica_graphics_coordinate(self):
+        import struct
+        from simapex.telemetria import decodifica_graphics
+        b = bytearray(1280)
+        struct.pack_into("<f", b, 248, 0.25)
+        struct.pack_into("<i", b, 1216, 7)
+        struct.pack_into("<60i", b, 976, *([0, 7] + [0] * 58))
+        struct.pack_into("<3f", b, 256 + 12, 10.0, 2.0, -30.0)
+        g = decodifica_graphics(bytes(b))
+        self.assertEqual(g["coordinate"], [10.0, 2.0, -30.0])
+        self.assertEqual(g["pos_norm"], 0.25)
+
+
 if __name__ == "__main__":
     unittest.main()

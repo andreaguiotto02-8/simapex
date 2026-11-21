@@ -10,6 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
+from . import circuito
 from .report import crea_report, dettaglio_sessione, elenco_sessioni
 from .stile import RegistroStile
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -120,12 +121,34 @@ def registro_stile():
     return _stile[0]
 
 
+def _carica_pista_online(pista, t):
+    """Condivide il disegno appena registrato (se la chiave di invio è configurata)."""
+    try:
+        tok = carica_impostazioni().get("gh_token")
+        if tok:
+            invio.carica_file(invio.DEPOSITO_PREDEFINITO, tok, "pc/piste/%s.json" % circuito.nome_file(pista),
+                              json.dumps(t), "disegno pista " + str(pista))
+    except Exception:
+        pass
+
+
+_registratore = [None]
+
+
+def registratore():
+    if _registratore[0] is None:
+        _registratore[0] = circuito.Registratore(os.path.join(cartella_dati(), "piste"),
+                                                 lambda p, t: threading.Thread(target=_carica_pista_online, args=(p, t), daemon=True).start())
+    return _registratore[0]
+
+
 def _campionatore():
     tick = 0
     while not _fermati.is_set():
         try:
             d = _lettore.stato()
             registro_stile().alimenta(d)
+            registratore().alimenta(d)
             if tick % 10 == 0:
                 campiona_gomme(d)
         except Exception:
@@ -245,6 +268,10 @@ class Gestore(BaseHTTPRequestHandler):
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
                 self._invia(200, json.dumps(d), "application/json")
+            elif self.path.startswith("/api/pista?"):
+                from urllib.parse import unquote
+                nome = unquote(self.path.split("nome=")[1].split("&")[0]) if "nome=" in self.path else ""
+                self._invia(200, json.dumps({"pista": circuito.carica_tracciato(nome, os.path.join(cartella_dati(), "piste"))}), "application/json")
             elif self.path.startswith("/api/sessioni"):
                 self._invia(200, json.dumps({"sessioni": elenco_sessioni(registro_stile().giri)[:50]}), "application/json")
             elif self.path.startswith("/api/sessione?"):

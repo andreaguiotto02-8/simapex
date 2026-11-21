@@ -59,7 +59,8 @@ const PROVE=[
  {"id": "zone", "t": "Temperature gomme a 3 zone", "p": ["Fai 5 giri.", "Guarda il report: temperatura gomme interna, centro, esterna."], "a": "Compare la temperatura delle 3 zone di ogni gomma, con valori sensati (tra 60 e 110 gradi dopo qualche giro)."},
  {"id": "sessioni", "t": "La sessione si salva da sola", "p": ["Fai almeno 5 giri.", "Guarda il riquadro «Sessioni» più in basso."], "a": "Compare la sessione con auto, pista, data e giri."},
  {"id": "dettaglio", "t": "Dettaglio della sessione", "p": ["Tocca la sessione.", "Controlla la tabella dei giri e le gomme."], "a": "I tempi coincidono con ACC; i giri lenti o sporchi sono segnati; si vede il carburante."},
- {"id": "mic", "t": "Microfono", "p": ["Nell'assistente tocca 🎤 Parla, consenti il microfono e racconta come va la macchina."], "a": "Quello che dici compare scritto nella casella."}
+ {"id":"mappa","t": "Mappa del circuito", "p": ["Guida un giro completo senza uscire dai box in mezzo.","Apri la sessione nel riquadro «Sessioni»."], "a": "Compare il disegno della pista, colorato dal lento al veloce, e somiglia al circuito vero."},
+ {"id":"mic", "t": "Microfono", "p": ["Nell'assistente tocca 🎤 Parla, consenti il microfono e racconta come va la macchina."], "a": "Quello che dici compare scritto nella casella."}
 ];
 function carica(){try{return JSON.parse(localStorage.getItem("simapex_prove")||"{}")}catch(e){return {}}}
 function salva(r){try{localStorage.setItem("simapex_prove",JSON.stringify(r))}catch(e){}autoInvia()}
@@ -104,7 +105,12 @@ async function apriSessione(id){sesAperta=id;try{const r=await fetch("/api/sessi
  h+="<table><tr><th>Giro</th><th>Tempo</th><th>Carb.</th><th></th></tr>"+j.dettaglio_giri.map(x=>`<tr><td>${x.giro}</td><td>${x.tempo}</td><td>${x.carburante===null?"—":x.carburante}</td><td>${x.pulito?"":"lento/sporco "}${x.blocchi?"🔒"+x.blocchi:""}</td></tr>`).join("")+"</table>";
  if(j.carburante_inizio!==null)h+=`<p class="mu">Carburante: da ${j.carburante_inizio} a ${j.carburante_fine} L.</p>`;
  if(j.quaderno&&j.quaderno.length)h+="<p><b>Setup provati su questa pista</b></p><table>"+j.quaderno.map(q=>`<tr><td>${e(q.nuovo||"")}</td><td>${e(q.problema||"")}</td><td>${e(q.esito||"da segnare")}</td></tr>`).join("")+"</table>";
- $("rep").innerHTML=h}catch(x){}}
+ $("rep").innerHTML=h;mappa(j.pista)}catch(x){}}
+async function mappa(pista){try{const r=await fetch("/api/pista?nome="+encodeURIComponent(pista));const t=(await r.json()).pista;const box=document.createElement("div");box.className="k";box.style.marginTop="10px";
+ if(!t){box.innerHTML='<span>Mappa: si disegna da sola dopo un giro completo guidato su questa pista.</span>';$("rep").prepend(box);return}
+ const X=t.x,Z=t.z,V=t.v,mx=Math.min(...X),Mx=Math.max(...X),mz=Math.min(...Z),Mz=Math.max(...Z),W=Math.max(Mx-mx,Mz-mz)||1,vm=Math.min(...V),vM=Math.max(...V)||1;
+ let seg="";for(let i=0;i<X.length;i++){const j=(i+1)%X.length;const c=Math.round(((V[i]-vm)/((vM-vm)||1))*120);seg+=`<line x1="${((X[i]-mx)/W*280+10).toFixed(1)}" y1="${((Mz-Z[i])/W*280+10).toFixed(1)}" x2="${((X[j]-mx)/W*280+10).toFixed(1)}" y2="${((Mz-Z[j])/W*280+10).toFixed(1)}" stroke="hsl(${c},85%,50%)" stroke-width="4" stroke-linecap="round"/>`}
+ box.innerHTML=`<svg viewBox="0 0 300 300" style="max-width:320px;width:100%">${seg}</svg><span>Rosso = lento, verde = veloce (${t.lunghezza_m} m)</span>`;$("rep").prepend(box)}catch(e){}}
 $("sesLista").addEventListener("click",e=>{const t=e.target.closest("tr[data-s]");if(t)apriSessione(parseInt(t.dataset.s))});
 async function giroStile(){try{const r=await fetch("/api/assistente");const j=await r.json();$("assStile").textContent=j.giri_registrati?"Giri registrati per imparare il tuo stile: "+j.giri_registrati+(j.stile?" (profilo pronto)":" (ne servono almeno 3 puliti)"):"Guida con Simapex aperto: registra in silenzio il tuo stile di guida, giro per giro."}catch(e){}}
 $("assRis").addEventListener("click",async e=>{const b=e.target.closest("button[data-e]");if(!b||!assId)return;try{await fetch("/api/assistente/esito",{method:"POST",body:JSON.stringify({id:assId,esito:b.dataset.e})});$("assMsg").textContent="Segnato: "+b.dataset.e+". Il prossimo consiglio ne terrà conto."}catch(x){}});
