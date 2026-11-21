@@ -11,8 +11,6 @@ from . import claude_api
 MODIFICABILI = (
     "basicSetup.tyres.tyrePressure", "basicSetup.alignment.camber", "basicSetup.alignment.toe",
     "basicSetup.alignment.casterLF", "basicSetup.alignment.casterRF",
-    "basicSetup.electronics.tC1", "basicSetup.electronics.tC2", "basicSetup.electronics.abs",
-    "basicSetup.electronics.eCUMap",
     "advancedSetup.mechanicalBalance.aRBFront", "advancedSetup.mechanicalBalance.aRBRear",
     "advancedSetup.mechanicalBalance.wheelRate", "advancedSetup.mechanicalBalance.brakeTorque",
     "advancedSetup.mechanicalBalance.brakeBias",
@@ -144,10 +142,11 @@ SISTEMA = (
     "l'auto più guidabile, risolvendo un problema alla volta. I valori del setup sono indici interi (click): "
     "tu indichi di quanti click spostare ogni valore (positivo o negativo), mai valori assoluti. Massimo 3 click per "
     "parametro (5 per le pressioni). Un click di pressione = 0,1 psi circa. Non toccare niente che non sia nell'elenco "
-    "dei parametri modificabili. Se i dati non bastano per cambiare qualcosa con sicurezza, proponi una sola modifica "
+    "dei parametri modificabili. ABS, controllo trazione (TC1 e TC2) e mappa motore NON puoi modificarli: li regola solo il pilota. Se pensi che cambiarne uno sia utile, scrivilo nel campo \"suggerimenti_pilota\" (lista di frasi semplici, anche vuota), senza metterlo tra le modifiche."
+    " Se i dati non bastano per cambiare qualcosa con sicurezza, proponi una sola modifica "
     "prudente oppure nessuna e spiega cosa serve. Rispondi SOLO con un JSON, senza testo fuori dal JSON, in questa forma: "
     '{"problema":"frase breve","spiegazione":"2-4 frasi semplici in italiano, senza gergo","cosa_aspettarsi":"cosa deve '
-    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}]}. Sii compatto: massimo 25 modifiche, ogni motivo di al massimo 12 parole.'
+    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}],"suggerimenti_pilota":[]}'
 )
 
 
@@ -160,9 +159,12 @@ SISTEMA_BASE = (
     "presenti) e renderlo valido sia per qualifica sia per gara, facile da guidare subito. I valori del setup sono "
     "indici interi (click): indica di quanti click spostare ogni valore (positivo o negativo), mai valori assoluti. "
     "Massimo 12 click per parametro (15 per le pressioni; un click di pressione = 0,1 psi circa). Usa solo i parametri "
-    "dell'elenco. Cambia solo ciò che ha un motivo chiaro. Rispondi SOLO con un JSON, senza testo fuori dal JSON: "
+    "dell'elenco. Cambia solo ciò che ha un motivo chiaro. Il bilanciamento freni (brakeBias) va SEMPRE valutato e di "
+    "solito regolato subito nel setup base. ABS, controllo trazione (TC1 e TC2) e mappa motore NON puoi modificarli: "
+    "li regola solo il pilota; se pensi sia utile cambiarne uno scrivilo nel campo \"suggerimenti_pilota\" (lista di frasi "
+    "semplici, anche vuota), senza metterlo tra le modifiche. Rispondi SOLO con un JSON, senza testo fuori dal JSON: "
     '{"problema":"frase breve","spiegazione":"4-8 frasi semplici in italiano, senza gergo","cosa_aspettarsi":"cosa deve '
-    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}]}'
+    'sentire il pilota","modifiche":[{"percorso":"...","click":-1,"motivo":"frase breve"}],"suggerimenti_pilota":[]}. Sii compatto: massimo 25 modifiche, ogni motivo di al massimo 12 parole.'
 )
 
 
@@ -178,6 +180,9 @@ def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, aut
     if quaderno_recente:
         righe += ["Modifiche già provate in precedenza su questa auto/pista (più recenti):",
                   json.dumps(quaderno_recente, ensure_ascii=False), ""]
+    el = (setup.get("basicSetup") or {}).get("electronics")
+    if isinstance(el, dict):
+        righe += ["Elettronica attuale (SOLA LETTURA, la regola il pilota): " + json.dumps(el), ""]
     righe += ["Parametri modificabili con il valore attuale (percorso: valore):"]
     righe += ["%s: %s" % (p, v) for p, v in valori_modificabili(setup)]
     return "\n".join(righe)
@@ -237,4 +242,5 @@ def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, 
     valide, scartate = valida_modifiche(setup, r.get("modifiche", []), base)
     return {"problema": str(r.get("problema", ""))[:200], "spiegazione": str(r.get("spiegazione", ""))[:800],
             "cosa_aspettarsi": str(r.get("cosa_aspettarsi", ""))[:400], "modifiche": valide,
+            "suggerimenti_pilota": [str(x)[:200] for x in (r.get("suggerimenti_pilota") or [])[:4]] if isinstance(r.get("suggerimenti_pilota"), list) else [],
             "scartate": len(scartate), "token": uso}

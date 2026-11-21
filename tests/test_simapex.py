@@ -236,6 +236,7 @@ class TestAssistente(unittest.TestCase):
         nuovo = a.applica(self.SETUP, valide)
         self.assertEqual(nuovo["basicSetup"]["tyres"]["tyrePressure"], [41, 45, 41, 41])
         self.assertEqual(self.SETUP["basicSetup"]["tyres"]["tyrePressure"][0], 45)
+        self.assertNotIn("basicSetup.electronics.abs", [p for p, _ in a.valori_modificabili(self.SETUP)])
         self.assertEqual(a.nome_leggibile("basicSetup.tyres.tyrePressure[2]"), "pressione gomme post. sx")
 
     def test_endpoint_crea_setup_nuovo_senza_toccare_l_originale(self):

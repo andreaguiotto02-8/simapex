@@ -49,7 +49,7 @@ ol{margin:6px 0 10px 20px;padding:0}.row{display:flex;gap:8px;flex-wrap:wrap;mar
 const $=id=>document.getElementById(id);
 let ultimo={}, setup={};
 const PROVE=[
- {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.11.4."},
+ {"id": "apre", "g": "1 · PRIMA DI PARTIRE", "t": "Il programma è aggiornato", "p": ["Apri Simapex.exe: si aggiorna da solo.", "Guarda il numero di versione in alto a sinistra."], "a": "Vedi v0.12.0."},
  {"id": "setup", "t": "Salva il tuo setup di partenza", "p": ["In ACC salva il setup che usi adesso con un nome che riconosci, per esempio «Base».", "Torna qui e guarda «Setup trovati» nel riquadro dell'assistente (sotto)."], "a": "Il tuo setup compare nella lista con auto e pista giuste."},
  {"id": "acc", "g": "2 · PRIMO TURNO: IMPARI IL CIRCUITO", "t": "Simapex riconosce ACC", "p": ["Lascia Simapex aperto, apri ACC ed entra in pista (pratica) con il tuo setup «Base».", "Guida normalmente, senza pensare al programma.", "Dopo qualche secondo guarda i dati in diretta."], "a": "In alto compare «ACC collegato» e velocità, marcia, giri motore e carburante coincidono con il cruscotto di ACC."},
  {"id": "giri", "t": "Legge i tempi dei giri", "p": ["Fai almeno 8 giri, senza passare dai box (così si disegna anche il circuito).", "Ogni tanto guarda «Ultimo giro» e «Miglior giro»."], "a": "I tempi sono uguali a quelli di ACC."},
@@ -93,7 +93,8 @@ async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg
  if(j.modifiche.length){h+="<table>"+j.modifiche.map(m=>`<tr><td>${m.nome}</td><td>${m.click>0?"+":""}${m.click} click</td><td>${m.motivo}</td></tr>`).join("")+"</table>";
   h+=`<p><b>Setup creato:</b> ${j.nuovo_file}<br>In ACC apri la lista dei setup, scegli questo nome e caricalo.</p><p class="mu">${j.cosa_aspettarsi||""}</p>
   <div class="row"><span>Dopo averlo provato:</span><button data-e="meglio">Meglio</button><button data-e="uguale">Uguale</button><button data-e="peggio">Peggio</button></div>`}
- else h+=`<p>Nessuna modifica proposta.</p><p class="mu">${j.cosa_aspettarsi||""}</p>`;
+ if((j.suggerimenti_pilota||[]).length)h+="<p><b>Da cambiare tu (ABS, controllo trazione, mappa motore):</b></p><ul>"+j.suggerimenti_pilota.map(x=>"<li>"+String(x).replace(/</g,"&lt;")+"</li>").join("")+"</ul>";
+ if(!j.modifiche.length)h+=`<p>Nessuna modifica proposta.</p><p class="mu">${j.cosa_aspettarsi||""}</p>`;
  $("assRis").innerHTML=h;
  }catch(e){$("assMsg").textContent="Il programma non risponde."}}
 $("assBase").onclick=()=>assChiedi("base");$("assVai").onclick=()=>assChiedi("migliora");
