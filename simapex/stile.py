@@ -63,6 +63,7 @@ class RegistroStile:
         self.auto = d.get("auto") if d else None
         self.pista = d.get("pista") if d else None
         self.giro = d.get("giri_completati") if d else None
+        self.sess = d.get("sessione") if d else None
 
     def alimenta(self, d):
         """Chiamato ~10 volte al secondo con lo stato letto da ACC."""
@@ -71,6 +72,10 @@ class RegistroStile:
         gc = d.get("giri_completati")
         cambio = (d.get("auto"), d.get("pista")) != (self.auto, self.pista)
         if self.giro is None or cambio:
+            self._azzera(d)
+            return
+        if gc is not None and (gc < self.giro or d.get("sessione") != self.sess):
+            # nuova sessione (i giri ripartono da 0, o cambia il tipo): non perdere i giri della prossima
             self._azzera(d)
             return
         if gc is not None and gc > self.giro:
@@ -138,7 +143,7 @@ class RegistroStile:
         n = float(self.n)
         self.giri.append({
             "auto": self.auto, "pista": self.pista, "tempo_ms": tempo, "ts": int(time.time()),
-            "giro": self.giro + 1, "carburante": round(self.carb, 1) if self.carb is not None else None, "gomme": self._gomme_giro(), "blocchi": self.blocchi[:20],
+            "giro": self.giro + 1, "sess": self.sess, "pos": d.get("posizione"), "carburante": round(self.carb, 1) if self.carb is not None else None, "gomme": self._gomme_giro(), "blocchi": self.blocchi[:20],
             "freno_medio": round(self.s["freno"] / n, 3), "freno_max": round(self.max_freno, 2),
             "tempo_in_frenata": round(self.c["freno"] / n, 3),
             "frenata_con_sterzo": round(self.c["trail"] / max(1, self.c["freno"]), 3),

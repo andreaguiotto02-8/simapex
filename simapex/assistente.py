@@ -141,7 +141,7 @@ SISTEMA = (
     "dalle sue sensazioni e dai dati delle gomme, proponi POCHE modifiche (massimo 3, meglio 1 o 2) per rendere "
     "l'auto più guidabile, risolvendo un problema alla volta. I valori del setup sono indici interi (click): "
     "tu indichi di quanti click spostare ogni valore (positivo o negativo), mai valori assoluti. Massimo 3 click per "
-    "parametro (5 per le pressioni). Un click di pressione = 0,1 psi circa. Non toccare niente che non sia nell'elenco "
+    "parametro (5 per le pressioni). Un click di pressione = 0,1 psi circa. Le pressioni ideali a caldo sono 26,4-27,0 psi: se i dati mostrano valori fuori da questo intervallo, correggili. Non toccare niente che non sia nell'elenco "
     "dei parametri modificabili. ABS, controllo trazione (TC1 e TC2) e mappa motore NON puoi modificarli: li regola solo il pilota. Se pensi che cambiarne uno sia utile, scrivilo nel campo \"suggerimenti_pilota\" (lista di frasi semplici, anche vuota), senza metterlo tra le modifiche."
     " Se i dati non bastano per cambiare qualcosa con sicurezza, proponi una sola modifica "
     "prudente oppure nessuna e spiega cosa serve. Rispondi SOLO con un JSON, senza testo fuori dal JSON, in questa forma: "
@@ -159,7 +159,7 @@ SISTEMA_BASE = (
     "presenti) e renderlo valido sia per qualifica sia per gara, facile da guidare subito. I valori del setup sono "
     "indici interi (click): indica di quanti click spostare ogni valore (positivo o negativo), mai valori assoluti. "
     "Massimo 12 click per parametro (15 per le pressioni; un click di pressione = 0,1 psi circa). Usa solo i parametri "
-    "dell'elenco. Cambia solo ciò che ha un motivo chiaro. Il bilanciamento freni (brakeBias) va SEMPRE valutato e di "
+    "dell'elenco. Le pressioni gomme sono SEMPRE da sistemare nel setup base: l'obiettivo a CALDO è 26,4-27,0 psi (le pressioni del setup sono a freddo e in guida salgono di circa 1 psi), segui le indicazioni sulle pressioni che trovi nei dati. Cambia solo ciò che ha un motivo chiaro. Il bilanciamento freni (brakeBias) va SEMPRE valutato e di "
     "solito regolato subito nel setup base. ABS, controllo trazione (TC1 e TC2) e mappa motore NON puoi modificarli: "
     "li regola solo il pilota; se pensi sia utile cambiarne uno scrivilo nel campo \"suggerimenti_pilota\" (lista di frasi "
     "semplici, anche vuota), senza metterlo tra le modifiche. Rispondi SOLO con un JSON, senza testo fuori dal JSON: "
@@ -168,7 +168,7 @@ SISTEMA_BASE = (
 )
 
 
-def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile=None):
+def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile=None, extra=None):
     righe = ["Auto: %s - Pista: %s" % (auto, pista), "", "Sensazioni del pilota:", sensazioni.strip() or "(nessuna)", ""]
     if stile:
         righe += ["Stile di guida del pilota (medie sui suoi ultimi giri puliti; valori 0-1 tranne dove indicato): "
@@ -180,6 +180,8 @@ def costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, aut
     if quaderno_recente:
         righe += ["Modifiche già provate in precedenza su questa auto/pista (più recenti):",
                   json.dumps(quaderno_recente, ensure_ascii=False), ""]
+    if extra:
+        righe += [extra, ""]
     el = (setup.get("basicSetup") or {}).get("electronics")
     if isinstance(el, dict):
         righe += ["Elettronica attuale (SOLA LETTURA, la regola il pilota): " + json.dumps(el), ""]
@@ -229,8 +231,8 @@ def _ripara(testo):
     return r
 
 
-def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None, base=False, stile=None, log=None):
-    domanda = costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile)
+def proponi(chiave, setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, modello=None, base=False, stile=None, log=None, extra=None):
+    domanda = costruisci_domanda(setup, sensazioni, riepilogo_gomme, quaderno_recente, auto, pista, stile, extra)
     testo, uso = claude_api.chiedi(chiave, domanda, modello or claude_api.MODELLO,
                                    sistema=SISTEMA_BASE if base else SISTEMA, max_token=6000 if base else 2500, tempo_max=120 if base else 60)
     try:

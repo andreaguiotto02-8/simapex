@@ -82,7 +82,7 @@
    <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
    <select id="assFile"></select>
    <textarea id="assSens" rows="4" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..."></textarea>
-   <div class="row"><button id="assMic" data-f="mic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai" data-f="migliora1">Migliora (una modifica alla volta)</button></div>
+   <div class="row"><button id="assMic" data-f="mic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai" data-f="migliora1">Migliora (una modifica alla volta)</button><button id="assPress" data-f="pressioni" title="Sistema le pressioni a caldo con i dati dei tuoi giri, senza Claude">Correggi le pressioni</button></div>
    <p class="mu" id="assStile"></p>
    <div class="st" id="assMsg"></div><div id="assRis"></div>
   </div>
@@ -131,6 +131,7 @@
     <tr><td><b>Setup trovati in ACC</b></td><td>I setup che hai salvato nel gioco, divisi per auto e pista. Prima di iniziare salva in ACC il tuo setup con un nome che riconosci, per esempio «Base».</td></tr>
     <tr><td><b>Crea il mio setup base</b></td><td>Scegli il setup, scrivi (o racconta con 🎤 Parla) cosa non ti piace della macchina. Claude propone le modifiche, con il motivo, e salva un file nuovo con il nome «… Simapex 1». Il tuo setup originale non viene toccato. In ACC lo trovi nella lista dei setup.</td></tr>
     <tr><td><b>Migliora</b></td><td>Dopo aver guidato con un setup, scrivi il problema che ti dà più fastidio. Propone poche modifiche (al massimo 3) legate a quel problema, così capisci cosa cambia.</td></tr>
+    <tr><td><b>Correggi le pressioni</b></td><td>Dopo almeno 4 giri con un setup, controlla le pressioni a caldo (ideale 26,4–27,0 psi) e crea un setup nuovo con i click giusti. Non usa Claude, solo i dati dei tuoi giri.</td></tr>
     <tr><td><b>ABS, controllo trazione, mappa motore</b></td><td>Il programma non li cambia mai: te li può solo suggerire, e li regoli tu.</td></tr>
     <tr><td><b>Setup provati</b></td><td>Dopo almeno 4 giri puliti con il setup nuovo, il programma decide da solo se è meglio, uguale o peggio, confrontando i tempi e i dati.</td></tr>
    </table></div>

@@ -549,5 +549,57 @@ class TestMappe(unittest.TestCase):
         self.assertEqual(r["affidabilita"], "media")
 
 
+class TestPressioniESessioni(unittest.TestCase):
+    def _giro(self, n, p, sess=0, ts=1000, pos=None, tempo=100000):
+        return {"auto": "a", "pista": "p", "giro": n, "tempo_ms": tempo + n * 10, "ts": ts + n * 100, "sess": sess, "pos": pos,
+                "carburante": 40 - n * 2.0, "blocchi": [], "gomme": {"p": p, "t": [80] * 4}}
+
+    def test_pressioni_alte_servono_click_negativi(self):
+        from simapex import pressioni
+        giri = [self._giro(i, [27.6, 27.6, 26.7, 26.0]) for i in range(1, 8)]
+        r = pressioni.proposta(giri, None)
+        click = {m["percorso"]: m["click"] for m in r["modifiche"]}
+        self.assertEqual(click["basicSetup.tyres.tyrePressure[0]"], -9)
+        self.assertNotIn("basicSetup.tyres.tyrePressure[2]", click)  # già nell'intervallo
+        self.assertEqual(click["basicSetup.tyres.tyrePressure[3]"], 7)
+
+    def test_pochi_giri_nessuna_modifica(self):
+        from simapex import pressioni
+        r = pressioni.proposta([self._giro(i, [27.5] * 4) for i in range(1, 4)], None)
+        self.assertEqual(r["modifiche"], [])
+
+    def test_sessioni_divise_per_tipo_e_report_gara(self):
+        from simapex import report
+        giri = [self._giro(i, [26.7] * 4, sess=0, ts=1000) for i in range(1, 4)]
+        giri += [self._giro(i, [26.7] * 4, sess=2, ts=1500, pos=5 - i // 3) for i in range(1, 8)]
+        sess = report.tutte_le_sessioni(giri)
+        self.assertEqual([report.tipo_sessione(s) for s in reversed(sess)], ["prove libere", "gara"])
+        det = report.crea_report(giri, sessione=sess[0])
+        self.assertEqual(det["tipo"], "gara")
+        self.assertTrue(any(n.startswith("Gara:") for n in det["note"]))
+
+    def test_stile_registra_giri_dopo_nuova_sessione(self):
+        import tempfile
+        from simapex.stile import RegistroStile
+        reg = RegistroStile(os.path.join(tempfile.mkdtemp(), "stile.json"))
+
+        def d(gc, sess, ultimo=0):
+            return {"collegato": True, "auto": "a", "pista": "p", "giri_completati": gc, "sessione": sess, "velocita": 120.0,
+                    "freno": 0.0, "acceleratore": 0.5, "sterzo": 0.1, "ultimo_giro_ms": ultimo, "posizione": 3, "carburante": 30.0}
+        for gc in range(0, 3):          # prove: 3 giri
+            for _ in range(250):
+                reg.alimenta(d(gc, 0))
+        reg.alimenta(d(3, 0, 100000))
+        n0 = len(reg.giri)
+        for _ in range(5):
+            reg.alimenta(d(0, 2))       # nuova sessione: i giri ripartono da 0
+        for gc in range(0, 2):
+            for _ in range(250):
+                reg.alimenta(d(gc, 2))
+        reg.alimenta(d(2, 2, 99000))
+        self.assertEqual(len(reg.giri), n0 + 1)
+        self.assertEqual(reg.giri[-1]["sess"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

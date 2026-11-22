@@ -1,7 +1,7 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-let ST={}, FUN={}, SETUP={}, assId=null, schermo="guida", pistaMappa=null, tracciato=null, sesAperta=null, rifSel="precedente", ultimaSes=null;
+let tMappa=0, ST={}, FUN={}, SETUP={}, assId=null, schermo="guida", pistaMappa=null, tracciato=null, sesAperta=null, rifSel="precedente", ultimaSes=null;
 let MODO="dev";try{MODO=localStorage.getItem("simapex_modo")||"dev"}catch(e){}
 
 /* ---------- funzioni da provare (le stesse in Gioca e Sviluppo) ---------- */
@@ -107,7 +107,7 @@ function disegnaGuida(){
  mappaGuida();
 }
 async function mappaGuida(){const u=ST;if(!u.pista)return;
- if(pistaMappa!==u.pista){pistaMappa=u.pista;tracciato=null;try{tracciato=(await api("/api/pista?nome="+encodeURIComponent(u.pista))).pista}catch(e){}
+ if(pistaMappa!==u.pista||(!tracciato&&u.pista&&Date.now()-tMappa>10000)){tMappa=Date.now();pistaMappa=u.pista;tracciato=null;try{tracciato=(await api("/api/pista?nome="+encodeURIComponent(u.pista))).pista}catch(e){}
   const s=$("gMappa");$("gMappaV").style.display=tracciato?"none":"block";
   if(!tracciato){s.innerHTML="";return}
   const X=tracciato.x,Z=tracciato.z;tracciato._b=limiti(X,Z);
@@ -126,7 +126,7 @@ async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSe
 
 /* ---------- SESSIONI ---------- */
 async function giroSessioni(){try{const l=(await api("/api/sessioni")).sessioni||[];if(!l.length)return;
- $("sesLista").innerHTML=l.map(x=>`<div class="sess ${x.id===sesAperta?"act":""}" data-s="${x.id}"><b>${esc(bello(x.pista))}</b> · ${x.miglior_giro}<small>${esc(bello(x.auto))}</small><small>${dt(x.data)} · ${x.giri} giri${x.blocchi?" · "+x.blocchi+" blocchi":""}</small></div>`).join("");
+ $("sesLista").innerHTML=l.map(x=>`<div class="sess ${x.id===sesAperta?"act":""}" data-s="${x.id}"><b>${esc(bello(x.pista))}</b> · ${x.miglior_giro}${x.tipo?` <span class="pill">${esc(x.tipo)}</span>`:""}<small>${esc(bello(x.auto))}</small><small>${dt(x.data)} · ${x.giri} giri${x.blocchi?" · "+x.blocchi+" blocchi":""}</small></div>`).join("");
  if(sesAperta===null||sesAperta===l[0].id)apriSessione(sesAperta===null?l[0].id:sesAperta,true)}catch(e){}}
 $("sesLista").onclick=e=>{const t=e.target.closest(".sess");if(t){apriSessione(parseInt(t.dataset.s));giroSessioni()}};
 async function apriSessione(id,silenzioso){sesAperta=id;let j;try{j=(await api("/api/sessione?id="+id)).sessione}catch(e){return}
@@ -135,7 +135,7 @@ async function apriSessione(id,silenzioso){sesAperta=id;let j;try{j=(await api("
 function coloreSeg(ms){return ms<=-20?"#2ecc71":ms>=20?"#ff4d4d":"#cfd6e2"}
 function disegnaReport(j){
  const c=j.confronto,rif=c&&c.rif&&(c.rif[rifSel]||c.rif.precedente||c.rif.record),rifNome=c&&c.rif&&c.rif[rifSel]?rifSel:(c&&c.rif&&c.rif.precedente?"precedente":"record");
- let h=`<div class="w intest" data-f="dettaglio" data-t="Report della sessione"><h2>${esc(bello(j.pista))} · ${esc(bello(j.auto))}</h2><span class="mu">${dt(j.data)}</span><span>Miglior giro <b class="big">${esc(j.miglior_giro)}</b></span><span class="mu">${j.giri} giri · costanza ${(j.costanza_ms/1000).toFixed(1)} s${j.blocchi_totali?" · "+j.blocchi_totali+" blocchi":""}</span></div>`;
+ let h=`<div class="w intest" data-f="dettaglio" data-t="Report della sessione"><h2>${esc(bello(j.pista))} · ${esc(bello(j.auto))}</h2><span class="mu">${dt(j.data)}</span>${j.tipo?`<span class="pill on">${esc(j.tipo)}</span>`:""}<span>Miglior giro <b class="big">${esc(j.miglior_giro)}</b></span><span class="mu">${j.giri} giri · costanza ${(j.costanza_ms/1000).toFixed(1)} s${j.blocchi_totali?" · "+j.blocchi_totali+" blocchi":""}</span></div>`;
  // mappa
  h+=`<div class="w mappa" data-f="confronto" data-t="Mappa e confronto"><div class="row"><b>Dove sei migliorato e peggiorato</b><span class="sw">${c&&c.rif&&c.rif.precedente?`<button data-r="precedente" class="${rifNome==="precedente"?"act":""}">Sessione precedente</button>`:""}${c&&c.rif&&c.rif.record?`<button data-r="record" class="${rifNome==="record"?"act":""}">Tuo record</button>`:""}</span></div>`;
  if(j._t){const X=j._t.x,Z=j._t.z,b=limiti(X,Z),n=X.length;let sv="";
@@ -172,7 +172,7 @@ $("rep").onclick=e=>{const b=e.target.closest("button[data-r]");if(b&&ultimaSes)
 function listaSetup(){const f=(SETUP.file||[]);$("setupLista").innerHTML=f.length?"<table>"+f.map(x=>`<tr><td>${esc(bello(x.auto))}</td><td>${esc(bello(x.pista))}</td><td>${esc(x.nome)}</td><td class="${x.valido?"mig":"peg"}">${x.valido?"letto":"non letto"}</td></tr>`).join("")+"</table>":"Apri ACC e salva un setup."}
 function riempiAss(){const s=$("assFile");const f=(SETUP.file||[]).filter(x=>x.valido);const sig=f.map(x=>x.auto+x.pista+x.nome).join("|");if(s.dataset.sig===sig)return;s.dataset.sig=sig;const cur=s.value;s.innerHTML=f.length?f.map(x=>`<option value="${esc(x.auto)}/${esc(x.pista)}/${esc(x.nome)}">${esc(bello(x.auto))} · ${esc(bello(x.pista))} · ${esc(x.nome)}</option>`).join(""):'<option value="">Nessun setup trovato: salvane uno in ACC</option>';if(cur)s.value=cur}
 async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
- $("assMsg").textContent="Claude sta lavorando (anche un minuto per il setup base)...";$("assRis").innerHTML="";let j;try{j=await api("/api/assistente/proponi",{file:file,sensazioni:$("assSens").value,modo:modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
+ $("assMsg").textContent=modo==="pressioni"?"Controllo le pressioni a caldo dei tuoi ultimi giri...":"Claude sta lavorando (anche un minuto per il setup base)...";$("assRis").innerHTML="";let j;try{j=await api("/api/assistente/proponi",{file:file,sensazioni:$("assSens").value,modo:modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
  if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
  $("assMsg").textContent="";assId=j.id||null;if(j.modifiche&&j.modifiche.length)$("assSens").value="";
  let h=`<div class="card"><b>${esc(j.problema||"Proposta")}</b><p class="mu">${esc(j.spiegazione||"")}</p>`;
@@ -181,7 +181,7 @@ async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg
  else h+=`<p>Nessuna modifica proposta.</p><p class="mu">${esc(j.cosa_aspettarsi||"")}</p>`;
  if((j.suggerimenti_pilota||[]).length)h+="<p><b>Da cambiare tu (ABS, controllo trazione, mappa motore):</b></p><ul>"+j.suggerimenti_pilota.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>";
  $("assRis").innerHTML=h+"</div>";giroQuaderno()}
-$("assBase").onclick=()=>assChiedi("base");$("assVai").onclick=()=>assChiedi("migliora");
+$("assPress").onclick=()=>assChiedi("pressioni");$("assBase").onclick=()=>assChiedi("base");$("assVai").onclick=()=>assChiedi("migliora");
 async function giroQuaderno(){try{const j=await api("/api/assistente");const q=(j.quaderno||[]).slice().reverse();
  $("assStile").textContent=j.giri_registrati?"Giri registrati per imparare il tuo stile: "+j.giri_registrati+(j.stile?" (profilo pronto)":" (ne servono almeno 3 puliti)"):"Guida con Simapex aperto: registra in silenzio il tuo stile di guida, giro per giro.";
  if(!q.length){$("quad").textContent="Ancora nessun setup creato.";return}
@@ -194,7 +194,7 @@ $("quad").onclick=async e=>{const b=e.target.closest("button[data-e]");if(!b)ret
   try{rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
   rec.onstart=()=>{M("Sto ascoltando... parla pure.")};
   rec.onresult=ev=>{let t="";for(let i=ev.resultIndex;i<ev.results.length;i++)t+=ev.results[i][0].transcript+" ";$("assSens").value=($("assSens").value+" "+t).trim()};
-  rec.onerror=ev=>{const e=ev.error;M(e==="not-allowed"||e==="service-not-allowed"?"Il microfono è bloccato: nella finestra clicca sul lucchetto in alto, consenti il microfono, poi riprova. Intanto puoi dettare con Windows + H nella casella.":e==="audio-capture"?"Non trovo nessun microfono collegato.":e==="network"?"Il riconoscimento vocale non riesce a collegarsi a internet. Intanto puoi dettare con Windows + H nella casella.":e==="no-speech"?"Non ho sentito niente: riprova e parla più vicino al microfono.":"Microfono: errore "+e+". Puoi dettare con Windows + H nella casella.")};
+  rec.onerror=ev=>{const e=ev.error;M(e==="not-allowed"||e==="service-not-allowed"?"Il microfono non parte (codice: "+e+"). In Windows apri Impostazioni → Privacy e sicurezza → Microfono e consenti anche le app desktop; poi Parlato → Riconoscimento vocale online: attivo. Intanto puoi dettare con Windows + H nella casella.":e==="audio-capture"?"Non trovo nessun microfono collegato.":e==="network"?"Il riconoscimento vocale non riesce a collegarsi a internet. Intanto puoi dettare con Windows + H nella casella.":e==="no-speech"?"Non ho sentito niente: riprova e parla più vicino al microfono.":"Microfono: errore "+e+". Puoi dettare con Windows + H nella casella.")};
   rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}catch(x){on=false;M("Microfono: "+x.message+". Puoi dettare con Windows + H nella casella.")}}})();
 
 /* ---------- PERCORSO ---------- */

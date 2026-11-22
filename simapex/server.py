@@ -10,8 +10,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito, mappe, tracce
-from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni
+from . import circuito, esito, mappe, pressioni, tracce
+from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
@@ -457,10 +457,10 @@ class Gestore(BaseHTTPRequestHandler):
         elif self.path == "/api/assistente/proponi":
             try:
                 imp = carica_impostazioni()
-                if not imp.get("claude_key"):
+                d = self._corpo_json()
+                if not imp.get("claude_key") and d.get("modo") != "pressioni":
                     self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API)."}), "application/json")
                     return
-                d = self._corpo_json()
                 cartella, f = _percorso_setup(str(d.get("file", "")))
                 if not f:
                     self._invia(200, json.dumps({"ok": False, "errore": "Non trovo quel setup."}), "application/json")
@@ -470,9 +470,16 @@ class Gestore(BaseHTTPRequestHandler):
                     setup = json.load(fh)
                 q = [x for x in carica_quaderno() if x.get("auto") == f["auto"] and x.get("pista") == f["pista"]][-5:]
                 base = d.get("modo") == "base"
-                ris = assistente.proponi(imp["claude_key"], setup, str(d.get("sensazioni", ""))[:2000],
-                                         riepilogo_gomme(), q, f["auto"], f["pista"], base=base,
-                                         stile=registro_stile().profilo(f["auto"], f["pista"]), log=scrivi_log)
+                if d.get("modo") == "pressioni":
+                    sess = ultima_sessione(registro_stile().giri, f["auto"], f["pista"])
+                    ris = pressioni.proposta(sess, None)
+                    ris["modifiche"], ris["scartate"] = assistente.valida_modifiche(setup, ris["modifiche"], True)
+                else:
+                    giri_auto = [x for x in registro_stile().giri if x["auto"] == f["auto"]]
+                    ris = assistente.proponi(imp["claude_key"], setup, str(d.get("sensazioni", ""))[:2000],
+                                             riepilogo_gomme(), q, f["auto"], f["pista"], base=base,
+                                             stile=registro_stile().profilo(f["auto"], f["pista"]), log=scrivi_log,
+                                             extra=pressioni.info_per_claude(giri_auto))
                 nuovo_nome = None
                 if ris["modifiche"]:
                     nuovo = assistente.applica(setup, ris["modifiche"])
@@ -511,7 +518,7 @@ class Gestore(BaseHTTPRequestHandler):
                     if "s" in d and d["s"] in ("ok", "ko", None):
                         x["s"] = d["s"]
                     if "n" in d:
-                        x["n"] = str(d["n"])[:500]
+                        x["n"] = str(d["n"])[:3000]
                     f[fid] = x
                     imp["funzioni"] = f
                     salva_impostazioni(imp)

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Report di fine sessione: cosa serve sapere a un pilota dopo aver guidato."""
+from . import pressioni
 from .telemetria import formatta_tempo
 
 PAUSA_SESSIONE_S = 20 * 60
@@ -42,11 +43,23 @@ def gomme_da_giri(s):
     return out
 
 
+TIPI = {0: "prove libere", 1: "qualifica", 2: "gara", 3: "giro lanciato", 4: "giro lanciato", 7: "prove libere", 8: "qualifica"}
+
+
+def tipo_sessione(s):
+    """Tipo di sessione dai giri (campo 'sess' letto da ACC); '' se non noto (giri vecchi)."""
+    for x in s:
+        if x.get("sess") in TIPI:
+            return TIPI[x["sess"]]
+    return ""
+
+
 def tutte_le_sessioni(giri):
     """Divide tutti i giri registrati in sessioni (cambia auto/pista o pausa lunga). Dalla più recente."""
     sess, cur = [], []
     for x in giri:
         if cur and (x["auto"] != cur[-1]["auto"] or x["pista"] != cur[-1]["pista"] or
+                    (x.get("sess") is not None and cur[-1].get("sess") is not None and x["sess"] != cur[-1]["sess"]) or
                     (x.get("ts") and cur[-1].get("ts") and x["ts"] - cur[-1]["ts"] > PAUSA_SESSIONE_S)):
             sess.append(cur)
             cur = []
@@ -61,7 +74,7 @@ def elenco_sessioni(giri):
     for s in tutte_le_sessioni(giri):
         tempi = [x["tempo_ms"] for x in s]
         out.append({"id": s[0].get("ts") or 0, "auto": s[0]["auto"], "pista": s[0]["pista"], "data": s[0].get("ts"),
-                    "giri": len(s), "miglior_giro": formatta_tempo(min(tempi)),
+                    "giri": len(s), "tipo": tipo_sessione(s), "miglior_giro": formatta_tempo(min(tempi)),
                     "blocchi": sum(len(x.get("blocchi", [])) for x in s)})
     return out
 
@@ -92,7 +105,7 @@ def crea_report(giri, gomme=None, stile=None, sessione=None):
     per_ruota = {}
     for _, b in blocchi:
         per_ruota[b["ruota"]] = per_ruota.get(b["ruota"], 0) + 1
-    r = {"auto": s[0]["auto"], "pista": s[0]["pista"], "giri": len(s),
+    r = {"auto": s[0]["auto"], "pista": s[0]["pista"], "giri": len(s), "tipo": tipo_sessione(s),
          "miglior_giro": formatta_tempo(migliore),
          "media_migliori_3": formatta_tempo(sum(top) / len(top)) if top else "",
          "costanza_ms": max(x["tempo_ms"] for x in puliti) - min(x["tempo_ms"] for x in puliti) if puliti else 0,
@@ -103,13 +116,57 @@ def crea_report(giri, gomme=None, stile=None, sessione=None):
          "blocchi_totali": len(blocchi), "blocchi_per_ruota": per_ruota,
          "giri_con_blocchi": sorted({g for g, _ in blocchi if g}),
          "gomme": gomme, "stile": stile}
+    r["gara"] = _dati_gara(s, puliti) if r["tipo"] == "gara" else None
+    r["qualifica"] = _dati_qualifica(s, migliore) if r["tipo"] in ("qualifica", "giro lanciato") else None
+    caldo = pressioni.a_caldo(s)
+    r["pressioni_caldo"] = {"psi": caldo, "stati": [pressioni.stato(x) for x in caldo]} if caldo else None
     r["note"] = _note(r)
     return r
 
 
+def _dati_gara(s, puliti):
+    pos = [x.get("pos") for x in s if x.get("pos")]
+    medi = [x["tempo_ms"] for x in puliti]
+    out = {"posizione_inizio": pos[0] if pos else None, "posizione_fine": pos[-1] if pos else None,
+           "passo_medio": formatta_tempo(sum(medi) / len(medi)) if medi else "", "calo_passo_ms": None, "consumo_giro": None}
+    if len(medi) >= 6:
+        t = len(medi) // 3
+        out["calo_passo_ms"] = round(sum(medi[-t:]) / t - sum(medi[:t]) / t)
+    carb = [x["carburante"] for x in s if x.get("carburante") is not None]
+    cons = [a - b for a, b in zip(carb, carb[1:]) if 0 < a - b < 15]
+    if cons:
+        out["consumo_giro"] = round(sum(cons) / len(cons), 1)
+    return out
+
+
+def _dati_qualifica(s, migliore):
+    tempi = sorted(x["tempo_ms"] for x in s)
+    return {"secondo_migliore_ms": tempi[1] - tempi[0] if len(tempi) > 1 else None, "giri": len(s)}
+
+
 def _note(r):
     n = []
-    n.append("Hai fatto %d giri; il migliore è %s." % (r["giri"], r["miglior_giro"]))
+    tipo = r.get("tipo")
+    if tipo == "gara" and r.get("gara"):
+        g = r["gara"]
+        if g["posizione_inizio"] and g["posizione_fine"]:
+            n.append("Gara: dalla posizione %d alla %d, %d giri, giro più veloce %s." % (g["posizione_inizio"], g["posizione_fine"], r["giri"], r["miglior_giro"]))
+        else:
+            n.append("Gara: %d giri, giro più veloce %s." % (r["giri"], r["miglior_giro"]))
+        if g["passo_medio"]:
+            n.append("Passo medio sui giri puliti: %s." % g["passo_medio"])
+        if g["calo_passo_ms"] is not None:
+            c = g["calo_passo_ms"] / 1000.0
+            n.append("Negli ultimi giri sei %s di %.1f s a giro rispetto ai primi%s." % ("più lento" if c > 0 else "più veloce", abs(c), (": le gomme o il carburante stanno calando, gestisci di più" if c > 0.8 else "")))
+        if g["consumo_giro"]:
+            n.append("Consumo medio: %.1f litri a giro." % g["consumo_giro"])
+    elif tipo in ("qualifica", "giro lanciato"):
+        q = r.get("qualifica") or {}
+        n.append("%s: il tuo giro migliore è %s su %d giri." % (tipo.capitalize(), r["miglior_giro"], r["giri"]))
+        if q.get("secondo_migliore_ms") is not None:
+            n.append("Il secondo giro migliore è a %.1f s dal primo: %s." % (q["secondo_migliore_ms"] / 1000.0, "sai ripeterti" if q["secondo_migliore_ms"] < 500 else "il giro buono è stato un po' isolato"))
+    else:
+        n.append("Hai fatto %d giri; il migliore è %s." % (r["giri"], r["miglior_giro"]))
     if r["costanza_ms"]:
         c = r["costanza_ms"] / 1000.0
         n.append("Tra i giri puliti c'è %.1f secondi di differenza: %s." % (c, "sei molto costante" if c < 1 else "c'è margine per essere più costante"))
@@ -126,7 +183,9 @@ def _note(r):
         t, p = g.get("temperatura_media_C", {}), g.get("pressione_media_psi", {})
         if t:
             n.append("Temperatura media gomme: " + ", ".join("%s %s°C" % (NOMI.get(k, k), v) for k, v in t.items()) + ".")
-        if p:
+        if r.get("pressioni_caldo"):
+            n.append(pressioni.testo_pressioni(r["pressioni_caldo"]["psi"]))
+        elif p:
             n.append("Pressione media: " + ", ".join("%s %s psi" % (NOMI.get(k, k), v) for k, v in p.items()) + ".")
         z = g.get("temperatura_zone_C")
         if z:
