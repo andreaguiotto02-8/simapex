@@ -490,9 +490,19 @@ function spotter(){const u=ST;if(F1G()||!SPOT.on||!ING.voce||!u.collegato||u.sta
 
 /* ---------- RADIO: tasto sul volante per parlare ---------- */
 let PTTp=false;
-function radioPtt(){const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}bip(900,70);if(window.micAvvia)window.micAvvia()}
+function radioPtt(){try{tastiVolante()}catch(e){}const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}bip(900,70);if(window.micAvvia)window.micAvvia()}
  else if(!on&&PTTp){PTTp=false;if(window.micFerma)window.micFerma();bip(650,70)}
  if(ST.ptt_tasto&&!$("pttN").value&&document.activeElement!==$("pttN"))$("pttN").value=ST.ptt_tasto;const el=$("pttSt");if(el&&schermo==="pista"){el.textContent=(ST.ptt_tasto?"Tasto radio: "+ST.ptt_tasto+". ":"Tasto radio non impostato. ")+((ST.ptt_visti||[]).length?"Pulsanti premuti ora: "+ST.ptt_visti.join(", ")+".":"")}}
+const TASTI_AZ={avanti:"Schermata successiva",indietro:"Schermata precedente",ripeti:"Ripeti l'ultimo messaggio dell'ingegnere",voce:"Voce accesa/spenta"};let TC=null,TCnt=0;
+function tastiVolante(){const T=ST.tasti||{},C=ST.tasti_conta||{};
+ if(TC){for(const a in TASTI_AZ){if((C[a]||0)>(TC[a]||0)){azioneVolante(a)}}}TC=Object.assign({},C);
+ const el=$("tastiAz");if(!el||schermo!=="pista")return;const k=JSON.stringify([T,ST.tasti_assegna]);if(el.dataset.k===k)return;el.dataset.k=k;
+ el.innerHTML=Object.keys(TASTI_AZ).map(a=>`<div class="row"><span style="flex:1">${TASTI_AZ[a]}: <b>${ST.tasti_assegna===a?"premi il tasto sul volante…":(T[a]?"tasto "+T[a]:"non assegnato")}</b></span><button data-az="${a}">Assegna</button>${T[a]?`<button data-azt="${a}">Togli</button>`:""}</div>`).join("")}
+function azioneVolante(a){bip(1100,40);
+ if(a==="avanti"||a==="indietro"){const B=[...document.querySelectorAll("#nav button")].filter(b=>b.offsetParent!==null),i=B.findIndex(b=>b.dataset.s===schermo),n=B[(i+(a==="avanti"?1:B.length-1))%B.length];if(n)n.click()}
+ else if(a==="ripeti"){const m=ING.msgs[0];if(m){const v=ING.voce;ING.voce=true;try{speechSynthesis.cancel()}catch(e){}emetti(m.testo.replace(/^\s+/,""),true);ING.voce=v}}
+ else if(a==="voce"){ING.voce=!ING.voce;$("ingVoce").checked=ING.voce;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}bip(ING.voce?1200:600,80)}}
+$("tastiAz").onclick=async e=>{const b=e.target.closest("button");if(!b)return;try{if(b.dataset.az)await api("/api/tasti",{azione:b.dataset.az});else if(b.dataset.azt)await api("/api/tasti",{azione:b.dataset.azt,togli:1})}catch(x){}};
 $("pttSalva").onclick=async()=>{try{await api("/api/ptt",{tasto:+$("pttN").value||0});$("pttSt").textContent="Salvato."}catch(e){}};
 $("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;try{localStorage.setItem("simapex_freq",ING.freq)}catch(x){}};
 

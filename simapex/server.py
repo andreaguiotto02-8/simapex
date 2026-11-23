@@ -159,7 +159,7 @@ def consumo_per_giro(auto, pista):
     return round(sum(d) / len(d), 2) if d else None
 
 
-_ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25))
+_ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25), azioni=carica_impostazioni().get("tasti_azioni", {}))
 
 
 FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi", "gomme", "delta", "carburante", "sessioni", "dettaglio", "confronto", "esito")
@@ -374,6 +374,14 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt"] = _ptt.premuto
                 d["ptt_tasto"] = _ptt.tasto
                 d["ptt_visti"] = _ptt.ultimi
+                d["tasti"] = dict(_ptt.azioni)
+                d["tasti_conta"] = dict(_ptt.conta)
+                d["tasti_assegna"] = _ptt.assegna
+                if _ptt.assegnato:
+                    imp = carica_impostazioni()
+                    imp["tasti_azioni"] = dict(_ptt.azioni)
+                    salva_impostazioni(imp)
+                    _ptt.assegnato = None
                 self._invia(200, json.dumps(d), "application/json")
             elif self.path in ("/app.css", "/app.js"):
                 self._invia_web(self.path[1:])
@@ -495,6 +503,23 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
                 self._invia(200, json.dumps({"ok": False, "errore": "Numero non valido."}), "application/json")
+        elif self.path == "/api/tasti":
+            try:
+                c = self._corpo_json()
+                a = c.get("azione")
+                if c.get("togli") and a in ptt.Ptt.AZIONI:
+                    _ptt.azioni.pop(a, None)
+                    imp = carica_impostazioni()
+                    imp["tasti_azioni"] = dict(_ptt.azioni)
+                    salva_impostazioni(imp)
+                    _ptt.assegna = None
+                elif a in ptt.Ptt.AZIONI:
+                    _ptt.assegna = a
+                else:
+                    _ptt.assegna = None
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/ingegnere":
             try:
                 k = carica_impostazioni().get("claude_key")

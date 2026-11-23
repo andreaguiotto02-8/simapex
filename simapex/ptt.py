@@ -28,7 +28,14 @@ def _lettore_windows():
 
 
 class Ptt:
-    def __init__(self, tasto=0, pulsanti=None):
+    AZIONI = ("avanti", "indietro", "ripeti", "voce")
+
+    def __init__(self, tasto=0, pulsanti=None, azioni=None):
+        self.azioni = {a: int(n) for a, n in (azioni or {}).items() if a in self.AZIONI and n}
+        self.conta = {a: 0 for a in self.AZIONI}   # quante volte è stato premuto il tasto dell'azione
+        self.assegna = None                          # azione in attesa del prossimo tasto premuto
+        self.assegnato = None                        # (azione, tasto) appena assegnato, da salvare
+        self._prima = set()
         self.tasto = int(tasto or 0)
         self.premuto = False
         self.ultimi = []           # ultimi pulsanti visti premuti (serve per scegliere il tasto)
@@ -59,4 +66,16 @@ class Ptt:
             p = set()
         if p:
             self.ultimi = sorted(p)
+        nuovi = p - self._prima
+        self._prima = set(p)
+        for n in sorted(nuovi):
+            if self.assegna:
+                self.azioni = {a: t for a, t in self.azioni.items() if t != n and a != self.assegna}
+                self.azioni[self.assegna] = n
+                self.assegnato = (self.assegna, n)
+                self.assegna = None
+                break
+            for a, t in self.azioni.items():
+                if t == n:
+                    self.conta[a] += 1
         self.premuto = bool(self.tasto and self.tasto in p)

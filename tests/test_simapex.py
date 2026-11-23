@@ -459,6 +459,22 @@ class TestRispostaTagliata(unittest.TestCase):
             estrai_json("{rotto")
 
 
+class TestTastiVolante(unittest.TestCase):
+    def test_assegna_e_conta(self):
+        from simapex import ptt
+        seq = [set(), {7}, set(), {7}, set(), {30}, set(), {30}, set()]
+        it = iter(seq)
+        p = ptt.Ptt(0, pulsanti=lambda: next(it), azioni={"avanti": 30})
+        p.assegna = "ripeti"
+        for _ in range(4):
+            p.passo()
+        self.assertEqual(p.azioni["ripeti"], 7)
+        self.assertEqual(p.conta["ripeti"], 1)
+        for _ in range(5):
+            p.passo()
+        self.assertEqual(p.conta["avanti"], 2)
+
+
 class TestEsito(unittest.TestCase):
     def test_meglio_peggio_uguale(self):
         from simapex.esito import valuta, aggiorna
