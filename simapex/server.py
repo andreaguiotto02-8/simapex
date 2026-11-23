@@ -160,6 +160,7 @@ def consumo_per_giro(auto, pista):
 
 
 _tastiera = ptt.Tastiera()
+_tastiera.blocca = lambda: _proc.get("v") == "F1 25"   # solo con F1 25 aperto i tasti non arrivano al gioco
 _ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25), azioni=carica_impostazioni().get("tasti_azioni", {}))
 
 
@@ -768,6 +769,16 @@ def main(apri_browser=True):
     try:
         _ptt.avvia()
         _tastiera.avvia()
+
+        def _aggiorna_gioco():
+            while True:
+                try:
+                    _proc["t"] = 0
+                    gioco_aperto()
+                except Exception:
+                    pass
+                time.sleep(3)
+        threading.Thread(target=_aggiorna_gioco, daemon=True).start()
     except Exception as e:
         scrivi_log("tasto radio: avvio non riuscito (%s)" % e)
     aggiorna.pulisci_vecchi()

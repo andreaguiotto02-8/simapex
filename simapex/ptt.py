@@ -117,9 +117,9 @@ def _lettore_tastiera():
     return premuti
 
 
-def _gancio_tastiera(tasti, acceso, conta, log=None):
+def _gancio_tastiera(tasti, acceso, conta, blocca=None, log=None):
     """Gancio di tastiera a basso livello (solo Windows): quando il telecomando è acceso, frecce, Invio, Cancella
-    e Canc vengono lette da Simapex e NON arrivano al gioco. A telecomando spento non tocca niente."""
+    e Canc vengono lette da Simapex e (se blocca() è vero, cioè con F1 aperto) NON arrivano al gioco. A telecomando spento non tocca niente."""
     import ctypes
     from ctypes import wintypes
     u = ctypes.WinDLL("user32", use_last_error=True)
@@ -148,7 +148,8 @@ def _gancio_tastiera(tasti, acceso, conta, log=None):
                             conta[n] += 1
                     else:                              # rilasciato
                         giu.discard(n)
-                    return 1                           # il gioco non lo vede
+                    if blocca is None or blocca():
+                        return 1                       # il gioco non lo vede
         except Exception:
             pass
         return u.CallNextHookEx(hook[0], code, wp, lp)
@@ -171,6 +172,7 @@ def _gancio_tastiera(tasti, acceso, conta, log=None):
 class Tastiera:
     def __init__(self, premuti=None):
         self._premuti = premuti
+        self.blocca = lambda: True   # il server lo cambia: si bloccano i tasti solo con F1 aperto
         self.conta = {n: 0 for n in TASTI_TELECOMANDO}
         self._prima = set()
         self._attivo = False
@@ -192,7 +194,7 @@ class Tastiera:
         f = getattr(self._premuti, "acceso", None)
         if f and sys.platform.startswith("win"):
             try:
-                self._proc = _gancio_tastiera(TASTI_TELECOMANDO, f, self.conta)
+                self._proc = _gancio_tastiera(TASTI_TELECOMANDO, f, self.conta, lambda: self.blocca())
                 self.gancio = True
             except Exception:
                 self.gancio = False
