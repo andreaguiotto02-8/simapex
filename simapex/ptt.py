@@ -117,6 +117,57 @@ def _lettore_tastiera():
     return premuti
 
 
+def _gancio_tastiera(tasti, acceso, conta, log=None):
+    """Gancio di tastiera a basso livello (solo Windows): quando il telecomando è acceso, frecce, Invio, Cancella
+    e Canc vengono lette da Simapex e NON arrivano al gioco. A telecomando spento non tocca niente."""
+    import ctypes
+    from ctypes import wintypes
+    u = ctypes.WinDLL("user32", use_last_error=True)
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    LRESULT = ctypes.c_ssize_t
+    PROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+    u.SetWindowsHookExW.argtypes = [ctypes.c_int, PROC, wintypes.HINSTANCE, wintypes.DWORD]
+    u.SetWindowsHookExW.restype = wintypes.HHOOK
+    u.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+    u.CallNextHookEx.restype = LRESULT
+    k.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+    k.GetModuleHandleW.restype = wintypes.HMODULE
+    da_vk = {vk: n for n, vk in tasti.items()}
+    giu = set()
+    hook = [None]
+
+    def cb(code, wp, lp):
+        try:
+            if code == 0 and acceso():
+                vk = ctypes.cast(lp, ctypes.POINTER(wintypes.DWORD))[0]
+                n = da_vk.get(vk)
+                if n:
+                    if wp in (0x100, 0x104):          # tasto premuto
+                        if n not in giu:
+                            giu.add(n)
+                            conta[n] += 1
+                    else:                              # rilasciato
+                        giu.discard(n)
+                    return 1                           # il gioco non lo vede
+        except Exception:
+            pass
+        return u.CallNextHookEx(hook[0], code, wp, lp)
+    proc = PROC(cb)
+
+    def ciclo():
+        hook[0] = u.SetWindowsHookExW(13, proc, k.GetModuleHandleW(None), 0)
+        if not hook[0]:
+            if log:
+                log("telecomando: gancio tastiera non attivo")
+            return
+        msg = wintypes.MSG()
+        while u.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            u.TranslateMessage(ctypes.byref(msg))
+            u.DispatchMessageW(ctypes.byref(msg))
+    threading.Thread(target=ciclo, daemon=True).start()
+    return proc
+
+
 class Tastiera:
     def __init__(self, premuti=None):
         self._premuti = premuti
@@ -137,8 +188,27 @@ class Tastiera:
             except Exception:
                 return False
         self._attivo = True
-        threading.Thread(target=self._ciclo, daemon=True).start()
+        self.gancio = False
+        f = getattr(self._premuti, "acceso", None)
+        if f and sys.platform.startswith("win"):
+            try:
+                self._proc = _gancio_tastiera(TASTI_TELECOMANDO, f, self.conta)
+                self.gancio = True
+            except Exception:
+                self.gancio = False
+        if not self.gancio:   # senza gancio si leggono i tasti a intervalli (il gioco li riceve comunque)
+            threading.Thread(target=self._ciclo, daemon=True).start()
+        else:                 # il gancio conta i tasti; questo ciclo serve solo per Ctrl+Alt+K
+            threading.Thread(target=self._ciclo_solo_interruttore, daemon=True).start()
         return True
+
+    def _ciclo_solo_interruttore(self):
+        while self._attivo:
+            try:
+                self._premuti()
+            except Exception:
+                pass
+            time.sleep(0.05)
 
     def _ciclo(self):
         while self._attivo:
