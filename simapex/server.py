@@ -172,6 +172,16 @@ def funzioni():
     return f
 
 
+_box = [None]
+_cache_box = {}
+
+
+def box_corsia():
+    if _box[0] is None:
+        _box[0] = circuito.Box(os.path.join(cartella_dati(), "piste"))
+    return _box[0]
+
+
 _registratore = [None]
 
 
@@ -189,6 +199,7 @@ def _campionatore():
             d = _lettore.stato()
             registro_stile().alimenta(d)
             registratore().alimenta(d)
+            box_corsia().alimenta(d)
             tracce_giri().alimenta(d)
             r = ruota_bloccata(d)
             if r is not None:
@@ -346,6 +357,15 @@ class Gestore(BaseHTTPRequestHandler):
                     d["consumo_giro"] = cons
                     d["giri_stimati"] = round((d.get("carburante") or 0) / cons, 1) if cons else None
                     d["giro_attuale_ms"] = round(tracce_giri().trascorso_ms())
+                    d["consiglio_guida"] = tracce_giri().consiglio
+                    try:
+                        k = (d.get("auto"), d.get("pista"), int(time.time() // 3))
+                        if _cache_box.get("k") != k:
+                            mt = tracce_giri().carica(d.get("auto"), d.get("pista")).get("migliore")
+                            _cache_box.update(k=k, v=circuito.info_box(os.path.join(cartella_dati(), "piste"), d.get("pista"), d.get("auto"), mt))
+                        d["box_info"] = _cache_box.get("v")
+                    except Exception:
+                        d["box_info"] = None
                 d["funzioni"] = funzioni()
                 d["ptt"] = _ptt.premuto
                 d["ptt_tasto"] = _ptt.tasto
@@ -360,7 +380,11 @@ class Gestore(BaseHTTPRequestHandler):
             elif self.path.startswith("/api/pista?"):
                 from urllib.parse import unquote
                 nome = unquote(self.path.split("nome=")[1].split("&")[0]) if "nome=" in self.path else ""
-                self._invia(200, json.dumps({"pista": circuito.carica_tracciato(nome, os.path.join(cartella_dati(), "piste"))}), "application/json")
+                t = circuito.carica_tracciato(nome, os.path.join(cartella_dati(), "piste"))
+                bx = circuito.carica_box(os.path.join(cartella_dati(), "piste"), nome)
+                if t and bx and bx.get("x"):
+                    t = dict(t, box={"x": bx["x"], "z": bx["z"]})
+                self._invia(200, json.dumps({"pista": t}), "application/json")
             elif self.path.startswith("/api/sessioni"):
                 self._invia(200, json.dumps({"sessioni": elenco_sessioni(registro_stile().giri)[:50]}), "application/json")
             elif self.path.startswith("/api/sessione?"):
@@ -378,6 +402,10 @@ class Gestore(BaseHTTPRequestHandler):
                                  and (x[0].get("ts") or 0) < sid), [])
                     det["confronto"] = tracce.confronto_sessione(tracce_giri(), det["auto"], det["pista"], cur, prec)
                     det["giri_confronto"] = tracce.lista_giri(tracce_giri(), det["auto"], det["pista"])
+                    det["riferimenti"] = tracce.lista_riferimenti(tracce_giri(), det["auto"], det["pista"])
+                    for dg, lap in zip(det.get("dettaglio_giri") or [], cur):
+                        tr_ = tracce._traccia_di(tracce_giri(), det["auto"], det["pista"], lap)
+                        dg["k"] = tracce.chiave_giro(tr_) if tr_ else None
                     if q.get("a") and q.get("b"):
                         sc = tracce.confronto_giri(tracce_giri(), det["auto"], det["pista"], q["a"][0], q["b"][0])
                         if sc:

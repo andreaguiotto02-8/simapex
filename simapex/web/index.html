@@ -78,6 +78,7 @@
 <!-- SETUP -->
 <section id="s-setup" class="schermo" hidden>
  <div class="setup">
+  <div class="w" data-f="consigli" data-t="Consigli di guida" id="consigliBox"><h3>Consigli di guida e box</h3><div id="boxInfo" class="mu"></div><div id="consigliLista" class="mu">Nessun consiglio ancora: fai qualche giro e dopo ogni giro ti dico dove hai perso di più.</div></div>
   <div class="w" data-f="piano" data-t="Piano per la sessione" id="pianoBox"><h3>Piano per la sessione (la squadra ai box)</h3>
    <p class="mu">Con il gioco aperto il piano si compila da solo: legge sessione, giri e consumo vero e ti suggerisce carburante, gomme e mappa motore. I campi qui sotto servono solo se vuoi cambiarli.</p><p class="mu" id="pnNota"></p>
    <div class="row"><select id="pnTipo"><option value="1">Qualifica</option><option value="0">Prove libere</option><option value="2" selected>Gara</option></select>
@@ -119,7 +120,7 @@
   <div class="card"><h2>Situazione in pista</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
   <div class="card"><h2>Chiedi all'ingegnere</h2>
    <p class="mu">Chiedi quello che vuoi: risponde subito con i dati di adesso (distacchi, ritmo, gomme, carburante, meteo, box). Se la domanda è più strana, chiede a Claude (serve la chiave nelle Impostazioni).</p>
-   <div class="row" id="ingChips"><button data-q="Devo spingere?">Devo spingere?</button><button data-q="Distacco davanti">Distacco davanti</button><button data-q="Vantaggio dietro">Vantaggio dietro</button><button data-q="Ritmo">Ritmo</button><button data-q="Gomme">Gomme</button><button data-q="Carburante">Carburante</button><button data-q="Quando rientro?">Quando rientro?</button><button data-q="Meteo">Meteo</button></div>
+   <div class="row" id="ingChips"><button data-q="Devo spingere?">Devo spingere?</button><button data-q="Distacco davanti">Distacco davanti</button><button data-q="Vantaggio dietro">Vantaggio dietro</button><button data-q="Ritmo">Ritmo</button><button data-q="Gomme">Gomme</button><button data-q="Carburante">Carburante</button><button data-q="Quando rientro?">Quando rientro?</button><button data-q="Meteo">Meteo</button><button data-q="Quanto perdo ai box?">Quanto perdo ai box?</button></div>
    <div class="row"><input id="ingDom" type="text" style="flex:1;min-width:14em" placeholder="Scrivi la tua domanda"><button id="ingMic" title="Parla">🎤</button><button class="pri" id="ingChiedi">Chiedi</button></div>
    <div id="ingRis" class="mu"></div>
    <div class="row"><label><input type="checkbox" id="spotOn"> Spotter ACC: avvisa delle macchine vicine</label><label><input type="checkbox" id="spotInv"> Inverti destra e sinistra</label></div></div></div>

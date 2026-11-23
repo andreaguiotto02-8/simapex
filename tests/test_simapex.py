@@ -273,10 +273,17 @@ class TestAssistente(unittest.TestCase):
         prima = open(originale).read()
         os.environ.update(SIMAPEX_DOCUMENTI=doc, SIMAPEX_CLAUDE_API="http://127.0.0.1:8795", LOCALAPPDATA=dati)
         try:
+            server.PORTA = 8765
+            server._fermati.clear()
             server.salva_impostazioni({"claude_key": "sk-ant-x"})
             t = threading.Thread(target=server.main, kwargs={"apri_browser": False}, daemon=True)
             t.start()
-            time.sleep(0.8)
+            for _ in range(40):
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:8765/api/stato", timeout=1)
+                    break
+                except Exception:
+                    time.sleep(0.25)
             u = "http://127.0.0.1:8765"
             req = urllib.request.Request(u + "/api/assistente/proponi", method="POST",
                                          data=json.dumps({"file": "auto_x/monza/base.json", "sensazioni": "sottosterza"}).encode())
@@ -801,6 +808,69 @@ class TestF1(unittest.TestCase):
         v["ts_applicato"] = 250
         self.assertTrue(esito.aggiorna([v], giri))
         self.assertEqual(v["esito"], "meglio")
+
+    def _giro(self, tempo, ts, rapido_seg=None):
+        from simapex import tracce
+        N, per = tracce.N, tracce.N // tracce.SEGMENTI
+        t = [0.0]
+        for i in range(N):
+            dur = tempo / N
+            if rapido_seg is not None and i // per == rapido_seg:
+                dur *= 0.9
+            t.append(t[-1] + dur)
+        return {"tempo_ms": round(t[-1]), "t": [round(x) for x in t], "v": [100 + (i // per) for i in range(N)],
+                "f": [0.1] * N, "g": [0.5] * N, "ts": ts}
+
+    def test_riferimenti_e_consiglio(self):
+        from simapex import tracce
+        giri = [self._giro(90000, 10 + i, rapido_seg=i % 5) for i in range(6)]
+        class T:
+            def carica(self, a, b):
+                return {"giri": giri, "migliore": min(giri, key=lambda g: g["tempo_ms"])}
+        r = tracce.riferimenti(T(), "a", "p")
+        self.assertEqual(set(r), {"@record", "@passo", "@ideale", "@teorico"})
+        self.assertLess(r["@teorico"]["tempo_ms"], min(g["tempo_ms"] for g in giri))
+        self.assertLessEqual(r["@teorico"]["tempo_ms"], r["@ideale"]["tempo_ms"])
+        self.assertEqual(len(r["@teorico"]["t"]), tracce.N + 1)
+        c = tracce.confronto_giri(T(), "a", "p", tracce.chiave_giro(giri[5]), "@teorico")
+        self.assertEqual(len(c["rif"]["scelto"]["f"]), tracce.N)
+        lento = self._giro(92000, 99)
+        lento["f"] = [0.8] * tracce.N
+        cons = tracce.consiglio_giro(lento, giri[0])
+        self.assertIn("Microsettore", cons["testo"])
+
+    def test_box_corsia_e_perdita(self):
+        import tempfile
+        from simapex import circuito
+        cart = tempfile.mkdtemp()
+        b = circuito.Box(cart)
+        base = {"collegato": True, "pista": "spa", "auto": "x"}
+        t0 = 1000.0
+        b.alimenta(dict(base, in_box=False, pos_norm=0.95), ora=t0)
+        for k in range(40):
+            b.alimenta(dict(base, in_box=True, pos_norm=0.97, coordinate=[k, 0, k * 2], velocita=60 if k < 15 or k > 30 else 0), ora=t0 + 1 + k)
+        b.alimenta(dict(base, in_box=False, pos_norm=0.03), ora=t0 + 45)
+        box = circuito.carica_box(cart, "spa")
+        self.assertEqual(box["entra"], 0.95)
+        self.assertEqual(len(box["soste"]), 1)
+        self.assertGreater(box["soste"][0]["fermo_ms"], 10000)
+        tr = {"t": [round(i * 450) for i in range(201)]}   # giro da 90 s
+        i = circuito.info_box(cart, "spa", "x", tr)
+        self.assertGreater(i["perdita_ms"], 0)
+        self.assertEqual(i["perdita_con_sosta_ms"], i["perdita_ms"] + i["fermo_ms"])
+
+    def test_salto_a_fine_giro_non_sporca(self):
+        from simapex import circuito
+        r = circuito.Registratore("/nonexistent/x")
+        base = {"collegato": True, "pista": "p", "giri_completati": 1, "coordinate": [0, 0, 0], "velocita": 100}
+        r.alimenta(dict(base, pos_norm=0.5, coordinate=[0, 0, 0]))
+        r.alimenta(dict(base, pos_norm=0.6, coordinate=[1, 0, 1]))
+        r.alimenta(dict(base, pos_norm=0.99, coordinate=[2, 0, 2]))
+        r.alimenta(dict(base, pos_norm=0.01, coordinate=[3, 0, 3]))   # la posizione riparte prima del contatore dei giri
+        self.assertFalse(r.sporco)
+        r.alimenta(dict(base, pos_norm=0.5, coordinate=[3, 0, 3]))
+        r.alimenta(dict(base, pos_norm=0.1, coordinate=[3, 0, 3]))    # salto vero a metà giro
+        self.assertTrue(r.sporco)
 
 
 if __name__ == "__main__":

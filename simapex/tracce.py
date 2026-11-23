@@ -123,6 +123,8 @@ class Tracce:
         self.auto, self.pista, self.giro = d.get("auto"), d.get("pista"), d.get("giri_completati")
         self.camp, self.t0, self.sporco, self.prec = [], time.time(), False, 0.0
 
+    consiglio = None
+
     def trascorso_ms(self):
         return (time.time() - self.t0) * 1000.0 if self.t0 else 0.0
 
@@ -138,7 +140,16 @@ class Tracce:
                 g = costruisci(self.camp, d["ultimo_giro_ms"], self.trascorso_ms())
                 if g:
                     g["ts"], g["giro"] = int(time.time()), self.giro + 1
+                    prima = self.carica(self.auto, self.pista).get("migliore")
                     self._salva(self.auto, self.pista, g)
+                    try:
+                        if prima and g["tempo_ms"] >= prima["tempo_ms"]:
+                            c = consiglio_giro(g, prima)
+                            self.consiglio = dict(c, giro=g["giro"], ts=g["ts"]) if c else None
+                        elif prima:
+                            self.consiglio = {"record": True, "giro": g["giro"], "ts": g["ts"]}
+                    except Exception:
+                        self.consiglio = None
             self._azzera(d)
             return
         pos = d.get("pos_norm")
@@ -146,7 +157,7 @@ class Tracce:
             self.sporco = True
         if pos is None or d.get("in_box"):
             return
-        if pos < self.prec - 0.2:
+        if pos < self.prec - 0.2 and self.prec < 0.9:  # a fine giro il salto da ~1 a ~0 è normale
             self.sporco = True
         self.prec = pos
         self.camp.append((pos, self.trascorso_ms(), d.get("velocita") or 0, d.get("freno") or 0, d.get("acceleratore") or 0))
@@ -194,7 +205,7 @@ def confronto_sessione(tr, auto, pista, laps_sessione, laps_precedente):
             continue
         seg = confronta(mio, r)
         guad, perd = tratti_principali(seg)
-        out["rif"][nome] = {"tempo_ms": r["tempo_ms"], "v": r["v"], "segmenti": seg, "guadagni": guad, "perdite": perd,
+        out["rif"][nome] = {"tempo_ms": r["tempo_ms"], "v": r["v"], "f": r["f"], "g": r["g"], "segmenti": seg, "guadagni": guad, "perdite": perd,
                             "delta": [mio["t"][i] - r["t"][i] for i in range(N + 1)]}
     return out
 
@@ -223,12 +234,90 @@ def _trova(tr, auto, pista, k):
 
 
 def confronto_giri(tr, auto, pista, ka, kb):
-    """Confronto tra due giri scelti dalla lista: A (il tuo) contro B (riferimento)."""
-    a, b = _trova(tr, auto, pista, ka), _trova(tr, auto, pista, kb)
+    """Confronto tra due giri: A (il tuo, dalla sessione) contro B (un altro giro tuo o un riferimento: @record, @passo, @ideale, @teorico)."""
+    a = _trova(tr, auto, pista, ka)
+    b = riferimenti(tr, auto, pista).get(kb) if str(kb).startswith("@") else _trova(tr, auto, pista, kb)
     if not a or not b:
         return None
     seg = confronta(a, b)
     guad, perd = tratti_principali(seg)
     return {"mio": {"tempo_ms": a["tempo_ms"], "v": a["v"], "f": a["f"], "g": a["g"]},
-            "rif": {"scelto": {"tempo_ms": b["tempo_ms"], "v": b["v"], "segmenti": seg, "guadagni": guad, "perdite": perd,
-                               "delta": [a["t"][i] - b["t"][i] for i in range(N + 1)]}}}
+            "rif": {"scelto": {"tempo_ms": b["tempo_ms"], "v": b["v"], "f": b["f"], "g": b["g"], "segmenti": seg, "guadagni": guad,
+                               "perdite": perd, "delta": [a["t"][i] - b["t"][i] for i in range(N + 1)]}}}
+
+
+PER = N // SEGMENTI
+
+
+def _durate(g):
+    return [g["t"][(s + 1) * PER] - g["t"][s * PER] for s in range(SEGMENTI)]
+
+
+def _sintetico(giri, k, nome):
+    """Giro costruito con i migliori microsettori di tutti i giri (k = quanti giri mediare per ogni microsettore)."""
+    giri = [g for g in giri if len(g.get("t", [])) == N + 1 and len(g.get("v", [])) == N]
+    if not giri:
+        return None
+    dur = [_durate(g) for g in giri]
+    t, v, f, gg = [0.0], [], [], []
+    for s in range(SEGMENTI):
+        ordine = sorted(range(len(giri)), key=lambda i: dur[i][s])
+        top = ordine[:max(1, k)]
+        d = sum(dur[i][s] for i in top) / len(top)
+        src = giri[ordine[0]]
+        base, sd = src["t"][s * PER], max(1, dur[ordine[0]][s])
+        for j in range(1, PER + 1):
+            t.append(t[s * PER] + (src["t"][s * PER + j] - base) * d / sd)
+        v += src["v"][s * PER:(s + 1) * PER]
+        f += src["f"][s * PER:(s + 1) * PER]
+        gg += src["g"][s * PER:(s + 1) * PER]
+    t = [round(x) for x in t]
+    return {"tempo_ms": t[-1], "t": t, "v": v, "f": f, "g": gg, "nome": nome, "ts": 0, "sintetico": True}
+
+
+def riferimenti(tr, auto, pista):
+    """Giri di riferimento per il confronto: record, passo gara, ideale realistico, teorico."""
+    d = tr.carica(auto, pista)
+    giri = [g for g in (d.get("giri") or []) if len(g.get("t", [])) == N + 1]
+    out = {}
+    rec = d.get("migliore")
+    if rec:
+        out["@record"] = dict(rec, nome="Il giro più veloce del circuito")
+    if not giri:
+        return out
+    best = min(g["tempo_ms"] for g in giri)
+    puliti = sorted([g for g in giri if g["tempo_ms"] <= best * 1.07], key=lambda g: g["tempo_ms"])
+    if len(puliti) >= 3:
+        out["@passo"] = dict(puliti[len(puliti) // 2], nome="Un giro di passo gara")
+        ideale = _sintetico(puliti, 3, "Giro ideale realistico (media dei 3 migliori per microsettore)")
+        if ideale:
+            out["@ideale"] = ideale
+    teorico = _sintetico(puliti or giri, 1, "Giro teorico più veloce (tutti i migliori microsettori)")
+    if teorico:
+        out["@teorico"] = teorico
+    return out
+
+
+def lista_riferimenti(tr, auto, pista):
+    return [{"k": k, "nome": v["nome"], "tempo_ms": v["tempo_ms"]} for k, v in riferimenti(tr, auto, pista).items()]
+
+
+def consiglio_giro(mio, rif, minimo=80):
+    """Dove hai perso di più rispetto al riferimento e un consiglio semplice su come recuperare."""
+    seg = confronta(mio, rif)
+    s = max(range(len(seg)), key=lambda i: seg[i])
+    if seg[s] < minimo:
+        return None
+    a, b = s * PER, (s + 1) * PER
+    vm, vr = mio["v"][a:b], rif["v"][a:b]
+    fm, fr = sum(mio["f"][a:b]) / PER, sum(rif["f"][a:b]) / PER
+    gm, gr = sum(mio["g"][a:b]) / PER, sum(rif["g"][a:b]) / PER
+    if min(vm) < min(vr) - 4 and fm > fr * 1.15:
+        t = "freni più a lungo o più forte del tuo giro migliore: rilascia prima il freno e porta più velocità al centro curva"
+    elif gm < gr - 0.1 and vm[-1] < vr[-1] - 3:
+        t = "dai gas più tardi del tuo giro migliore: apri il gas prima in uscita di curva"
+    elif vm[0] < vr[0] - 4:
+        t = "arrivi più lento del tuo giro migliore: entra con più velocità e frena un po' più tardi"
+    else:
+        t = "perdi tempo nella traiettoria: guarda dove sei più largo o più lento rispetto al tuo giro migliore"
+    return {"micro": s + 1, "perdita_ms": seg[s], "breve": t, "testo": "Microsettore %d, perdi %.1f secondi: %s." % (s + 1, seg[s] / 1000.0, t)}

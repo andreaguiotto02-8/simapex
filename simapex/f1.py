@@ -209,8 +209,9 @@ class LettoreF1:
             q = INTESTAZIONE + k * dim
             ultimo, = struct.unpack_from("<I", b, q)
             ms, mn = struct.unpack_from("<HB", b, q + 14)
+            lms, lmn = struct.unpack_from("<HB", b, q + 17)
             pos = b[q + 32]
-            auto.append((pos, ultimo, ms + mn * 60000))
+            auto.append((pos, ultimo, ms + mn * 60000, lms + lmn * 60000))
         mio = auto[self.player]
         if mio[0] <= 0:
             return
@@ -221,6 +222,8 @@ class LettoreF1:
                     return a
             return None
         dav, dietro = vicino(mio[0] - 1), vicino(mio[0] + 1)
+        self.d["gap_leader_ms"] = mio[3]
+        self.d["gap_altri_ms"] = sorted(a[3] for k, a in enumerate(auto) if k != self.player and a[0] > 0)
         for k in ("distacco_davanti_ms", "distacco_dietro_ms", "ultimo_davanti_ms", "ultimo_dietro_ms"):
             self.d.pop(k, None)
         if dav and mio[2] > 0:

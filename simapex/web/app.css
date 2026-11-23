@@ -77,3 +77,5 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 .imp{max-width:50em;margin:0 auto}
 @media (max-width:900px){.guida{grid-template-columns:1fr 1fr;grid-template-rows:auto}.guida>.w{grid-column:auto!important;grid-row:auto!important;min-height:10em}.sessioni,.setup,.rep{grid-template-columns:1fr}body{overflow:auto}}
 .g-blocco{position:absolute;inset:0;pointer-events:none;border:0;background:transparent;padding:0}.pallino{pointer-events:auto}
+
+.cmpbox{display:grid;grid-template-columns:1fr 1fr;gap:.8em;margin:.4em 0}.cmpt{width:100%;font-size:.85em}.cmpt td{padding:.15em .3em}.cmpbox select{width:100%}@media (max-width:900px){.cmpbox{grid-template-columns:1fr}}
