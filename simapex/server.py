@@ -276,7 +276,11 @@ def apri_finestra(url):
         for c in candidati:
             if c and os.path.isfile(c):
                 try:
-                    subprocess.Popen([c, "--app=" + url, "--window-size=1100,900", "--use-fake-ui-for-media-stream"])
+                    # profilo tutto suo: così le opzioni (microfono incluso) valgono anche se Edge è già aperto
+                    prof = os.path.join(loc or os.path.expanduser("~"), "Simapex", "browser")
+                    os.makedirs(prof, exist_ok=True)
+                    subprocess.Popen([c, "--app=" + url, "--window-size=1100,900", "--use-fake-ui-for-media-stream",
+                                      "--user-data-dir=" + prof, "--no-first-run", "--no-default-browser-check"])
                     return
                 except Exception:
                     scrivi_log(traceback.format_exc())

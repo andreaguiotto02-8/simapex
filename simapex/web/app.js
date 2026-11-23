@@ -237,10 +237,16 @@ async function giroQuaderno(){try{const j=await api("/api/assistente");const q=(
  if(!q.length){$("quad").textContent="Ancora nessun setup creato.";return}
  $("quad").innerHTML="<table>"+q.map((x,i)=>`<tr><td>${esc(x.nuovo||"")}<small class="mu"><br>${esc(x.problema||"")}</small></td><td><b class="${x.esito==="meglio"?"mig":x.esito==="peggio"?"peg":""}">${esc(x.esito?x.esito.toUpperCase():"in attesa dei giri")}</b>${x.esito_motivo?`<small class="mu"><br>${esc(x.esito_motivo)}</small>`:""}${i===0&&x.esito&&x.esito_auto?`<br><small class="mu">Non sei d'accordo?</small> <button data-e="meglio" data-id="${x.id}">Meglio</button><button data-e="uguale" data-id="${x.id}">Uguale</button><button data-e="peggio" data-id="${x.id}">Peggio</button>`:""}</td></tr>`).join("")+"</table>"}catch(e){}}
 $("quad").onclick=async e=>{const b=e.target.closest("button[data-e]");if(!b)return;await api("/api/assistente/esito",{id:parseInt(b.dataset.id),esito:b.dataset.e});giroQuaderno()};
+async function micControllo(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());return null}catch(e){const n=e&&e.name;
+ if(n==="NotFoundError"||n==="OverconstrainedError")return"Windows non vede nessun microfono: controlla in Impostazioni → Sistema → Audio → Ingresso che le cuffie siano scelte come microfono.";
+ if(n==="NotReadableError")return"Il microfono è occupato da un altro programma (Discord, il gioco, ecc.). Chiudi quello o scegli un altro ingresso.";
+ if(n==="NotAllowedError"||n==="SecurityError")return"Il browser blocca il microfono (errore: "+n+"). Se Windows è già a posto, chiudi Simapex e riaprilo dopo l'aggiornamento: ora usa un profilo suo.";
+ return"Errore del microfono: "+(n||e)}}
 (function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;const M=t=>{$("assMsg").textContent=t};
  if(!R){$("assMic").onclick=()=>M("Questo browser non ha il riconoscimento vocale. Clicca nella casella e premi Windows + H per dettare.");return}
  let rec=null,on=false;
- $("assMic").onclick=()=>{if(on){rec&&rec.stop();return}
+ $("assMic").onclick=async()=>{if(on){rec&&rec.stop();return}
+  const er=await micControllo();if(er){M(er);return}
   try{rec=new R();rec.lang="it-IT";rec.continuous=true;rec.interimResults=false;
   rec.onstart=()=>{M("Sto ascoltando... parla pure.")};
   rec.onresult=ev=>{let t="";for(let i=ev.resultIndex;i<ev.results.length;i++)t+=ev.results[i][0].transcript+" ";$("assSens").value=($("assSens").value+" "+t).trim()};
@@ -461,7 +467,8 @@ $("spotOn").checked=SPOT.on;$("spotInv").checked=SPOT.inv;
 $("spotOn").onchange=e=>{SPOT.on=e.target.checked;try{localStorage.setItem("simapex_spotter",SPOT.on?"1":"0")}catch(x){}};
 $("spotInv").onchange=e=>{SPOT.inv=e.target.checked;try{localStorage.setItem("simapex_spotter_inv",SPOT.inv?"1":"0")}catch(x){}};
 (function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition,b=$("ingMic");if(!SR){b.hidden=true;return}let rec=null,on=false;
- b.onclick=()=>{if(on){try{rec.stop()}catch(e){}return}
+ b.onclick=async()=>{if(on){try{rec.stop()}catch(e){}return}
+  const er=await micControllo();if(er){$("ingRis").textContent=er;return}
   try{rec=new SR();rec.lang="it-IT";rec.interimResults=false;rec.onresult=ev=>{const t=ev.results[0][0].transcript;$("ingDom").value=t;chiediIng(t)};
    rec.onerror=ev=>{$("ingRis").textContent="Il microfono non parte (codice: "+ev.error+"). Per ora scrivi la domanda o usa i tasti."};rec.onend=()=>{on=false;b.textContent="🎤"};rec.start();on=true;b.textContent="⏹"}
   catch(x){$("ingRis").textContent="Microfono non disponibile: "+x.message}};
