@@ -594,12 +594,14 @@ function teElementi(){const sc=document.getElementById("s-"+schermo);const a=[..
  if(sc)a.push(...sc.querySelectorAll("button,input:not([type=hidden]),select,textarea,.sess,summary,a[href]"));
  return a.filter(e=>e.offsetParent!==null&&!e.disabled&&getComputedStyle(e).visibility!=="hidden")}
 function teSegna(e){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=e;TEmod=false;if(e){e.classList.add("tele");e.scrollIntoView({block:"center",behavior:"smooth"})}}
+let teT=null;
+function teAuto(e){clearTimeout(teT);if(e&&(e.matches("#nav button")||e.matches(".sess")))teT=setTimeout(()=>{if(TEsel===e)e.click()},300)}
 function teDir(d){const L=teElementi();if(!L.length)return;if(!TEsel||!document.contains(TEsel)||L.indexOf(TEsel)<0){teSegna(L[0]);return}
  const r=TEsel.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let best=null,bs=1e9;
  for(const e of L){if(e===TEsel)continue;const q=e.getBoundingClientRect(),x=q.left+q.width/2-cx,y=q.top+q.height/2-cy;
   const av=d==="giu"?y:d==="su"?-y:d==="dx"?x:-x,la=(d==="giu"||d==="su")?Math.abs(x):Math.abs(y);if(av<=2)continue;const sc=av+la*2.2;if(sc<bs){bs=sc;best=e}}
- if(best)teSegna(best)
- else{const i=L.indexOf(TEsel),k=(d==="giu"||d==="dx")?1:-1,n=L[i+k];if(n)teSegna(n)}}
+ if(best){teSegna(best);teAuto(best)}
+ else{const i=L.indexOf(TEsel),k=(d==="giu"||d==="dx")?1:-1,n=L[i+k];if(n){teSegna(n);teAuto(n)}}}
 function teAzione(n){
  if(n==="canc")n="indietro";
  if(TEmod&&TEsel){const e=TEsel;if(n==="indietro"||n==="invio"){TEmod=false;e.classList.remove("tele-mod");return}
