@@ -285,8 +285,14 @@ const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
 let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
 ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
+function vociIt(){try{return speechSynthesis.getVoices().filter(x=>x.lang&&x.lang.toLowerCase().replace("_","-").startsWith("it"))}catch(e){return[]}}
+function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex_voce_nome")||""}catch(e){}
+ const sc=x=>(/natural/i.test(x.name)?4:0)+(/online/i.test(x.name)?2:0)+(x.localService?0:1);
+ return L.find(x=>x.name===n)||L.slice().sort((a,b)=>sc(b)-sc(a))[0]||null}
+function riempiVoci(){const e=$("ingVoceSel");if(!e)return;const L=vociIt(),v=voceIng();e.innerHTML=L.length?L.map(x=>`<option value="${esc(x.name)}"${v&&x.name===v.name?" selected":""}>${esc(x.name.replace(/^Microsoft /,""))}</option>`).join(""):"<option>Nessuna voce italiana trovata</option>"}
+try{speechSynthesis.onvoiceschanged=riempiVoci}catch(e){}
 function emetti(testo,grave){if(ING.voce)bip(1300,45);ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
- if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=speechSynthesis.getVoices().find(x=>x.lang&&x.lang.toLowerCase().startsWith("it"));if(v)u.voice=v;u.rate=1.05;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+ if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=1.0;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
  if(schermo==="pista")disegnaBox()}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
  if(grave||sicuro()){emetti(testo,grave);return}
@@ -432,6 +438,8 @@ function disegnaBox(){const m=$("ingMsgs");if(!m)return;
  BOXL=strategia();const b=$("boxLinee");if(b)b.innerHTML=BOXL.map(l=>`<div>${esc(l)}</div>`).join("")}
 $("ingVoce").checked=ING.voce;
 $("ingVoce").onchange=e=>{ING.voce=e.target.checked;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}};
+if($("ingVoceSel"))$("ingVoceSel").onchange=e=>{try{localStorage.setItem("simapex_voce_nome",e.target.value)}catch(x){}$("ingProva").click()};
+setTimeout(riempiVoci,800);
 $("ingProva").onclick=()=>{const v=ING.voce;ING.voce=true;parla(null,"Prova radio. Qui è l'ingegnere di pista, mi senti?",0,true);ING.voce=v;if(!window.speechSynthesis)$("ingRis").textContent="Questo programma non ha la voce: puoi comunque leggere i messaggi qui."};
 
 /* ---------- DOMANDE ALL'INGEGNERE ---------- */
