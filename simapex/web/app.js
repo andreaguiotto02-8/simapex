@@ -362,6 +362,12 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
  ING.giriDaBox++;
  const mp=(MAPPE&&MAPPE.mappa_giri_costanti)?" Usa la mappa "+MAPPE.mappa_giri_costanti+".":"";
  const ms=(MAPPE&&MAPPE.mappa_spinta)?" Metti la mappa "+MAPPE.mappa_spinta+".":"";
+ // chiamata ai box: carburante, gomme, pioggia, safety car (gara)
+ if(u.sessione===2&&!u.in_box){const c=margineCarb();let mot=null,urg=false;
+  if(c.rimasti>0&&c.m!=null&&c.m<0&&(u.giri_carburante_gioco!=null?u.giri_carburante_gioco:c.rimasti)<=1.5){mot="il carburante sta finendo";urg=true}
+  else if(F1G()&&u.usura_gomme){const w=Math.max(...u.usura_gomme);if(w>=70){mot="le gomme sono al "+Math.round(w)+" per cento di usura";urg=w>=80}}
+  if(!mot&&u.meteo&&/pioggia|temporale/i.test(u.meteo)&&/media|dura|morbida|soft|medium|hard/i.test(u.mescola||"")&&P.meteo&&!/pioggia|temporale/i.test(P.meteo)){mot="sta piovendo, serve la gomma da bagnato";urg=true}
+  if(mot&&gc!==ING.boxCall){ING.boxCall=gc;parla("boxcall"+gc,(urg?"Box, box, box! ":"Box questo giro. ")+"Entra ai box: "+mot+".",0,true)}}
  if(u.sessione===2&&ING.freq!=="minima"&&gc%(ING.freq==="alta"?2:3)===0)parla("riep"+gc,riepilogoRadio(u),0);
  if(u.sessione===2){const c=margineCarb();
   if(c.m!=null&&c.m<0)parla("save"+gc,"Risparmia carburante: alza prima delle staccate e non insistere sull'acceleratore."+mp+" Ti mancano "+Math.abs(c.m).toFixed(1).replace(".",",")+" giri di carburante.",0);
