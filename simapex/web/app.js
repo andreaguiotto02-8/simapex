@@ -277,7 +277,7 @@ try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
 const F1G=()=>ST.gioco==="F1 25";
 const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
-let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
+let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
 ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
 function emetti(testo,grave){if(ING.voce)bip(1300,45);ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
  if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=speechSynthesis.getVoices().find(x=>x.lang&&x.lang.toLowerCase().startsWith("it"));if(v)u.voice=v;u.rate=1.05;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
@@ -498,7 +498,7 @@ function tastiVolante(){const T=ST.tasti||{},C=ST.tasti_conta||{};
  if(TC){for(const a in TASTI_AZ){if((C[a]||0)>(TC[a]||0)){azioneVolante(a)}}}TC=Object.assign({},C);
  const el=$("tastiAz");if(!el||schermo!=="pista")return;const k=JSON.stringify([T,ST.tasti_assegna,C]);if(el.dataset.k===k)return;el.dataset.k=k;
  el.innerHTML=Object.keys(TASTI_AZ).map(a=>`<div class="row"><span style="flex:1">${TASTI_AZ[a]}: <b>${ST.tasti_assegna===a?"premi il tasto sul volante…":(T[a]?"tasto "+T[a]+" (visto "+(C[a]||0)+" volte)":"non assegnato")}</b></span><button data-az="${a}">Assegna</button>${T[a]?`<button data-azt="${a}">Togli</button>`:""}</div>`).join("")}
-function azioneVolante(a){bip(1100,40);
+function azioneVolante(a){
  if(a==="avanti"||a==="indietro"){const B=[...document.querySelectorAll("#nav button")].filter(b=>b.offsetParent!==null),i=B.findIndex(b=>b.dataset.s===schermo),n=B[(i+(a==="avanti"?1:B.length-1))%B.length];if(n)n.click()}
  else if(a==="ripeti"){const m=ING.msgs[0];if(m){const v=ING.voce;ING.voce=true;try{speechSynthesis.cancel()}catch(e){}emetti(m.testo.replace(/^\s+/,""),true);ING.voce=v}}
  else if(a==="voce"){ING.voce=!ING.voce;$("ingVoce").checked=ING.voce;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}bip(ING.voce?1200:600,80)}}
