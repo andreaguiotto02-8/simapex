@@ -147,9 +147,12 @@ async function mappaGuida(){const u=ST;if(!u.pista)return;
  if(pistaMappa!==u.pista||(!tracciato&&u.pista&&Date.now()-tMappa>10000)){tMappa=Date.now();pistaMappa=u.pista;tracciato=null;try{tracciato=(await api("/api/pista?nome="+encodeURIComponent(u.pista))).pista}catch(e){}
   const s=$("gMappa");$("gMappaV").style.display=tracciato?"none":"block";
   if(!tracciato){s.innerHTML="";return}
-  const X=tracciato.x,Z=tracciato.z;tracciato._b=limiti(X,Z);
-  s.innerHTML=`<polygon points="${punti(X,Z,tracciato._b)}" fill="none" stroke="#e8ecf2" stroke-width="5" stroke-linejoin="round"/>${tracciato.box?`<polyline points="${punti(tracciato.box.x,tracciato.box.z,tracciato._b)}" fill="none" stroke="#4da3ff" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round"/>`:""}<circle id="gAuto" r="9" fill="#ff5a1f" stroke="#fff" stroke-width="3"/>`}
- if(tracciato&&u.pos_norm!=null){const i=Math.min(tracciato.x.length-1,Math.max(0,Math.floor(u.pos_norm*tracciato.x.length)));const q=xy(tracciato.x[i],tracciato.z[i],tracciato._b);const c=$("gAuto");if(c){c.setAttribute("cx",q[0]);c.setAttribute("cy",q[1])}}}
+  const rd=rotGet(u.pista);let [X,Z]=ruota(tracciato.x,tracciato.z,rd);tracciato._X=X;tracciato._Z=Z;if(tracciato.box){const q=ruota(tracciato.box.x,tracciato.box.z,rd);tracciato._bx=q[0];tracciato._bz=q[1]}tracciato._b=limiti(X,Z);
+  s.innerHTML=`<polygon points="${punti(X,Z,tracciato._b)}" fill="none" stroke="#e8ecf2" stroke-width="5" stroke-linejoin="round"/>${tracciato.box?`<polyline points="${punti(tracciato._bx,tracciato._bz,tracciato._b)}" fill="none" stroke="#4da3ff" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round"/>`:""}<circle id="gAuto" r="9" fill="#ff5a1f" stroke="#fff" stroke-width="3"/>`}
+ if(tracciato&&u.pos_norm!=null){const i=Math.min(tracciato.x.length-1,Math.max(0,Math.floor(u.pos_norm*tracciato.x.length)));const q=xy(tracciato._X[i],tracciato._Z[i],tracciato._b);const c=$("gAuto");if(c){c.setAttribute("cx",q[0]);c.setAttribute("cy",q[1])}}}
+function rotGet(p){try{return +localStorage.getItem("simapex_rot_"+p)||0}catch(e){return 0}}
+function rotSet(p,d){try{localStorage.setItem("simapex_rot_"+p,String(((d%360)+360)%360))}catch(e){}}
+function ruota(X,Z,d){if(!d)return[X,Z];const r=d*Math.PI/180,c=Math.cos(r),sn=Math.sin(r);return[X.map((x,i)=>x*c-Z[i]*sn),X.map((x,i)=>x*sn+Z[i]*c)]}
 function limiti(X,Z){const mx=Math.min(...X),Mx=Math.max(...X),mz=Math.min(...Z),Mz=Math.max(...Z),W=Math.max(Mx-mx,Mz-mz)||1;return{mx,Mz,W,ox:(W-(Mx-mx))/2,oz:(W-(Mz-mz))/2}}
 function xy(x,z,b){return[((x-b.mx+b.ox)/b.W*270+15),((b.Mz-z+b.oz)/b.W*270+15)]}
 function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join(",")).join(" ")}
@@ -181,12 +184,12 @@ function disegnaReport(j){
   return `<div class="cmpbox"><div><small class="mu">1) Scegli il tuo giro di questa sessione</small><table class="cmpt">${D.map(x=>`<tr><td><input type="radio" name="cmpA" value="${esc(x.k)}"${x.k===ka?" checked":""}></td><td>Giro ${x.giro}</td><td><b>${esc(x.tempo)}</b></td><td class="mu">${x.pulito?"":"lento o sporco"}</td></tr>`).join("")}</table></div>
   <div><small class="mu">2) Confrontalo con</small><select id="cmpB"><optgroup label="Giri di riferimento">${R.map(r=>opt(r.k,r.nome+" · "+tempoMs(r.tempo_ms))).join("")}</optgroup><optgroup label="Altri tuoi giri su questa pista">${O.map(x=>opt(x.k,"Giro "+tempoMs(x.tempo_ms)+" · "+new Date(x.ts*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+(x.record?" ★":""))).join("")}</optgroup></select>
   <div class="row"><button class="pri" data-cmp="vai">Confronta</button>${CMP.a?`<button data-cmp="auto">Confronti automatici</button>`:""}</div></div></div>`})()}`;
- if(j._t){const X=j._t.x,Z=j._t.z,b=limiti(X,Z),n=X.length;let sv="";
+ if(j._t){const [X,Z]=ruota(j._t.x,j._t.z,rotGet(j.pista)),b=limiti(X,Z),n=X.length;let sv="";
   if(rif){const per=n/rif.segmenti.length;rif.segmenti.forEach((ms,s)=>{const a=Math.floor(s*per),e=Math.min(n,Math.floor((s+1)*per)+1);const pts=[];for(let i=a;i<=e;i++)pts.push(xy(X[i%n],Z[i%n],b).map(v=>v.toFixed(1)).join(","));sv+=`<polyline points="${pts.join(" ")}" fill="none" stroke="${coloreSeg(ms)}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`});
    [].concat(rif.guadagni,rif.perdite).forEach(s=>{const i=Math.floor((s+0.5)*n/rif.segmenti.length)%n,q=xy(X[i],Z[i],b);sv+=`<circle cx="${q[0]}" cy="${q[1]}" r="11" fill="#0b0e13" stroke="${coloreSeg(rif.segmenti[s])}" stroke-width="2"/><text x="${q[0]}" y="${q[1]+4}" text-anchor="middle" font-size="11" fill="#fff">${s+1}</text>`})}
   else sv=`<polygon points="${punti(X,Z,b)}" fill="none" stroke="#e8ecf2" stroke-width="6" stroke-linejoin="round"/>`;
   (j.blocchi_pos||[]).forEach(k=>{const i=Math.min(n-1,Math.floor(k.pos*n)),q=xy(X[i],Z[i],b);sv+=`<circle cx="${q[0]}" cy="${q[1]}" r="6" fill="#ffc233" stroke="#000" stroke-width="1.5"/>`});
-  h+=`<svg viewBox="0 0 300 300">${sv}</svg><div class="leg"><span><i style="background:#2ecc71"></i>più veloce</span><span><i style="background:#ff4d4d"></i>più lento</span><span><i style="background:#ffc233"></i>blocco in frenata</span></div>`}
+  h+=`<svg viewBox="0 0 300 300">${sv}</svg><div class="leg"><span><i style="background:#2ecc71"></i>più veloce</span><span><i style="background:#ff4d4d"></i>più lento</span><span><i style="background:#ffc233"></i>blocco in frenata</span></div><div class="row"><button data-rot="-10">↺ Ruota</button><button data-rot="10">Ruota ↻</button><button data-rot="90">90°</button><button data-rot="0">Azzera</button></div>`}
  else h+=`<p class="mu">Il disegno della pista compare dopo un giro completo guidato su questa pista.</p>`;
  h+="</div>";
  // frasi
@@ -212,7 +215,7 @@ function disegnaReport(j){
  h+="</div>";
  $("rep").innerHTML=h;applicaModo();
 }
-$("rep").onclick=e=>{const c=e.target.closest("button[data-cmp]");if(c){if(c.dataset.cmp==="vai"){const r=document.querySelector("input[name=cmpA]:checked");if(!r)return;CMP={a:r.value,b:$("cmpB").value}}else CMP={a:"",b:""};apriSessione(sesAperta);return}
+$("rep").onclick=e=>{const ro=e.target.closest("button[data-rot]");if(ro){const v=+ro.dataset.rot;rotSet(sesAperta&&ultimaSes?ultimaSes.pista:"",v===0?0:rotGet(ultimaSes.pista)+v);tracciato=null;pistaMappa=null;apriSessione(sesAperta);return}const c=e.target.closest("button[data-cmp]");if(c){if(c.dataset.cmp==="vai"){const r=document.querySelector("input[name=cmpA]:checked");if(!r)return;CMP={a:r.value,b:$("cmpB").value}}else CMP={a:"",b:""};apriSessione(sesAperta);return}
  const b=e.target.closest("button[data-r]");if(b&&ultimaSes){rifSel=b.dataset.r;if(CMP.a){CMP={a:"",b:""};apriSessione(sesAperta)}else disegnaReport(ultimaSes)}};
 
 /* ---------- SETUP ---------- */
