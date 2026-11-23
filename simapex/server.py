@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito, f1, mappe, pressioni, tracce
+from . import circuito, esito, f1, ingegnere, mappe, pressioni, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -425,6 +425,20 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/ingegnere":
+            try:
+                k = carica_impostazioni().get("claude_key")
+                c = self._corpo_json()
+                if not k:
+                    self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API) nelle Impostazioni."}), "application/json")
+                else:
+                    r = ingegnere.rispondi(k, c.get("domanda"), c.get("dati") if isinstance(c.get("dati"), dict) else {})
+                    self._invia(200, json.dumps({"ok": True, "risposta": r}), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Errore interno: riprova."}), "application/json")
         elif self.path == "/api/mappe/cerca":
             try:
                 k = carica_impostazioni().get("claude_key")

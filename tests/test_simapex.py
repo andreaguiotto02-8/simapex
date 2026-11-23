@@ -672,6 +672,45 @@ class TestF1(unittest.TestCase):
         d = {"vel_ruote": r.d["vel_ruote"], "freno": 0.9, "velocita": 200}
         self.assertEqual(stile.ruota_bloccata(d), 0)
 
+    def test_f1_extra_stato_sessione_danni(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        sess = bytearray(753 - 29)
+        struct.pack_into("<BbbB", sess, 0, 0, 30, 24, 12)
+        struct.pack_into("<HBb", sess, 4, 7004, 15, 10)
+        struct.pack_into("<H", sess, 9, 1800)
+        sess[124] = 2
+        r.elabora(self._int(1) + bytes(sess))
+        st = bytearray(55 * 22)
+        o = 3 * 55
+        struct.pack_into("<f", st, o + 5, 40.5)
+        struct.pack_into("<f", st, o + 13, 11.2)
+        st[o + 26], st[o + 27] = 17, 5
+        struct.pack_into("<f", st, o + 37, 2000000.0)
+        r.elabora(self._int(7) + bytes(st))
+        dn = bytearray(46 * 22)
+        struct.pack_into("<4f", dn, 3 * 46, 10.0, 11.0, 20.0, 21.0)       # RL RR FL FR
+        r.elabora(self._int(10) + bytes(dn))
+        r.elabora(self._tele())
+        s = r.stato()
+        self.assertEqual(s["giri_totali"], 12)
+        self.assertEqual(s["tempo_rimasto_s"], 1800)
+        self.assertEqual(s["safety_car"], "safety car virtuale")
+        self.assertEqual(s["usura_gomme"], [20.0, 21.0, 10.0, 11.0])
+        self.assertEqual(s["mescola"], "media")
+        self.assertEqual(s["eta_gomme"], 5)
+        self.assertEqual(s["giri_carburante_gioco"], 11.2)
+        self.assertEqual(s["ers_pct"], 50)
+
+    def test_ingegnere_contesto(self):
+        from simapex import ingegnere
+        c = ingegnere.contesto({"gioco": "F1 25", "sessione": 2, "carburante": 12.5, "pressioni": [22, 22, 23, 23]})
+        self.assertIn("gara", c)
+        self.assertIn("Carburante: 12.5", c)
+        self.assertIn("nessun dato", ingegnere.contesto({}).lower())
+        with self.assertRaises(RuntimeError):
+            ingegnere.rispondi("k", "  ", {})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
   <button data-s="setup">Setup</button>
+  <button data-s="box" class="solo-dev">Box</button>
   <button data-s="prove" class="solo-dev">Percorso</button>
   <button data-s="aiuto">Aiuto</button>
   <button data-s="impostazioni">Impostazioni</button>
@@ -95,6 +96,21 @@
 </section>
 
 <!-- PERCORSO (solo Sviluppo) -->
+<!-- BOX: ingegnere di pista e assistente ai box -->
+<section id="s-box" class="schermo" hidden>
+ <div class="imp">
+  <div class="card"><h2>Ingegnere di pista</h2>
+   <p class="mu">Ti parla mentre guidi (blocchi in frenata, tempi del giro, carburante, gomme, safety car). Tieni Simapex aperto, anche su un altro schermo. La voce è quella di Windows.</p>
+   <div class="row"><label><input type="checkbox" id="ingVoce"> Voce attiva</label><button id="ingProva">Prova la voce</button></div>
+   <div id="ingMsgs" class="mu">Nessun messaggio ancora: entra in pista.</div></div>
+  <div class="card"><h2>Assistente ai box</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
+  <div class="card"><h2>Chiedi all'ingegnere</h2>
+   <p class="mu">Per esempio: «Quanti giri posso fare con questo carburante?» oppure «Come sono le gomme?». Usa Claude (serve la chiave nelle Impostazioni).</p>
+   <div class="row"><input id="ingDom" type="text" style="flex:1;min-width:14em" placeholder="Scrivi la tua domanda"><button class="pri" id="ingChiedi">Chiedi</button></div>
+   <div id="ingRis" class="mu"></div></div>
+ </div>
+</section>
+
 <section id="s-prove" class="schermo" hidden>
  <div class="prove">
   <div class="card"><h2>Percorso: una giornata in pista come la userai davvero</h2><p><b>Auto:</b> Ferrari 296 GT3, ripartendo da zero. <b>Pista consigliata: Misano.</b> È corta (circa 1'35"), divertente, con tante frenate decise (si vedono bene i blocchi) e curve facili da memorizzare: in un'ora fai molti giri e il circuito si disegna presto.</p><p class="mu">Non devi fare niente di speciale: guida normalmente e usa il programma come faresti in gara. Fai le fasi in ordine. Per ogni punto tocca «Funziona» o «Non funziona» e, se serve, scrivi una nota: i risultati arrivano a Claude da soli. Puoi segnarlo anche direttamente sulle schermate, con il pallino in alto a destra di ogni riquadro.</p><div class="st" id="invioSt"></div></div>
@@ -154,6 +170,12 @@
     <tr><td>X / Quadrato</td><td>Avviamento motore / accensione</td></tr>
     <tr><td>Nei menu del gioco</td><td>X conferma, Cerchio indietro, L3 / R3 cambiano scheda, croce per muoverti</td></tr>
    </table></div>
+
+  <div class="card"><h2>Formula 1 25</h2>
+   <p>Simapex legge anche F1 25 (con il pacchetto 2026): in F1 vai su Impostazioni → Telemetria, UDP On, indirizzo 127.0.0.1, porta 20777, frequenza 20 Hz o più, formato <b>2025</b>. Se Windows chiede il permesso di rete, premi Consenti. In alto compare «F1 25 collegato». Guida, Sessioni e confronti funzionano come in ACC; i setup di F1 non sono file, quindi qui non vengono creati.</p></div>
+
+  <div class="card"><h2>Ingegnere di pista e Box</h2>
+   <p>Nella schermata <b>Box</b> (per ora solo in Sviluppo) c'è l'ingegnere che ti parla mentre guidi: blocchi, tempo del giro, carburante, gomme, safety car. L'assistente ai box ti dice se il carburante basta fino alla fine e quando rientrare per le gomme, con consigli diversi per prove, qualifica e gara. Puoi anche fargli una domanda scritta.</p></div>
 
   <div class="card"><h2>Gioca e Sviluppo</h2>
    <p><b>Gioca</b> mostra solo le funzioni che abbiamo già verificato. <b>Sviluppo</b> mostra anche quelle ancora da provare: ogni riquadro ha un pallino in alto a destra, e toccandolo segni se funziona o no e puoi scrivere una nota. In Sviluppo c'è anche la sezione <b>Percorso</b>, la giornata di prova guidata. Il tasto in alto a destra cambia modalità.</p></div>

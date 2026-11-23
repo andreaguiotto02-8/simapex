@@ -18,7 +18,7 @@ RAGGIO_RUOTA_M = 0.33  # per passare dai m/s delle ruote ai rad/s che usa il ril
 MOTO, SESSIONE, GIRI, EVENTO, PARTECIPANTI, SETUP, TELEMETRIA, STATO_AUTO, FINALE, LOBBY, DANNI, STORICO, GOMME, MOTO_EX = range(14)
 
 # lunghezze attese (F1 25, 22 auto): {id: (dimensione auto, byte finali)}
-DIM_AUTO = {MOTO: (60, 0), GIRI: (57, 2), TELEMETRIA: (60, 3), STATO_AUTO: (55, 0)}
+DIM_AUTO = {MOTO: (60, 0), GIRI: (57, 2), TELEMETRIA: (60, 3), STATO_AUTO: (55, 0), DANNI: (46, 0)}
 LUNG_SESSIONE_MIN = 40
 LUNG_MOTO_EX = 273
 
@@ -28,6 +28,11 @@ PISTE = {0: "melbourne", 2: "shanghai", 3: "sakhir", 4: "catalunya", 5: "monaco"
          10: "spa", 11: "monza", 12: "singapore", 13: "suzuka", 14: "abu_dhabi", 15: "austin", 16: "interlagos", 17: "austria",
          19: "mexico", 20: "baku", 26: "zandvoort", 27: "imola", 29: "jeddah", 30: "miami", 31: "las_vegas", 32: "losail",
          39: "silverstone_inversa", 40: "austria_inversa", 41: "zandvoort_inversa"}
+
+
+MESCOLE = {16: "morbida", 17: "media", 18: "dura", 7: "intermedia", 8: "bagnato", 19: "morbida", 20: "media", 21: "dura"}
+BANDIERE = {1: "verde", 2: "blu", 3: "gialla", 4: "rossa"}
+SAFETY = {1: "safety car", 2: "safety car virtuale", 3: "giro di formazione"}
 
 
 def tipo_sessione(t):
@@ -132,6 +137,9 @@ class LettoreF1:
                 self._giri(b, o)
             elif pid == STATO_AUTO:
                 self._stato_auto(b, o)
+            elif pid == DANNI:
+                u = struct.unpack_from("<4f", b, o)
+                self.d["usura_gomme"] = [round(x, 1) for x in _ruote(u)]
             elif pid == MOTO:
                 x, y, z = struct.unpack_from("<fff", b, o)
                 self.d["coordinate"] = [round(x, 1), round(y, 1), round(z, 1)]
@@ -178,6 +186,12 @@ class LettoreF1:
         carb, = struct.unpack_from("<f", b, o + 5)
         self.d.update({"carburante": round(carb, 2), "abs": float(abs_), "controllo_trazione": tc, "bilanciamento_freni": bias,
                        "limitatore": limitatore})
+        if o + 42 <= len(b):
+            giri_c, = struct.unpack_from("<f", b, o + 13)
+            mesc, eta, bandiera = b[o + 26], b[o + 27], struct.unpack_from("<b", b, o + 28)[0]
+            ers, = struct.unpack_from("<f", b, o + 37)
+            self.d.update({"giri_carburante_gioco": round(giri_c, 1), "mescola": MESCOLE.get(mesc, ""), "eta_gomme": eta,
+                           "bandiera": BANDIERE.get(bandiera, ""), "ers_pct": round(max(0.0, min(100.0, ers / 4000000.0 * 100)))})
 
     def _sessione(self, b):
         meteo, t_pista, t_aria, giri_tot = struct.unpack_from("<BbbB", b, INTESTAZIONE)
@@ -186,6 +200,13 @@ class LettoreF1:
         self.d["temp_aria"] = float(t_aria)
         self.d["temp_asfalto"] = float(t_pista)
         self.d["sessione"] = tipo_sessione(tipo)
+        if giri_tot:
+            self.d["giri_totali"] = giri_tot
+        if len(b) >= INTESTAZIONE + 11:
+            rim, = struct.unpack_from("<H", b, INTESTAZIONE + 9)
+            self.d["tempo_rimasto_s"] = rim
+        if len(b) >= INTESTAZIONE + 125:
+            self.d["safety_car"] = SAFETY.get(b[INTESTAZIONE + 124], "")
         self.pista_nome = PISTE.get(pista, "circuito_%d" % pista)
 
     # ---- uscita ----

@@ -26,6 +26,35 @@ const PROVE=[
  {id:"dettaglio",t:"Report della sessione",p:["Tocca una sessione: guarda la mappa, i tratti dove sei migliorato e peggiorato, i blocchi e la tabella dei giri."],a:"I tempi coincidono con ACC e il report si capisce e ti è utile."},
  {id:"confronto",t:"Confronto con la sessione precedente",p:["Nel report scegli «Sessione precedente» o «Tuo record»."],a:"La mappa si colora: verde dove sei più veloce, rosso dove perdi. I tratti principali sono scritti."}
 ];
+
+/* ---------- test: ingegnere/box e Formula 1 (solo Sviluppo) ---------- */
+const PROVE_ING=[
+ {id:"ing_voce",g:"7 · INGEGNERE DI PISTA E BOX (ACC e F1)",t:"La voce dell'ingegnere",p:["Apri la schermata Box, spunta «Voce attiva» e tocca «Prova la voce».","Se non senti niente controlla il volume e che Windows abbia una voce italiana (Impostazioni → Ora e lingua → Voce)."],a:"Senti una frase in italiano."},
+ {id:"ing_blocco",t:"Avviso sui blocchi in frenata",p:["Guida con la voce attiva e blocca una ruota in frenata."],a:"L'ingegnere dice quale ruota si è bloccata e come frenare."},
+ {id:"ing_giro",t:"Tempo a fine giro",p:["Completa qualche giro con la voce attiva."],a:"A ogni giro dice il tempo e quanto sei lontano dal tuo migliore, e dice quando fai il nuovo migliore."},
+ {id:"ing_carb",t:"Avviso carburante",p:["Parti con poco carburante (circa 4 giri) e fai almeno 3 giri così il programma capisce il consumo."],a:"Ti avvisa quando restano 3 giri e poi di rientrare ai box."},
+ {id:"ing_gomme",t:"Avviso gomme",p:["Guida spingendo finché le gomme diventano molto calde, oppure appena esci con le gomme fredde."],a:"Ti avvisa se sono troppo calde o troppo fredde. In ACC avvisa anche se le pressioni a caldo sono fuori dall'intervallo."},
+ {id:"ing_sess",t:"Consigli diversi per prove, qualifica e gara",p:["Nella schermata Box guarda l'assistente ai box in una sessione di prove, in una di qualifica e in una gara."],a:"Le frasi cambiano: nelle prove ti dice come misurare il passo, in qualifica come preparare il giro, in gara la strategia."},
+ {id:"box",t:"Assistente ai box: strategia",p:["Fai una gara con un numero di giri (o a tempo).","Nella schermata Box guarda le righe su carburante e gomme."],a:"Ti dice se il carburante basta fino alla fine o quanto ne devi aggiungere, e quando rientrare per le gomme (in F1 con l'usura vera)."},
+ {id:"ing_domanda",t:"Domanda all'ingegnere",p:["Nella schermata Box scrivi una domanda, per esempio «come sono le gomme?», e tocca Chiedi."],a:"Risponde in poche frasi usando i dati di adesso (se la voce è attiva la legge)."}
+];
+const PROVE_F1=[
+ {id:"f1_udp",g:"8 · FORMULA 1 25 (anche con il pacchetto 2026)",t:"Il gioco manda i dati a Simapex",p:["In F1 25 vai su Impostazioni → Telemetria. UDP Telemetry: On. UDP IP: 127.0.0.1. Porta: 20777. Frequenza: 20 Hz o più. Formato: 2025 (non quello del pacchetto 2026).","Se Windows chiede il permesso di rete per Simapex, premi Consenti.","Apri Simapex ed entra in pista."],a:"In alto compare «F1 25 collegato» entro pochi secondi dall'ingresso in pista."},
+ {id:"f1_dati",t:"Dati in diretta",p:["Guarda la schermata Guida mentre guidi."],a:"Marcia, velocità, giri motore, pedali e sterzo coincidono con quello che vedi nel gioco."},
+ {id:"f1_gomme",t:"Gomme: temperature",p:["Guarda i 4 riquadri delle gomme nella Guida."],a:"Le temperature sono credibili (80-110 °C in pista) e ogni riquadro corrisponde alla ruota giusta (anteriore sinistra = in alto a sinistra)."},
+ {id:"f1_giri",t:"Tempi dei giri",p:["Fai almeno 4 giri completi senza passare dai box."],a:"«Ultimo» e «Migliore» sono uguali a quelli del gioco."},
+ {id:"f1_pista",t:"Pista e squadra riconosciute",p:["Dopo qualche giro apri la schermata Sessioni."],a:"La pista è quella giusta e l'auto indica la tua squadra."},
+ {id:"f1_mappa",t:"Si disegna il circuito",p:["Dopo un giro pulito guarda la mappa nella Guida."],a:"Compare il tracciato e il puntino segue l'auto."},
+ {id:"f1_delta",t:"Delta sul tuo giro migliore",p:["Dal secondo giro guarda il numero grande nella Guida."],a:"Verde se sei più veloce del tuo migliore, rosso se più lento."},
+ {id:"f1_carb",t:"Carburante (in kg)",p:["Guarda il riquadro del carburante nella Guida dopo qualche giro."],a:"I kg di carburante sono uguali a quelli del gioco e i giri che restano sono credibili."},
+ {id:"f1_blocchi",t:"Blocchi in frenata",p:["Frena molto forte per bloccare una ruota, almeno 3 volte."],a:"Compare la scritta rossa BLOCCO con la ruota giusta e il report li conta."},
+ {id:"f1_sessione",t:"Prove, qualifica e gara riconosciute",p:["Fai una sessione di prove libere, poi una qualifica e infine una gara breve (anche 3 giri).","Apri Sessioni."],a:"Ogni sessione ha il tipo giusto e il report è diverso (gara: passo e posizione, qualifica: giro migliore)."},
+ {id:"f1_report",t:"Report e confronto",p:["Apri una sessione F1 e prova «Sessione precedente» e «Tuo record»."],a:"Mappa colorata e tratti dove guadagni e perdi, come in ACC."},
+ {id:"f1_usura",t:"Usura gomme e mescola",p:["Fai una gara con 5 o più giri e guarda la schermata Box."],a:"L'assistente ai box mostra mescola, giri delle gomme e usura in percentuale."},
+ {id:"f1_safety",t:"Safety car e bandiere",p:["Se in gara compare la safety car o una bandiera gialla/blu, ascolta l'ingegnere."],a:"Lo dice a voce. (Se non capita, lascia vuoto.)"},
+ {id:"f1_2026",t:"Auto e piste del pacchetto 2026",p:["Se guidi un'auto o una pista nuova del pacchetto 2026 guarda auto e pista nelle Sessioni."],a:"Il nome è sensato. Se vedi «circuito_NN» o «team_NN» scrivimi il numero e lo aggiungo."}
+];
+const TUTTE=()=>PROVE.concat(PROVE_ING,PROVE_F1);
 let MAPPE=null,mappeAuto=null,mappeTentata={};
 function testoMappa(n){return n?"mappa "+n:"la mappa consigliata nella nota qui sopra (se non c'è, quella di partenza)"}
 async function giroMappe(){const a=ST.auto;if(!a||mappeAuto===a)return;mappeAuto=a;MAPPE=null;
@@ -79,7 +108,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".popup")&&!e.target.
 
 /* ---------- navigazione ---------- */
 function vai(s){schermo=s;document.querySelectorAll(".schermo").forEach(x=>x.hidden=x.id!=="s-"+s);document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("act",b.dataset.s===s));
- if(s==="sessioni")giroSessioni();if(s==="setup"){giroQuaderno();riempiAss()}if(s==="prove")disegnaProve();if(s==="guida")disegnaGuida()}
+ if(s==="sessioni")giroSessioni();if(s==="setup"){giroQuaderno();riempiAss()}if(s==="prove")disegnaProve();if(s==="box")disegnaBox();if(s==="guida")disegnaGuida()}
 $("aiutoVai").onclick=()=>{try{localStorage.setItem("simapex_aiuto_visto","1")}catch(e){}vai("guida")};
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)vai(b.dataset.s)};
 $("intero").onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen()}catch(e){}};
@@ -102,7 +131,7 @@ function disegnaGuida(){
  const inPista=u.stato_codice===2&&!u.in_box;
  $("tAttuale").textContent=inPista&&u.giro_corrente_ms>0?tempoMs(u.giro_corrente_ms):"—";$("tUltimo").textContent=u.ultimo_giro||"—";$("tMigliore").textContent=u.miglior_giro||"—";$("tGiro").textContent=(u.giri_completati||0)+1;
  const d=$("gDelta");if(u.delta_ms==null){d.textContent="—";d.className=""}else{d.textContent=sec(u.delta_ms,true);d.className=u.delta_ms<0?"meglio":u.delta_ms>0?"peggio":""}
- $("cLitri").textContent=u.carburante!=null?u.carburante.toFixed(1)+" L":"—";$("cCons").textContent=u.consumo_giro?u.consumo_giro.toFixed(2)+" L":"—";$("cGiri").textContent=u.giri_stimati!=null?u.giri_stimati.toFixed(1):"—";
+ {const UC=u.gioco==="F1 25"?" kg":" L";$("cLitri").textContent=u.carburante!=null?u.carburante.toFixed(1)+UC:"—";$("cCons").textContent=u.consumo_giro?u.consumo_giro.toFixed(2)+UC:"—"}$("cGiri").textContent=u.giri_stimati!=null?u.giri_stimati.toFixed(1):"—";
  const b=$("gBlocco");if(u.blocco_ruota){b.textContent="BLOCCO "+u.blocco_ruota.replace("_"," ").replace("ant","ANT.").replace("post","POST.").toUpperCase();b.classList.add("on")}else b.classList.remove("on");
  mappaGuida();
 }
@@ -198,24 +227,127 @@ $("quad").onclick=async e=>{const b=e.target.closest("button[data-e]");if(!b)ret
   rec.onend=()=>{on=false;$("assMic").textContent="🎤 Parla"};rec.start();on=true;$("assMic").textContent="⏹ Stop"}catch(x){on=false;M("Microfono: "+x.message+". Puoi dettare con Windows + H nella casella.")}}})();
 
 /* ---------- PERCORSO ---------- */
-const AUTO={acc:()=>!!ST.collegato&&ST.stato_codice===2,gomme:()=>(ST.temp_gomme||[]).some(x=>x>0),giri:()=>(ST.giri_completati||0)>=3,delta:()=>ST.delta_ms!=null,carburante:()=>!!ST.consumo_giro,mappa:()=>!!tracciato,sessioni:()=>!!ultimaSes,apre:()=>!!ST.versione};
+const AUTO={acc:()=>!!ST.collegato&&ST.stato_codice===2,gomme:()=>(ST.temp_gomme||[]).some(x=>x>0),giri:()=>(ST.giri_completati||0)>=3,delta:()=>ST.delta_ms!=null,carburante:()=>!!ST.consumo_giro,mappa:()=>!!tracciato,sessioni:()=>!!ultimaSes,apre:()=>!!ST.versione,
+ f1_udp:()=>ST.gioco==="F1 25"&&!!ST.collegato,f1_giri:()=>ST.gioco==="F1 25"&&(ST.giri_completati||0)>=3,f1_mappa:()=>ST.gioco==="F1 25"&&!!tracciato,f1_carb:()=>ST.gioco==="F1 25"&&!!ST.consumo_giro,f1_usura:()=>ST.gioco==="F1 25"&&!!ST.usura_gomme,f1_delta:()=>ST.gioco==="F1 25"&&ST.delta_ms!=null,ing_voce:()=>ING.voce,ing_giro:()=>ING.msgs.some(m=>/^Giro \d/.test(m.testo)),ing_blocco:()=>ING.msgs.some(m=>/Bloccaggio/.test(m.testo)),box:()=>BOXL.length>1};
 function statoAuto(){const o={};for(const k in AUTO){try{o[k]=!!AUTO[k]()}catch(e){o[k]=false}}return o}
 /* ---------- PROVE ---------- */
 function disegnaProve(){const el=$("proveLista");if(!el)return;let h="";
- PROVE.forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
+ TUTTE().forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
   const au=AUTO[p.id]&&AUTO[p.id]();h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span>${au?`<span class="pill on" style="margin-left:.5em">visto dal programma</span>`:""}<ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>${p.r?`<div class="st" style="color:var(--ye)"><b>Ritmo e mappa:</b> ${esc(p.r.replace(/__MAPPA_C__/g,testoMappa(MAPPE&&MAPPE.mappa_giri_costanti)).replace(/__MAPPA_S__/g,testoMappa(MAPPE&&MAPPE.mappa_spinta)))}</div>`:""}<div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
  h=`<div class="prova"><b>Commento generale</b><div class="mu">Scrivi qui qualsiasi cosa che non va o che vorresti diverso, anche non legata a un punto preciso.</div><textarea data-n="generale" placeholder="Commento libero">${esc((FUN.generale||{}).n||"")}</textarea></div>`+h;
  if(el.dataset.h!==h){const f=document.activeElement;if(f&&f.dataset&&f.dataset.n)return;el.innerHTML=h;el.dataset.h=h}}
 $("proveLista").onclick=e=>{const b=e.target.closest("button[data-p]");if(b)setFun(b.dataset.p,{s:b.dataset.s})};
 $("proveLista").addEventListener("change",e=>{const t=e.target.closest("textarea[data-n]");if(t)setFun(t.dataset.n,{n:t.value})});
 
+
+/* ---------- INGEGNERE DI PISTA E ASSISTENTE AI BOX ---------- */
+const TIPI_S={0:"prove libere",1:"qualifica",2:"gara",3:"giro lanciato"};
+const RUOTE_IT={ant_sx:"anteriore sinistra",ant_dx:"anteriore destra",post_sx:"posteriore sinistra",post_dx:"posteriore destra"};
+let ING={voce:false,msgs:[],ult:{},prev:{},blocchi:0,sess:null,usura:[]},BOXL=[];
+try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
+const F1G=()=>ST.gioco==="F1 25";
+const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
+ ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
+ if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=speechSynthesis.getVoices().find(x=>x.lang&&x.lang.toLowerCase().startsWith("it"));if(v)u.voice=v;u.rate=1.05;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+ if(schermo==="box")disegnaBox()}
+function parlaTempo(t){const m=/^(\d+):(\d+)\.(\d+)/.exec(t||"");return m?`${+m[1]} ${+m[1]===1?"minuto":"minuti"} e ${+m[2]} secondi e ${+m[3]}`:(t||"")}
+const decimi=ms=>{const d=Math.abs(ms)/100;return d<10?(Math.round(d)+" decimi"):(Math.abs(ms)/1000).toFixed(1).replace(".",",")+" secondi"};
+function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
+ const chiave=(u.auto||"")+"|"+(u.pista||"")+"|"+u.sessione,P=ING.prev;
+ if(ING.sess!==chiave){ING.sess=chiave;ING.prev={};ING.blocchi=0;ING.usura=[];ING.ult={};
+  const tp=TIPI_S[u.sessione];parla(null,(tp?"Sessione di "+tp:"Sessione")+(u.pista?" a "+bello(u.pista):"")+". Buon lavoro.");return}
+ const U=F1G()?"chili":"litri";
+ // blocchi in frenata
+ if(u.blocco_ruota&&!P.blocco){ING.blocchi++;parla("blocco",`Bloccaggio ${RUOTE_IT[u.blocco_ruota]||"ruota"}. Frena meno forte all'inizio e rilascia con progressione.`,12000,true)}
+ // giro completato
+ const gc=u.giri_completati||0;
+ if(P.gc!=null&&gc>P.gc&&u.ultimo_giro_ms>0&&u.ultimo_giro_ms<36000000){
+  const nuovoMigliore=u.ultimo_giro_ms<=u.miglior_giro_ms&&gc>=2;
+  let t="Giro "+gc+", "+parlaTempo(u.ultimo_giro)+". ";
+  if(nuovoMigliore)t+="Nuovo giro migliore!";
+  else if(u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)t+="A "+decimi(u.ultimo_giro_ms-u.miglior_giro_ms)+" dal tuo migliore.";
+  if(u.sessione===2&&u.posizione>0)t+=" Sei "+u.posizione+"°.";
+  parla("giro"+gc,t,0);
+  if(u.giri_totali&&u.giri_totali-gc===1)parla("ultimo","Ultimo giro. Dai tutto.",0);
+ }
+ // posizione in gara
+ if(u.sessione===2&&u.posizione>0&&P.pos&&u.posizione!==P.pos&&gc>=1)parla("pos",(u.posizione<P.pos?"Guadagnato una posizione":"Perso una posizione")+", ora "+u.posizione+"°.",10000);
+ // carburante
+ const gf=F1G()&&u.giri_carburante_gioco!=null?u.giri_carburante_gioco:u.giri_stimati;
+ if(gf!=null&&!u.in_box&&(F1G()?true:u.consumo_giro)){
+  if(gf<=1.5)parla("carb2","Carburante quasi finito: rientra ai box adesso.",60000,true);
+  else if(gf<=3.2&&u.sessione!==3)parla("carb1","Carburante: restano circa "+Math.floor(gf)+" giri.",150000)}
+ // gomme: temperature
+ const tg=media(u.temp_gomme);
+ if(tg!=null&&tg>0&&(u.velocita||0)>60){const caldo=F1G()?118:100,freddo=F1G()?70:65;
+  if(tg>caldo)parla("g_caldo","Gomme molto calde, "+Math.round(tg)+" gradi. Alleggerisci le entrate di curva.",120000);
+  else if(tg<freddo&&gc>=1&&u.sessione!==3)parla("g_freddo","Gomme fredde, "+Math.round(tg)+" gradi. Scaldale con calma prima di spingere.",120000)}
+ // gomme: pressioni a caldo (solo ACC)
+ if(!F1G()&&gc>=3&&(u.velocita||0)>50&&(u.pressioni||[]).length===4){const n=["anteriore sinistra","anteriore destra","posteriore sinistra","posteriore destra"];
+  const f=u.pressioni.map((x,i)=>x>0&&(x<26.4||x>27.0)?n[i]+" "+x.toFixed(1):null).filter(Boolean);
+  if(f.length)parla("press","Pressioni a caldo fuori intervallo: "+f.join(", ")+". Fine sessione le correggiamo.",300000)}
+ // usura F1
+ if(F1G()&&u.usura_gomme){const m=Math.max(...u.usura_gomme);
+  if(m>=75)parla("us75","Gomme finite, usura al "+Math.round(m)+" per cento. Rientra ai box.",120000,true);
+  else if(m>=60)parla("us60","Usura gomme al "+Math.round(m)+" per cento: valuta il box.",180000)}
+ // safety car e bandiere
+ if(u.safety_car&&!P.sc)parla("sc",(u.safety_car==="safety car virtuale"?"Safety car virtuale":"Safety car in pista")+". Rallenta: è un buon momento per il box.",0,true);
+ else if(!u.safety_car&&P.sc)parla("scf","Si riparte. Attento al ripartire.",0);
+ if(u.bandiera==="gialla"&&P.band!=="gialla")parla("bg","Bandiera gialla.",20000);
+ if(u.bandiera==="blu"&&P.band!=="blu")parla("bb","Bandiera blu: lascia passare.",30000);
+ // tempo rimasto (sessioni a tempo)
+ const tr=u.tempo_rimasto_s;if(tr){for(const m of [600,300,60])if(P.tr>m&&tr<=m)parla("tr"+m,"Mancano "+(m/60)+(m===60?" minuto.":" minuti."),0)}
+ ING.prev={blocco:!!u.blocco_ruota,gc,pos:u.posizione,sc:u.safety_car,band:u.bandiera,tr};
+ // storico usura per giro (F1)
+ if(F1G()&&u.usura_gomme&&(ING.usura.length===0||ING.usura[ING.usura.length-1].gc!==gc))ING.usura.push({gc,w:media(u.usura_gomme)});
+}
+function strategia(){const u=ST,L=[];if(!u.collegato){return["Entra in pista: ti dico carburante, gomme e quando rientrare."]}
+ const U=F1G()?"kg":"L",gc=u.giri_completati||0,tp=TIPI_S[u.sessione];
+ L.push((tp?"Sessione: "+tp+". ":"")+(u.auto?bello(u.auto)+" a "+bello(u.pista||"")+".":""));
+ const c=u.carburante,cons=u.consumo_giro;
+ let gf=u.giri_stimati;if(F1G()&&u.giri_carburante_gioco!=null)gf=u.giri_carburante_gioco;
+ if(c!=null)L.push("Carburante: "+c.toFixed(1)+" "+U+(cons?", consumo "+cons.toFixed(2)+" "+U+" a giro":" (il consumo si misura dopo 2-3 giri puliti)")+(gf!=null?", circa "+gf.toFixed(1)+" giri.":"."));
+ let rimasti=null;
+ if(u.giri_totali)rimasti=u.giri_totali-gc;
+ else if(u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)rimasti=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000))+1;
+ if(u.sessione===2){
+  if(rimasti!=null&&gf!=null){const m=gf-rimasti;
+   if(m>=1)L.push("Gara: mancano circa "+rimasti+" giri. Il carburante basta con "+m.toFixed(1)+" giri di margine: nessun pit per il carburante.");
+   else if(m>=0)L.push("Gara: mancano circa "+rimasti+" giri e il carburante basta di poco ("+m.toFixed(1)+" giri di margine). Risparmia un po' o aggiungi un minimo al pit.");
+   else L.push("Gara: mancano circa "+rimasti+" giri e il carburante non basta (ne mancano "+Math.abs(m).toFixed(1)+"). Serve un pit"+(cons?": aggiungi almeno "+((Math.abs(m)+1)*cons).toFixed(0)+" "+U+" (un giro di margine incluso).":"."))}
+  else if(rimasti==null)L.push("Gara: non so quanti giri mancano (il gioco non li dà): con il consumo qui sopra calcola tu quando rientrare.");
+  if(F1G()&&u.usura_gomme){const w=media(u.usura_gomme),H=ING.usura;let r=null;if(H.length>=3){const a=H[0],b=H[H.length-1];if(b.gc>a.gc)r=(b.w-a.w)/(b.gc-a.gc)}
+   L.push("Gomme"+(u.mescola?" "+u.mescola:"")+(u.eta_gomme!=null?" ("+u.eta_gomme+" giri)":"")+": usura "+Math.round(w)+"%"+(r>0?", circa "+r.toFixed(1)+"% a giro: al 70% tra "+Math.max(0,Math.floor((70-w)/r))+" giri"+(rimasti!=null&&w+r*rimasti>70?". Prevedi una sosta per le gomme.":"."):"."))}
+  else if(!F1G()&&u.temp_gomme){const t=media(u.temp_gomme);if(t>0)L.push("Gomme: temperatura media "+Math.round(t)+" °C ("+(t>100?"troppo calde: alleggerisci":t<65?"ancora fredde":"nel campo giusto")+").")}
+  if(u.posizione>0)L.push("Posizione: "+u.posizione+"°.")}
+ else if(u.sessione===1||u.sessione===3){
+  L.push("Qualifica: fai un giro di lancio per scaldare gomme e freni, poi il giro buono, poi rientra a raffreddare. Meno carburante = più veloce: "+(gf!=null?"ne hai per "+gf.toFixed(1)+" giri; per il giro secco ne bastano 3.":"tieni solo quello che serve."));
+  if(F1G()&&u.usura_gomme)L.push("Usura gomme: "+Math.round(media(u.usura_gomme))+"%.")}
+ else{
+  L.push("Prove: fai almeno 5 giri puliti con lo stesso carburante e lo stesso ritmo, così misuro consumo e passo e ti dico la strategia di gara.");
+  if(gc>=3&&cons&&F1G()===false)L.push("Con questo consumo, una gara da 10 giri richiede circa "+(cons*10+cons).toFixed(0)+" "+U+" (un giro di margine incluso).")}
+ return L}
+function disegnaBox(){const m=$("ingMsgs");if(!m)return;
+ m.innerHTML=ING.msgs.length?ING.msgs.map(x=>`<div><small>${x.t.toLocaleTimeString("it-IT")}</small> ${esc(x.testo)}</div>`).join(""):"Nessun messaggio ancora: entra in pista.";
+ BOXL=strategia();const b=$("boxLinee");if(b)b.innerHTML=BOXL.map(l=>`<div>${esc(l)}</div>`).join("")}
+$("ingVoce").checked=ING.voce;
+$("ingVoce").onchange=e=>{ING.voce=e.target.checked;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}};
+$("ingProva").onclick=()=>{const v=ING.voce;ING.voce=true;parla(null,"Prova radio. Qui è l'ingegnere di pista, mi senti?",0,true);ING.voce=v;if(!window.speechSynthesis)$("ingRis").textContent="Questo programma non ha la voce: puoi comunque leggere i messaggi qui."};
+$("ingChiedi").onclick=async()=>{const q=$("ingDom").value.trim();if(!q)return;$("ingRis").textContent="L'ingegnere sta guardando i dati...";
+ try{const d=Object.assign({},ST,{blocchi:ING.blocchi});delete d.funzioni;const j=await api("/api/ingegnere",{domanda:q,dati:d});
+  if(j.ok){$("ingRis").textContent="";parla(null,"Risposta: "+j.risposta,0,true);disegnaBox()}else $("ingRis").textContent="Non riesco: "+j.errore}catch(e){$("ingRis").textContent="Il programma non risponde."}};
+$("ingDom").onkeydown=e=>{if(e.key==="Enter")$("ingChiedi").click()};
+setInterval(()=>{try{ingegnere();if(schermo==="box")disegnaBox();else BOXL=strategia()}catch(e){}},1000);
+if(window.speechSynthesis)try{speechSynthesis.getVoices()}catch(e){}
+
 /* ---------- invio a Claude ---------- */
 function istantanea(){const u=ST;return {collegato:u.collegato,auto:u.auto,pista:u.pista,velocita:u.velocita,marcia:u.marcia,giri_motore:u.giri_motore,carburante:u.carburante,pressioni:u.pressioni,temp_gomme:u.temp_gomme,ultimo_giro:u.ultimo_giro,miglior_giro:u.miglior_giro,delta_ms:u.delta_ms}}
-function raccogli(){return {ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:PROVE.map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
+function raccogli(){return {ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:TUTTE().map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
 let tAuto=null;function autoInvia(){if(!ST.invio_configurato)return;clearTimeout(tAuto);tAuto=setTimeout(async()=>{try{const p=raccogli();p.automatico=true;p.istantanea=istantanea();const j=await api("/api/invia",p);if($("invioSt"))$("invioSt").textContent=j.ok?"Inviato a Claude da solo alle "+new Date().toLocaleTimeString("it-IT"):"Invio non riuscito: "+j.errore}catch(e){}},4000)}
 $("invia").onclick=async()=>{if(!ST.invio_configurato){$("copiato").textContent="Prima serve la chiave di accesso (qui sopra).";return}
  $("copiato").textContent="Invio in corso...";try{const j=await api("/api/invia",raccogli());$("copiato").textContent=j.ok?"Inviato a Claude. Scrivi «controlla» nella chat.":"Invio non riuscito: "+j.errore}catch(e){$("copiato").textContent="Invio non riuscito: il programma non risponde."}};
-$("azzera").onclick=async()=>{for(const p of PROVE.concat([{id:"generale"}]))await api("/api/funzione",{id:p.id,s:null,n:""});await giro();disegnaProve()};
+$("azzera").onclick=async()=>{for(const p of TUTTE().concat([{id:"generale"}]))await api("/api/funzione",{id:p.id,s:null,n:""});await giro();disegnaProve()};
 $("salvaChiave").onclick=async()=>{const v=$("chiave").value.trim();if(!v){$("chiaveMsg").textContent="Incolla prima la chiave.";return}
  try{const j=await api("/api/chiave",{token:v});if(j.ok){$("chiave").value="";ST.invio_configurato=true;$("chiaveMsg").textContent="Chiave salvata."}else $("chiaveMsg").textContent=j.errore}catch(e){$("chiaveMsg").textContent="Non sono riuscito a salvare."}};
 function aggiornaClaudeSt(){$("claudeSt").textContent=ST.claude_configurato?"Chiave salvata su questo PC. Tocca Prova per controllare che funzioni.":"Non collegato. Incolla qui la chiave che inizia con sk-ant- (resta solo su questo PC)."}

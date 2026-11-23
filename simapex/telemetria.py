@@ -104,6 +104,12 @@ def decodifica_graphics(b):
     if len(b) >= 1220:  # posizione sul giro e coordinate dell'auto (offset da verificare con guida reale)
         out["pos_norm"] = round(_f(b, 248), 5)
         out["in_box"] = bool(_i(b, 160))
+        tl = _f(b, 152)          # tempo rimasto nella sessione, in ms (offset da verificare con guida reale)
+        if 0 < tl < 86400000:
+            out["tempo_rimasto_s"] = round(tl / 1000.0)
+        nl = _i(b, 172)          # giri totali della sessione (0 se a tempo)
+        if 0 < nl < 500:
+            out["giri_totali"] = nl
         ids = list(struct.unpack_from("<60i", b, 976))
         mio = _i(b, 1216)
         idx = ids.index(mio) if mio in ids else 0
