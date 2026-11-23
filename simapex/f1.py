@@ -290,8 +290,15 @@ class LettoreMulti:
 
     def stato(self):
         s = self.acc.stato()
-        if s.get("collegato"):
+        # ACC conta come aperto solo se non è "spento": la memoria condivisa può restare presente
+        # (altri programmi, ACC chiuso male) anche col gioco chiuso
+        acc_vivo = bool(s.get("collegato")) and s.get("stato_codice") not in (0, None)
+        if acc_vivo:
             s["gioco"] = "ACC"
             return s
         f = self.f1.stato()
-        return f if f.get("collegato") else s
+        if f.get("collegato"):
+            return f
+        if s.get("collegato"):
+            s["gioco"] = "ACC"
+        return s

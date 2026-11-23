@@ -459,6 +459,18 @@ class TestRispostaTagliata(unittest.TestCase):
             estrai_json("{rotto")
 
 
+class TestMulti(unittest.TestCase):
+    def test_acc_spento_non_copre_f1(self):
+        from simapex import f1 as _f1
+        class A:
+            def __init__(s, c): s.c = c
+            def stato(s): return {"collegato": True, "stato_codice": s.c}
+        class F:
+            def stato(s): return {"collegato": True, "gioco": "F1 25"}
+        self.assertEqual(_f1.LettoreMulti(A(0), F()).stato()["gioco"], "F1 25")
+        self.assertEqual(_f1.LettoreMulti(A(2), F()).stato()["gioco"], "ACC")
+
+
 class TestTastiVolante(unittest.TestCase):
     def test_assegna_e_conta(self):
         from simapex import ptt
