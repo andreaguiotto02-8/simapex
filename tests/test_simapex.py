@@ -459,6 +459,16 @@ class TestRispostaTagliata(unittest.TestCase):
             estrai_json("{rotto")
 
 
+class TestTelecomando(unittest.TestCase):
+    def test_conta_fronti(self):
+        from simapex import ptt
+        seq = iter([set(), {"n5"}, {"n5"}, set(), {"n5", "n8"}, set()])
+        t = ptt.Tastiera(premuti=lambda: next(seq))
+        for _ in range(6):
+            t.passo()
+        self.assertEqual((t.conta["n5"], t.conta["n8"]), (2, 1))
+
+
 class TestMulti(unittest.TestCase):
     def test_acc_spento_non_copre_f1(self):
         from simapex import f1 as _f1

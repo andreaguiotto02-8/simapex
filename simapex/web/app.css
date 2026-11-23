@@ -79,3 +79,5 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 .g-blocco{position:absolute;inset:0;pointer-events:none;border:0;background:transparent;padding:0}.pallino{pointer-events:auto}
 
 .cmpbox{display:grid;grid-template-columns:1fr 1fr;gap:.8em;margin:.4em 0}.cmpt{width:100%;font-size:.85em}.cmpt td{padding:.15em .3em}.cmpbox select{width:100%}@media (max-width:900px){.cmpbox{grid-template-columns:1fr}}
+
+.tele{outline:3px solid #ff7a1a!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(255,122,26,.25)!important}

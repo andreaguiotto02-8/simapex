@@ -159,6 +159,7 @@ def consumo_per_giro(auto, pista):
     return round(sum(d) / len(d), 2) if d else None
 
 
+_tastiera = ptt.Tastiera()
 _ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25), azioni=carica_impostazioni().get("tasti_azioni", {}))
 
 
@@ -394,6 +395,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt_tasto"] = _ptt.tasto
                 d["ptt_visti"] = _ptt.ultimi
                 d["gioco_aperto"] = gioco_aperto()
+                d["tele"] = dict(_tastiera.conta)
                 d["tasti"] = dict(_ptt.azioni)
                 d["tasti_conta"] = dict(_ptt.conta)
                 d["tasti_assegna"] = _ptt.assegna
@@ -764,6 +766,7 @@ def main(apri_browser=True):
         scrivi_log("F1 25: avvio non riuscito (%s)" % e)
     try:
         _ptt.avvia()
+        _tastiera.avvia()
     except Exception as e:
         scrivi_log("tasto radio: avvio non riuscito (%s)" % e)
     aggiorna.pulisci_vecchi()

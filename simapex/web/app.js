@@ -490,7 +490,7 @@ function spotter(){const u=ST;if(F1G()||!SPOT.on||!ING.voce||!u.collegato||u.sta
 
 /* ---------- RADIO: tasto sul volante per parlare ---------- */
 let PTTp=false;
-function radioPtt(){try{tastiVolante()}catch(e){}const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}bip(900,70);if(window.micAvvia)window.micAvvia()}
+function radioPtt(){try{tastiVolante()}catch(e){}try{telecomando()}catch(e){}const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}bip(900,70);if(window.micAvvia)window.micAvvia()}
  else if(!on&&PTTp){PTTp=false;if(window.micFerma)window.micFerma();bip(650,70)}
  if(ST.ptt_tasto&&!$("pttN").value&&document.activeElement!==$("pttN"))$("pttN").value=ST.ptt_tasto;const el=$("pttSt");if(el&&schermo==="pista"){el.textContent=(ST.ptt_tasto?"Tasto radio: "+ST.ptt_tasto+". ":"Tasto radio non impostato. ")+((ST.ptt_visti||[]).length?"Pulsanti premuti ora: "+ST.ptt_visti.join(", ")+".":"")}}
 const TASTI_AZ={avanti:"Schermata successiva",indietro:"Schermata precedente",ripeti:"Ripeti l'ultimo messaggio dell'ingegnere",voce:"Voce accesa/spenta"};let TC=null,TCnt=0;
@@ -581,3 +581,21 @@ costruisciGomme();applicaModo();try{if(!localStorage.getItem("simapex_aiuto_vist
 disegnaProve();giro();giroSetup();controllaAgg();
 setInterval(giro,200);setInterval(giroMappe,2000);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);
+
+// Telecomando a tastiera (tastierino numerico, Bloc Num acceso): muove un contorno arancione e clicca come il mouse
+let TE=null,TEsel=null;
+function teElementi(){const sc=document.getElementById("s-"+schermo);const a=[...document.querySelectorAll("#nav button")];
+ if(sc)a.push(...sc.querySelectorAll("button,input:not([type=hidden]),select,textarea,.sess,summary,a[href]"));
+ return a.filter(e=>e.offsetParent!==null&&!e.disabled&&getComputedStyle(e).visibility!=="hidden")}
+function teSegna(e){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=e;if(e){e.classList.add("tele");e.scrollIntoView({block:"center",behavior:"smooth"})}}
+function teMuovi(d){const L=teElementi();if(!L.length)return;let i=L.indexOf(TEsel);if(i<0)i=d>0?-1:0;i=(i+d+L.length)%L.length;teSegna(L[i])}
+function teAzione(n){
+ if(n==="n8"||n==="n4")return teMuovi(-1);
+ if(n==="n2"||n==="n6")return teMuovi(1);
+ if(n==="n5"||n==="n0"){const e=TEsel&&document.contains(TEsel)?TEsel:null;if(!e)return teMuovi(1);if(e.tagName==="SELECT"){e.selectedIndex=(e.selectedIndex+1)%e.options.length;e.dispatchEvent(new Event("change",{bubbles:true}))}else e.click();return}
+ if(n==="add"||n==="sub"){const e=TEsel;if(!e)return;if(e.tagName==="SELECT"){const k=e.options.length;e.selectedIndex=(e.selectedIndex+(n==="add"?1:k-1))%k;e.dispatchEvent(new Event("change",{bubbles:true}))}else if(e.type==="number"||e.type==="range"){n==="add"?e.stepUp():e.stepDown();e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))}return}
+ if(n==="n7")return window.scrollBy({top:-window.innerHeight*0.7,behavior:"smooth"});
+ if(n==="n9")return window.scrollBy({top:window.innerHeight*0.7,behavior:"smooth"});
+ if(n==="n1")return azioneVolante("indietro");
+ if(n==="n3")return azioneVolante("avanti")}
+function telecomando(){const T=ST.tele;if(!T)return;if(TE){for(const n in T){{let k=Math.min(6,(T[n]||0)-(TE[n]||0));if(k>0&&!TEsel){teMuovi(1);k=0}while(k-->0)teAzione(n)}}}TE=Object.assign({},T)}

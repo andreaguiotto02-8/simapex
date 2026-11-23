@@ -79,3 +79,55 @@ class Ptt:
                 if t == n:
                     self.conta[a] += 1
         self.premuto = bool(self.tasto and self.tasto in p)
+
+
+
+# Telecomando: tasti del tastierino numerico letti anche quando Simapex non è la finestra attiva
+# (Bloc Num acceso). Nome -> codice virtuale di Windows.
+TASTI_TELECOMANDO = {"n0": 0x60, "n1": 0x61, "n2": 0x62, "n3": 0x63, "n4": 0x64, "n5": 0x65, "n6": 0x66,
+                     "n7": 0x67, "n8": 0x68, "n9": 0x69, "mul": 0x6A, "add": 0x6B, "sub": 0x6D, "dec": 0x6E, "div": 0x6F}
+
+
+def _lettore_tastiera():
+    import ctypes
+    u = ctypes.WinDLL("user32")
+    u.GetAsyncKeyState.argtypes = [ctypes.c_int]
+    u.GetAsyncKeyState.restype = ctypes.c_short
+
+    def premuti():
+        return {n for n, vk in TASTI_TELECOMANDO.items() if u.GetAsyncKeyState(vk) & 0x8000}
+    return premuti
+
+
+class Tastiera:
+    def __init__(self, premuti=None):
+        self._premuti = premuti
+        self.conta = {n: 0 for n in TASTI_TELECOMANDO}
+        self._prima = set()
+        self._attivo = False
+
+    def avvia(self):
+        if self._premuti is None:
+            if not sys.platform.startswith("win"):
+                return False
+            try:
+                self._premuti = _lettore_tastiera()
+            except Exception:
+                return False
+        self._attivo = True
+        threading.Thread(target=self._ciclo, daemon=True).start()
+        return True
+
+    def _ciclo(self):
+        while self._attivo:
+            self.passo()
+            time.sleep(0.015)
+
+    def passo(self):
+        try:
+            p = set(self._premuti())
+        except Exception:
+            p = set()
+        for n in p - self._prima:
+            self.conta[n] += 1
+        self._prima = p
