@@ -8,7 +8,7 @@ import time
 from .circuito import nome_file
 
 N = 200          # punti per giro
-SEGMENTI = 20    # tratti per i confronti
+SEGMENTI = 25    # microsettori per i confronti (25 × 8 punti = 200)
 TENUTI = 50      # giri tenuti per auto/pista
 
 
@@ -197,3 +197,38 @@ def confronto_sessione(tr, auto, pista, laps_sessione, laps_precedente):
         out["rif"][nome] = {"tempo_ms": r["tempo_ms"], "v": r["v"], "segmenti": seg, "guadagni": guad, "perdite": perd,
                             "delta": [mio["t"][i] - r["t"][i] for i in range(N + 1)]}
     return out
+
+
+def chiave_giro(g):
+    return "%s:%s" % (int(g.get("ts", 0)), int(g["tempo_ms"]))
+
+
+def lista_giri(tr, auto, pista):
+    """Giri con traccia salvati per auto e pista (i più recenti prima), selezionabili per il confronto."""
+    d = tr.carica(auto, pista)
+    rec = d.get("migliore")
+    out = []
+    for g in reversed(d.get("giri") or []):
+        out.append({"k": chiave_giro(g), "tempo_ms": g["tempo_ms"], "ts": g.get("ts", 0),
+                    "record": bool(rec and chiave_giro(rec) == chiave_giro(g))})
+    return out
+
+
+def _trova(tr, auto, pista, k):
+    d = tr.carica(auto, pista)
+    for g in (d.get("giri") or []) + ([d["migliore"]] if d.get("migliore") else []):
+        if chiave_giro(g) == k:
+            return g
+    return None
+
+
+def confronto_giri(tr, auto, pista, ka, kb):
+    """Confronto tra due giri scelti dalla lista: A (il tuo) contro B (riferimento)."""
+    a, b = _trova(tr, auto, pista, ka), _trova(tr, auto, pista, kb)
+    if not a or not b:
+        return None
+    seg = confronta(a, b)
+    guad, perd = tratti_principali(seg)
+    return {"mio": {"tempo_ms": a["tempo_ms"], "v": a["v"], "f": a["f"], "g": a["g"]},
+            "rif": {"scelto": {"tempo_ms": b["tempo_ms"], "v": b["v"], "segmenti": seg, "guadagni": guad, "perdite": perd,
+                               "delta": [a["t"][i] - b["t"][i] for i in range(N + 1)]}}}

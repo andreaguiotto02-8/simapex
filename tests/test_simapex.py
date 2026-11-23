@@ -737,6 +737,47 @@ class TestF1(unittest.TestCase):
         self.assertEqual(v[0], {"lon": 0.0, "lat": 3.0})
         self.assertEqual(calcola_vicini([0, 0, 0], [0, 1], [[3, 0]]), [])
 
+    def test_f1_setup_letto(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        corpo = bytearray(50 * 22 + 4)
+        o = 3 * 50
+        corpo[o:o + 4] = bytes([8, 6, 70, 60])
+        struct.pack_into("<4f", corpo, o + 4, -3.0, -1.5, 0.05, 0.2)
+        corpo[o + 20:o + 29] = bytes([5, 3, 6, 4, 20, 30, 95, 58, 50])
+        struct.pack_into("<4f", corpo, o + 29, 21.0, 21.1, 23.0, 23.1)   # RL RR FL FR
+        corpo[o + 45] = 7
+        struct.pack_into("<f", corpo, o + 46, 38.0)
+        r.elabora(self._int(5) + bytes(corpo))
+        r.elabora(self._tele())
+        st = r.stato()["setup_f1"]
+        self.assertEqual(st["ala anteriore"], 8)
+        self.assertEqual(st["ripartizione freni % anteriore"], 58)
+        self.assertEqual(st["pressioni gomme psi (AS, AD, PS, PD)"], [23.0, 23.1, 21.0, 21.1])
+        self.assertEqual(st["carburante a inizio sessione"], 38.0)
+
+    def test_ptt_e_confronto_giri(self):
+        from simapex import ptt, tracce
+        p = ptt.Ptt(25, pulsanti=lambda: {3, 25})
+        p.passo()
+        self.assertTrue(p.premuto)
+        self.assertEqual(p.ultimi, [3, 25])
+        p.tasto = 9
+        p.passo()
+        self.assertFalse(p.premuto)
+        t = [i * 500 for i in range(201)]
+        t2 = [i * 510 for i in range(201)]
+        g1 = {"tempo_ms": t[-1], "t": t, "v": [100] * 200, "f": [0] * 200, "g": [0] * 200, "ts": 10}
+        g2 = {"tempo_ms": t2[-1], "t": t2, "v": [100] * 200, "f": [0] * 200, "g": [0] * 200, "ts": 20}
+        class T:
+            def carica(self, a, b):
+                return {"giri": [g1, g2], "migliore": g1}
+        c = tracce.confronto_giri(T(), "a", "b", tracce.chiave_giro(g1), tracce.chiave_giro(g2))
+        seg = c["rif"]["scelto"]["segmenti"]
+        self.assertEqual(len(seg), 25)
+        self.assertTrue(all(x < 0 for x in seg))
+        self.assertEqual(len(tracce.lista_giri(T(), "a", "b")), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito, f1, ingegnere, mappe, pressioni, tracce
+from . import circuito, esito, f1, ingegnere, mappe, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -157,6 +157,9 @@ def consumo_per_giro(auto, pista):
     d = [g[i - 1]["carburante"] - g[i]["carburante"] for i in range(1, len(g)) if g[i].get("ts", 0) - g[i - 1].get("ts", 0) < 600]
     d = [x for x in d if x > 0]
     return round(sum(d) / len(d), 2) if d else None
+
+
+_ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25))
 
 
 FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi", "gomme", "delta", "carburante", "sessioni", "dettaglio", "confronto", "esito")
@@ -344,6 +347,9 @@ class Gestore(BaseHTTPRequestHandler):
                     d["giri_stimati"] = round((d.get("carburante") or 0) / cons, 1) if cons else None
                     d["giro_attuale_ms"] = round(tracce_giri().trascorso_ms())
                 d["funzioni"] = funzioni()
+                d["ptt"] = _ptt.premuto
+                d["ptt_tasto"] = _ptt.tasto
+                d["ptt_visti"] = _ptt.ultimi
                 self._invia(200, json.dumps(d), "application/json")
             elif self.path in ("/app.css", "/app.js"):
                 self._invia_web(self.path[1:])
@@ -358,8 +364,10 @@ class Gestore(BaseHTTPRequestHandler):
             elif self.path.startswith("/api/sessioni"):
                 self._invia(200, json.dumps({"sessioni": elenco_sessioni(registro_stile().giri)[:50]}), "application/json")
             elif self.path.startswith("/api/sessione?"):
+                from urllib.parse import parse_qs, urlparse
+                q = parse_qs(urlparse(self.path).query)
                 try:
-                    sid = int(self.path.split("id=")[1].split("&")[0])
+                    sid = int(q.get("id", ["-1"])[0])
                 except Exception:
                     sid = -1
                 det = dettaglio_sessione(registro_stile().giri, sid, registro_stile().profilo())
@@ -369,6 +377,11 @@ class Gestore(BaseHTTPRequestHandler):
                     prec = next((x for x in sess if x and x[0]["auto"] == det["auto"] and x[0]["pista"] == det["pista"]
                                  and (x[0].get("ts") or 0) < sid), [])
                     det["confronto"] = tracce.confronto_sessione(tracce_giri(), det["auto"], det["pista"], cur, prec)
+                    det["giri_confronto"] = tracce.lista_giri(tracce_giri(), det["auto"], det["pista"])
+                    if q.get("a") and q.get("b"):
+                        sc = tracce.confronto_giri(tracce_giri(), det["auto"], det["pista"], q["a"][0], q["b"][0])
+                        if sc:
+                            det["confronto"] = sc
                     det["blocchi_pos"] = [{"giro": x.get("giro"), "pos": b.get("pos"), "ruota": b["ruota"]}
                                           for x in cur for b in x.get("blocchi", []) if b.get("pos") is not None]
                     det["quaderno"] = [x for x in carica_quaderno() if x.get("auto") == det["auto"] and x.get("pista") == det["pista"]][-6:]
@@ -425,6 +438,17 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare la chiave."}), "application/json")
+        elif self.path == "/api/ptt":
+            try:
+                n = int(self._corpo_json().get("tasto", 0))
+                n = n if 0 <= n <= 32 else 0
+                imp = carica_impostazioni()
+                imp["ptt_tasto"] = n
+                salva_impostazioni(imp)
+                _ptt.tasto = n
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                self._invia(200, json.dumps({"ok": False, "errore": "Numero non valido."}), "application/json")
         elif self.path == "/api/ingegnere":
             try:
                 k = carica_impostazioni().get("claude_key")
@@ -612,6 +636,10 @@ def main(apri_browser=True):
             scrivi_log("F1 25: in ascolto sulla porta %d" % f1.PORTA)
     except Exception as e:
         scrivi_log("F1 25: avvio non riuscito (%s)" % e)
+    try:
+        _ptt.avvia()
+    except Exception as e:
+        scrivi_log("tasto radio: avvio non riuscito (%s)" % e)
     aggiorna.pulisci_vecchi()
     avviato = [False]
 

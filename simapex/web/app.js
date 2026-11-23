@@ -41,6 +41,9 @@ const PROVE_ING=[
  {id:"piano",t:"Piano per la sessione (Box)",p:["Nella schermata Box scegli prove, qualifica o gara e i giri, poi tocca «Prepara il piano» e anche «Chiedi alla squadra».","Confronta carburante, gomme e mappa con quello che faresti tu."],a:"Il piano è sensato: carburante in linea con il consumo vero, gomme adatte alla sessione, mappa motore giusta."},
  {id:"ing_spotter",t:"Spotter: macchine vicine (solo ACC)",p:["Con la voce attiva, in gara con altre auto, affiancati a un'auto a destra e poi a sinistra."],a:"Dice «macchina a destra» o «a sinistra» dal lato giusto e «libero» quando passa. Se i lati sono scambiati, spunta «Inverti destra e sinistra» nella schermata Pista."},
  {id:"f1_distacchi",t:"Distacchi e ritmo (F1)",p:["In gara F1 chiedi «distacco davanti», «vantaggio dietro» e «ritmo»."],a:"I secondi coincidono con quelli del gioco e a fine giro l'ingegnere li dice da solo."},
+ {id:"f1_setup",t:"Consiglio sul setup F1",p:["In F1, nella schermata Box, scrivi un problema della macchina e tocca «Consiglio sul setup»."],a:"Propone una sola modifica con il valore preciso e il motivo, partendo dal setup che hai nel gioco."},
+ {id:"ing_radio_ptt",t:"Radio con il tasto del volante",p:["Nella schermata Pista scrivi il numero del tasto del volante (propongo il tasto PlayStation, 25) e tocca Salva.","Tieni premuto il tasto, parla nel microfono delle cuffie e rilascia."],a:"Senti un bip alla pressione, l'ingegnere risponde con la voce nelle cuffie, senza toccare il mouse."},
+ {id:"conf_giri",t:"Microsettori e confronto tra giri",p:["In Sessioni apri una sessione, scegli due giri dalla lista in alto alla mappa e tocca Confronta."],a:"La mappa è divisa in 25 microsettori colorati (verde = guadagni, rosso = perdi) e sotto sono elencati i tre migliori e i tre peggiori."},
  {id:"ing_domanda",t:"Domanda all'ingegnere",p:["Nella schermata Pista scrivi una domanda, per esempio «come sono le gomme?», e tocca Chiedi."],a:"Risponde in poche frasi usando i dati di adesso (se la voce è attiva la legge)."}
 ];
 const PROVE_F1=[
@@ -154,7 +157,7 @@ function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join
 /* ---------- stato generale ---------- */
 async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
  const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const n=$("f1Nota");if(n)n.hidden=ST.gioco!=="F1 25"}
- if(schermo==="guida")disegnaGuida();try{spotter()}catch(e){}applicaModo()}catch(e){}}
+ if(schermo==="guida")disegnaGuida();try{spotter();radioPtt()}catch(e){}applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}
 
@@ -163,15 +166,18 @@ async function giroSessioni(){try{const l=(await api("/api/sessioni")).sessioni|
  $("sesLista").innerHTML=l.map(x=>`<div class="sess ${x.id===sesAperta?"act":""}" data-s="${x.id}"><b>${esc(bello(x.pista))}</b> · ${x.miglior_giro}${x.tipo?` <span class="pill">${esc(x.tipo)}</span>`:""}<small>${esc(bello(x.auto))}</small><small>${dt(x.data)} · ${x.giri} giri${x.blocchi?" · "+x.blocchi+" blocchi":""}</small></div>`).join("");
  if(sesAperta===null||sesAperta===l[0].id)apriSessione(sesAperta===null?l[0].id:sesAperta,true)}catch(e){}}
 $("sesLista").onclick=e=>{const t=e.target.closest(".sess");if(t){apriSessione(parseInt(t.dataset.s));giroSessioni()}};
-async function apriSessione(id,silenzioso){sesAperta=id;let j;try{j=(await api("/api/sessione?id="+id)).sessione}catch(e){return}
+let CMP={a:"",b:""};
+async function apriSessione(id,silenzioso){sesAperta=id;let j;try{j=(await api("/api/sessione?id="+id+(CMP.a&&CMP.b?"&a="+encodeURIComponent(CMP.a)+"&b="+encodeURIComponent(CMP.b):""))).sessione}catch(e){return}
  if(!j){$("rep").innerHTML="";return}ultimaSes=j;disegnaReport(j);
  let t=null;try{t=(await api("/api/pista?nome="+encodeURIComponent(j.pista))).pista}catch(e){}j._t=t;disegnaReport(j)}
 function coloreSeg(ms){return ms<=-20?"#2ecc71":ms>=20?"#ff4d4d":"#cfd6e2"}
 function disegnaReport(j){
- const c=j.confronto,rif=c&&c.rif&&(c.rif[rifSel]||c.rif.precedente||c.rif.record),rifNome=c&&c.rif&&c.rif[rifSel]?rifSel:(c&&c.rif&&c.rif.precedente?"precedente":"record");
+ const c=j.confronto,rif=c&&c.rif&&(c.rif.scelto||c.rif[rifSel]||c.rif.precedente||c.rif.record),rifNome=c&&c.rif&&c.rif.scelto?"scelto":(c&&c.rif&&c.rif[rifSel]?rifSel:(c&&c.rif&&c.rif.precedente?"precedente":"record"));
  let h=`<div class="w intest" data-f="dettaglio" data-t="Report della sessione"><h2>${esc(bello(j.pista))} · ${esc(bello(j.auto))}</h2><span class="mu">${dt(j.data)}</span>${j.tipo?`<span class="pill on">${esc(j.tipo)}</span>`:""}<span>Miglior giro <b class="big">${esc(j.miglior_giro)}</b></span><span class="mu">${j.giri} giri · costanza ${(j.costanza_ms/1000).toFixed(1)} s${j.blocchi_totali?" · "+j.blocchi_totali+" blocchi":""}</span></div>`;
  // mappa
- h+=`<div class="w mappa" data-f="confronto" data-t="Mappa e confronto"><div class="row"><b>Dove sei migliorato e peggiorato</b><span class="sw">${c&&c.rif&&c.rif.precedente?`<button data-r="precedente" class="${rifNome==="precedente"?"act":""}">Sessione precedente</button>`:""}${c&&c.rif&&c.rif.record?`<button data-r="record" class="${rifNome==="record"?"act":""}">Tuo record</button>`:""}</span></div>`;
+ h+=`<div class="w mappa" data-f="confronto" data-t="Mappa e confronto"><div class="row"><b>Dove sei migliorato e peggiorato</b><span class="sw">${c&&c.rif&&c.rif.precedente?`<button data-r="precedente" class="${rifNome==="precedente"?"act":""}">Sessione precedente</button>`:""}${c&&c.rif&&c.rif.record?`<button data-r="record" class="${rifNome==="record"?"act":""}">Tuo record</button>`:""}</span></div>${(()=>{const L=j.giri_confronto||[];if(L.length<2)return"";const o=(k)=>L.map(x=>`<option value="${esc(x.k)}"${x.k===k?" selected":""}>${tempoMs(x.tempo_ms)} · ${new Date(x.ts*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${x.record?" ★":""}</option>`).join("");
+  const ka=CMP.a||(L.find(x=>x.record)||L[0]).k,kb=CMP.b||(L[1]||L[0]).k;
+  return `<div class="row"><span>Il mio giro</span><select id="cmpA">${o(ka)}</select><span>contro</span><select id="cmpB">${o(kb)}</select><button data-cmp="vai">Confronta</button>${CMP.a?`<button data-cmp="auto">Confronti automatici</button>`:""}</div>`})()}`;
  if(j._t){const X=j._t.x,Z=j._t.z,b=limiti(X,Z),n=X.length;let sv="";
   if(rif){const per=n/rif.segmenti.length;rif.segmenti.forEach((ms,s)=>{const a=Math.floor(s*per),e=Math.min(n,Math.floor((s+1)*per)+1);const pts=[];for(let i=a;i<=e;i++)pts.push(xy(X[i%n],Z[i%n],b).map(v=>v.toFixed(1)).join(","));sv+=`<polyline points="${pts.join(" ")}" fill="none" stroke="${coloreSeg(ms)}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`});
    [].concat(rif.guadagni,rif.perdite).forEach(s=>{const i=Math.floor((s+0.5)*n/rif.segmenti.length)%n,q=xy(X[i],Z[i],b);sv+=`<circle cx="${q[0]}" cy="${q[1]}" r="11" fill="#0b0e13" stroke="${coloreSeg(rif.segmenti[s])}" stroke-width="2"/><text x="${q[0]}" y="${q[1]+4}" text-anchor="middle" font-size="11" fill="#fff">${s+1}</text>`})}
@@ -182,8 +188,8 @@ function disegnaReport(j){
  h+="</div>";
  // frasi
  h+=`<div class="w" data-f="confronto" data-t="Cosa è cambiato"><b>Cosa è cambiato</b>`;
- if(rif){const tot=c.mio.tempo_ms-rif.tempo_ms;h+=`<p>Il tuo miglior giro di questa sessione è <b class="${tot<0?"mig":"peg"}">${sec(tot,true)} s</b> rispetto ${rifNome==="precedente"?"alla sessione precedente":"al tuo record"} (${tempoMs(rif.tempo_ms)}).</p>`;
-  const riga=(s)=>`<li>Tratto ${s+1} (dal ${Math.round(s*100/rif.segmenti.length)}% al ${Math.round((s+1)*100/rif.segmenti.length)}% del giro): <b class="${rif.segmenti[s]<0?"mig":"peg"}">${sec(rif.segmenti[s],true)} s</b></li>`;
+ if(rif){const tot=c.mio.tempo_ms-rif.tempo_ms;h+=`<p>${rifNome==="scelto"?"Il giro A":"Il tuo miglior giro di questa sessione"} è <b class="${tot<0?"mig":"peg"}">${sec(tot,true)} s</b> rispetto ${rifNome==="precedente"?"alla sessione precedente":rifNome==="scelto"?"all'altro giro scelto":"al tuo record"} (${tempoMs(rif.tempo_ms)}).</p>`;
+  const riga=(s)=>`<li>Microsettore ${s+1} (dal ${Math.round(s*100/rif.segmenti.length)}% al ${Math.round((s+1)*100/rif.segmenti.length)}% del giro): <b class="${rif.segmenti[s]<0?"mig":"peg"}">${sec(rif.segmenti[s],true)} s</b></li>`;
   h+=rif.guadagni.length?`<p class="mig">Dove sei migliorato</p><ul>${rif.guadagni.map(riga).join("")}</ul>`:`<p class="mu">Nessun tratto in cui sei migliorato in modo netto.</p>`;
   h+=rif.perdite.length?`<p class="peg">Dove sei peggiorato</p><ul>${rif.perdite.map(riga).join("")}</ul>`:`<p class="mu">Nessun tratto in cui sei peggiorato in modo netto.</p>`}
  else h+=`<p class="mu">Per il confronto servono giri registrati su questa pista in almeno due sessioni.</p>`;
@@ -200,7 +206,8 @@ function disegnaReport(j){
  h+="</div>";
  $("rep").innerHTML=h;applicaModo();
 }
-$("rep").onclick=e=>{const b=e.target.closest("button[data-r]");if(b&&ultimaSes){rifSel=b.dataset.r;disegnaReport(ultimaSes)}};
+$("rep").onclick=e=>{const c=e.target.closest("button[data-cmp]");if(c){if(c.dataset.cmp==="vai"){CMP={a:$("cmpA").value,b:$("cmpB").value}}else CMP={a:"",b:""};apriSessione(sesAperta);return}
+ const b=e.target.closest("button[data-r]");if(b&&ultimaSes){rifSel=b.dataset.r;if(CMP.a){CMP={a:"",b:""};apriSessione(sesAperta)}else disegnaReport(ultimaSes)}};
 
 /* ---------- SETUP ---------- */
 function listaSetup(){const f=(SETUP.file||[]);$("setupLista").innerHTML=f.length?"<table>"+f.map(x=>`<tr><td>${esc(bello(x.auto))}</td><td>${esc(bello(x.pista))}</td><td>${esc(x.nome)}</td><td class="${x.valido?"mig":"peg"}">${x.valido?"letto":"non letto"}</td></tr>`).join("")+"</table>":"Apri ACC e salva un setup."}
@@ -255,7 +262,9 @@ try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
 const F1G=()=>ST.gioco==="F1 25";
 const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
-function emetti(testo,grave){ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
+let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
+ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
+function emetti(testo,grave){if(ING.voce)bip(1300,45);ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
  if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=speechSynthesis.getVoices().find(x=>x.lang&&x.lang.toLowerCase().startsWith("it"));if(v)u.voice=v;u.rate=1.05;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
  if(schermo==="pista")disegnaBox()}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
@@ -263,7 +272,7 @@ function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[ch
  ING.coda.push({t,testo});if(ING.coda.length>3)ING.coda.shift()}
 function svuotaCoda(){if(!ING.coda.length||!sicuro())return;const t=Date.now();ING.coda=ING.coda.filter(x=>t-x.t<25000);const x=ING.coda.shift();if(x)emetti(x.testo,false)}
 function parlaTempo(t){const m=/^(\d+):(\d+)\.(\d+)/.exec(t||"");return m?`${+m[1]} ${+m[1]===1?"minuto":"minuti"} e ${+m[2]} secondi e ${+m[3]}`:(t||"")}
-const decimi=ms=>{const d=Math.abs(ms)/100;return d<10?(Math.round(d)+" decimi"):(Math.abs(ms)/1000).toFixed(1).replace(".",",")+" secondi"};
+const decimi=ms=>{const d=Math.abs(ms)/100;return d<10?(Math.round(d)===1?"1 decimo":Math.round(d)+" decimi"):(Math.abs(ms)/1000).toFixed(1).replace(".",",")+" secondi"};
 function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  const chiave=(u.auto||"")+"|"+(u.pista||"")+"|"+u.sessione,P=ING.prev;
  if(ING.sess!==chiave){ING.sess=chiave;ING.prev={};ING.blocchi=0;ING.usura=[];ING.ult={};ING.coda=[];ING.tempi=[];ING.giriDaBox=0;
@@ -343,6 +352,7 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
  ING.giriDaBox++;
  const mp=(MAPPE&&MAPPE.mappa_giri_costanti)?" Usa la mappa "+MAPPE.mappa_giri_costanti+".":"";
  const ms=(MAPPE&&MAPPE.mappa_spinta)?" Metti la mappa "+MAPPE.mappa_spinta+".":"";
+ if(u.sessione===2&&ING.freq!=="minima"&&gc%(ING.freq==="alta"?2:3)===0)parla("riep"+gc,riepilogoRadio(u),0);
  if(u.sessione===2){const c=margineCarb();
   if(c.m!=null&&c.m<0)parla("save"+gc,"Risparmia carburante: alza prima delle staccate e non insistere sull'acceleratore."+mp+" Ti mancano "+Math.abs(c.m).toFixed(1).replace(".",",")+" giri di carburante.",0);
   else if(c.m!=null&&c.m>=2&&c.rimasti>0&&c.rimasti<=Math.max(3,(u.giri_totali||0)/3))parla("spingi"+gc,"Hai carburante in più: puoi spingere."+ms,0);
@@ -351,6 +361,10 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
     else if(fine<55&&r>=0&&gc>=4)parla("gomme_ok","Le gomme reggono bene: puoi alzare il ritmo.",0)}}
   if(ING.tempi.length>=3){const l=ING.tempi.slice(-3);if(Math.max(...l)-Math.min(...l)<500)parla("ritmo","Ritmo costante, ottimo. Mantieni così.",0)}}
  else if(u.sessione===0&&ING.tempi.length>=5)parla("prove5","Hai fatto abbastanza giri puliti per misurare passo e consumo. Se vuoi, rientra e prepariamo la gara.",0)}
+function riepilogoRadio(u){const c=margineCarb(),P=[];if(u.posizione>0)P.push("posizione "+u.posizione);
+ if(c.gf!=null)P.push("carburante per "+c.gf.toFixed(1).replace(".",",")+" giri"+(c.m!=null?(c.m<0?", non bastano":", bastano"):""));
+ if(F1G()&&u.usura_gomme)P.push("gomme al "+Math.round(media(u.usura_gomme))+" per cento");else{const t=media(u.temp_gomme);if(t>0)P.push("gomme a "+Math.round(t)+" gradi")}
+ const l=ING.tempi.slice(-3);if(l.length>=2)P.push("passo "+parlaTempo(tempoMs(media(l))));return "Aggiornamento. "+P.join(", ")+"."}
 function margineCarb(){const u=ST,gc=u.giri_completati||0;let gf=u.giri_stimati;if(F1G()&&u.giri_carburante_gioco!=null)gf=u.giri_carburante_gioco;
  let rimasti=null;if(u.giri_totali)rimasti=u.giri_totali-gc;else if(u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)rimasti=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000))+1;
  return{gf,rimasti,m:(gf!=null&&rimasti!=null)?gf-rimasti:null}}
@@ -426,7 +440,8 @@ $("spotInv").onchange=e=>{SPOT.inv=e.target.checked;try{localStorage.setItem("si
  b.onclick=()=>{if(on){try{rec.stop()}catch(e){}return}
   try{rec=new SR();rec.lang="it-IT";rec.interimResults=false;rec.onresult=ev=>{const t=ev.results[0][0].transcript;$("ingDom").value=t;chiediIng(t)};
    rec.onerror=ev=>{$("ingRis").textContent="Il microfono non parte (codice: "+ev.error+"). Per ora scrivi la domanda o usa i tasti."};rec.onend=()=>{on=false;b.textContent="🎤"};rec.start();on=true;b.textContent="⏹"}
-  catch(x){$("ingRis").textContent="Microfono non disponibile: "+x.message}}})();
+  catch(x){$("ingRis").textContent="Microfono non disponibile: "+x.message}};
+ window.micAvvia=()=>{if(!on)b.click()};window.micFerma=()=>{if(on)b.click()}})();
 $("ingDom").onkeydown=e=>{if(e.key==="Enter")chiediIng($("ingDom").value)};
 setInterval(()=>{try{ingegnere();if(schermo==="pista")disegnaBox();else BOXL=strategia()}catch(e){}},1000);
 setInterval(()=>{try{svuotaCoda()}catch(e){}},300);
@@ -441,7 +456,27 @@ function spotter(){const u=ST;if(F1G()||!SPOT.on||!ING.voce||!u.collegato||u.sta
  if(k!==SPOT.prev){if(dx&&sx)parla("spot",k!==SPOT.prev?"Macchine da entrambi i lati.":"",1200,true);else if(dx)parla("spot","Attenzione, macchina a destra.",1200,true);else if(sx)parla("spot","Attenzione, macchina a sinistra.",1200,true);
   else if(SPOT.prev)parla("spotl","Libero.",1200,true);SPOT.prev=k}}
 
+
+/* ---------- RADIO: tasto sul volante per parlare ---------- */
+let PTTp=false;
+function radioPtt(){const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}bip(900,70);if(window.micAvvia)window.micAvvia()}
+ else if(!on&&PTTp){PTTp=false;if(window.micFerma)window.micFerma();bip(650,70)}
+ if(ST.ptt_tasto&&!$("pttN").value&&document.activeElement!==$("pttN"))$("pttN").value=ST.ptt_tasto;const el=$("pttSt");if(el&&schermo==="pista"){el.textContent=(ST.ptt_tasto?"Tasto radio: "+ST.ptt_tasto+". ":"Tasto radio non impostato. ")+((ST.ptt_visti||[]).length?"Pulsanti premuti ora: "+ST.ptt_visti.join(", ")+".":"")}}
+$("pttSalva").onclick=async()=>{try{await api("/api/ptt",{tasto:+$("pttN").value||0});$("pttSt").textContent="Salvato."}catch(e){}};
+$("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;try{localStorage.setItem("simapex_freq",ING.freq)}catch(x){}};
+
+$("f1Chiedi").onclick=async()=>{const q=$("f1Prob").value.trim();if(!q){$("f1Ris").textContent="Scrivi prima il problema.";return}
+ if(!ST.setup_f1){$("f1Ris").textContent="Non vedo ancora il tuo setup: entra in pista con F1 aperto e riprova.";return}
+ $("f1Ris").textContent="La squadra sta guardando il setup...";
+ try{const d=Object.assign({},ST);delete d.funzioni;const dom="Il pilota dice: «"+q+"». Guarda il setup attuale e i dati. Proponi UNA sola modifica (la più utile) con il valore nuovo preciso, il motivo in una frase e cosa controllare dopo qualche giro. ABS e controllo di trazione li decide solo il pilota.";
+  const j=await api("/api/ingegnere",{domanda:dom,dati:d,piano:true});$("f1Ris").textContent=j.ok?j.risposta:"Non riesco: "+j.errore}catch(e){$("f1Ris").textContent="Il programma non risponde."}};
 /* ---------- PIANO PER LA SESSIONE (Box) ---------- */
+let PN={auto:true};
+function datiAuto(){const u=ST;if(!u.collegato)return null;const tipo=u.sessione===2?2:u.sessione===0?0:u.sessione>=1?1:2;
+ let giri=u.giri_totali||0;if(!giri&&u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)giri=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000));
+ if(!giri)giri=tipo===1?4:tipo===0?8:10;return{tipo,giri}}
+function sincPiano(){if(!PN.auto)return;const a=datiAuto();if(!a)return;if(document.activeElement&&/^pn/.test(document.activeElement.id||""))return;
+ $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
 function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri").value||1),F=F1G(),U=F?"kg":"L",L=[];
  const inp=parseFloat($("pnCons").value),cons=inp>0?inp:(ST.consumo_giro||null),tg=ST.temp_asfalto;
  const nome={0:"Prove libere",1:"Qualifica",2:"Gara"}[tipo];
@@ -467,6 +502,9 @@ function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri"
  return L}
 function disegnaPiano(L,extra){$("pnRis").innerHTML=L.map(x=>`<div><b>${esc(x.t)}:</b> ${esc(x.v)}</div>`).join("")+(extra?`<div style="margin-top:.5em"><b>La squadra dice:</b> ${esc(extra)}</div>`:"")}
 $("pnCalcola").onclick=()=>disegnaPiano(pianoLocale());
+["pnTipo","pnGiri","pnCons"].forEach(i=>$(i).addEventListener("change",()=>{PN.auto=false;$("pnNota").textContent="Dati modificati da te.";$("pnAuto").hidden=false}));
+$("pnAuto").onclick=()=>{PN.auto=true;$("pnAuto").hidden=true;sincPiano()};
+setInterval(()=>{try{if(schermo==="setup")sincPiano()}catch(e){}},3000);
 $("pnClaude").onclick=async()=>{const L=pianoLocale();disegnaPiano(L);$("pnRis").insertAdjacentHTML("beforeend",'<div class="mu" id="pnAtt">La squadra sta ragionando...</div>');
  try{const d=Object.assign({},ST);delete d.funzioni;const dom="Sono ai box e devo fare: "+L[0].v+" Questo è il piano base calcolato dal programma:\n"+L.slice(1).map(x=>x.t+": "+x.v).join("\n")+"\nDammi il piano finale in al massimo 6 righe brevi, una per voce: carburante, gomme (nuove o usate, mescola), mappa motore, quando spingere e quando risparmiare. Correggi il piano base se serve.";
   const j=await api("/api/ingegnere",{domanda:dom,dati:d,piano:true});const a=$("pnAtt");if(a)a.remove();

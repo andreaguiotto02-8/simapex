@@ -21,7 +21,7 @@ def contesto(d):
                  ("eta_gomme", "Giri delle gomme"), ("temp_aria", "Aria C"), ("temp_asfalto", "Asfalto C"), ("tempo_rimasto_s", "Secondi rimasti"),
                  ("safety_car", "Safety car"), ("meteo", "Meteo"), ("distacco_davanti_ms", "Distacco dalla macchina davanti (ms)"),
                  ("distacco_dietro_ms", "Vantaggio sulla macchina dietro (ms)"), ("ultimo_davanti_ms", "Ultimo giro di quello davanti (ms)"),
-                 ("ultimo_dietro_ms", "Ultimo giro di quello dietro (ms)"), ("ers_pct", "Batteria ERS %"), ("blocchi", "Blocchi in frenata in questa sessione")):
+                 ("ultimo_dietro_ms", "Ultimo giro di quello dietro (ms)"), ("ers_pct", "Batteria ERS %"), ("setup_f1", "Setup F1 attuale"), ("blocchi", "Blocchi in frenata in questa sessione")):
         if d.get(k) not in (None, "", []):
             r.append("%s: %s" % (n, d[k]))
     if d.get("sessione") in TIPI:

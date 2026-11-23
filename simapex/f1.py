@@ -18,7 +18,7 @@ RAGGIO_RUOTA_M = 0.33  # per passare dai m/s delle ruote ai rad/s che usa il ril
 MOTO, SESSIONE, GIRI, EVENTO, PARTECIPANTI, SETUP, TELEMETRIA, STATO_AUTO, FINALE, LOBBY, DANNI, STORICO, GOMME, MOTO_EX = range(14)
 
 # lunghezze attese (F1 25, 22 auto): {id: (dimensione auto, byte finali)}
-DIM_AUTO = {MOTO: (60, 0), GIRI: (57, 2), TELEMETRIA: (60, 3), STATO_AUTO: (55, 0), DANNI: (46, 0)}
+DIM_AUTO = {MOTO: (60, 0), GIRI: (57, 2), TELEMETRIA: (60, 3), STATO_AUTO: (55, 0), DANNI: (46, 0), SETUP: (50, 4)}
 LUNG_SESSIONE_MIN = 40
 LUNG_MOTO_EX = 273
 
@@ -139,6 +139,8 @@ class LettoreF1:
                 self._distacchi(b, int(n), dim)
             elif pid == STATO_AUTO:
                 self._stato_auto(b, o)
+            elif pid == SETUP:
+                self._setup(b, o)
             elif pid == DANNI:
                 u = struct.unpack_from("<4f", b, o)
                 self.d["usura_gomme"] = [round(x, 1) for x in _ruote(u)]
@@ -182,6 +184,23 @@ class LettoreF1:
                        "miglior_giro_ms": self.migliore_ms if self.migliore_ms else 2147483647,
                        "posizione": pos, "in_box": pit > 0,
                        "pos_norm": round(max(0.0, min(0.9999, dist / lunghezza)), 5) if lunghezza > 0 else 0.0})
+
+    def _setup(self, b, o):
+        ala_a, ala_p, diff_in, diff_out = struct.unpack_from("<4B", b, o)
+        camb_a, camb_p, conv_a, conv_p = struct.unpack_from("<4f", b, o + 4)
+        sosp_a, sosp_p, barra_a, barra_p, alt_a, alt_p, press_fr, bias, freno_mot = struct.unpack_from("<9B", b, o + 20)
+        rl, rr, fl, fr = struct.unpack_from("<4f", b, o + 29)
+        zav, = struct.unpack_from("<B", b, o + 45)
+        carb, = struct.unpack_from("<f", b, o + 46)
+        self.d["setup_f1"] = {"ala anteriore": ala_a, "ala posteriore": ala_p, "differenziale in accelerazione %": diff_in,
+                              "differenziale in rilascio %": diff_out, "campanatura anteriore": round(camb_a, 2),
+                              "campanatura posteriore": round(camb_p, 2), "convergenza anteriore": round(conv_a, 2),
+                              "convergenza posteriore": round(conv_p, 2), "sospensioni anteriori": sosp_a,
+                              "sospensioni posteriori": sosp_p, "barra anteriore": barra_a, "barra posteriore": barra_p,
+                              "altezza anteriore": alt_a, "altezza posteriore": alt_p, "pressione freni %": press_fr,
+                              "ripartizione freni % anteriore": bias, "freno motore %": freno_mot,
+                              "pressioni gomme psi (AS, AD, PS, PD)": [round(x, 1) for x in (fl, fr, rl, rr)],
+                              "zavorra": zav, "carburante a inizio sessione": round(carb, 1)}
 
     def _distacchi(self, b, n, dim):
         """Distacco dalla macchina davanti e vantaggio su quella dietro, e tempi dell'ultimo giro dei due."""

@@ -79,15 +79,18 @@
 <section id="s-setup" class="schermo" hidden>
  <div class="setup">
   <div class="w" data-f="piano" data-t="Piano per la sessione" id="pianoBox"><h3>Piano per la sessione (la squadra ai box)</h3>
-   <p class="mu">Dimmi cosa devi fare in pista: il programma ti suggerisce carburante, gomme e mappa motore. Se il gioco è aperto usa il consumo vero che ha misurato.</p>
+   <p class="mu">Con il gioco aperto il piano si compila da solo: legge sessione, giri e consumo vero e ti suggerisce carburante, gomme e mappa motore. I campi qui sotto servono solo se vuoi cambiarli.</p><p class="mu" id="pnNota"></p>
    <div class="row"><select id="pnTipo"><option value="1">Qualifica</option><option value="0">Prove libere</option><option value="2" selected>Gara</option></select>
     <label>Giri <input id="pnGiri" type="number" min="1" max="200" value="10" style="width:5em;flex:none"></label>
     <label>Consumo a giro <input id="pnCons" type="number" step="0.1" min="0" placeholder="auto" style="width:6em;flex:none"></label>
-    <button class="pri" id="pnCalcola">Prepara il piano</button><button id="pnClaude">Chiedi alla squadra (Claude)</button></div>
+    <button class="pri" id="pnCalcola">Prepara il piano</button><button id="pnAuto" hidden>Usa i dati del gioco</button><button id="pnClaude">Chiedi alla squadra (Claude)</button></div>
    <div id="pnRis" class="mu">Scegli sessione e giri, poi tocca «Prepara il piano».</div></div>
   <div class="w sc1" data-f="base" data-t="Setup con l'assistente">
    <h3>Setup</h3>
-   <p class="st ko" id="f1Nota" hidden>Con F1 25 i setup non sono file che il programma può scrivere: per ora qui funzionano solo i dati in diretta, i giri, le sessioni e le pressioni. I consigli di setup per F1 li aggiungiamo dopo i primi test.</p>
+   <div id="f1Nota" hidden class="card" style="margin:.4em 0"><b>Setup di F1 25</b>
+    <p class="mu">In F1 il setup non è un file: lo cambi tu nel gioco. Simapex legge i valori che hai adesso e ti dice cosa cambiare, uno alla volta e con il motivo. Racconta il problema e tocca il tasto.</p>
+    <div class="row"><input id="f1Prob" type="text" placeholder="Per esempio: sottosterzo in uscita di curva"><button class="pri" id="f1Chiedi">Consiglio sul setup (Claude)</button></div>
+    <div id="f1Ris" class="mu"></div></div>
   <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
    <select id="assFile"></select>
    <textarea id="assSens" rows="4" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..."></textarea>
@@ -109,6 +112,10 @@
   <div class="card"><h2>Ingegnere di pista</h2>
    <p class="mu">Apri questa schermata quando esci dai box. Parla come un vero ingegnere di pista: brevi messaggi radio, solo nei punti dove puoi ascoltare (rettilinei e curve lente, mai in frenata), e ti dice quando spingere, quando risparmiare e come stanno gomme e carburante. La voce è quella di Windows.</p>
    <div class="row"><label><input type="checkbox" id="ingVoce"> Voce attiva</label><button id="ingProva">Prova la voce</button></div>
+   <div class="row"><label>Frequenza radio <select id="ingFreq"><option value="minima">Minima</option><option value="normale" selected>Normale</option><option value="alta">Alta</option></select></label>
+    <label>Tasto «parla» sul volante (numero) <input id="pttN" type="number" min="0" max="32" style="width:5em;flex:none"></label><button id="pttSalva">Salva</button></div>
+   <p class="mu" id="pttSt"></p>
+   <p class="mu">Tieni premuto il tasto sul volante, parla nel microfono delle cuffie e rilascia: l'ingegnere risponde nelle cuffie. Premi un pulsante per vedere il suo numero qui sopra.</p>
    <div id="ingMsgs" class="mu">Nessun messaggio ancora: entra in pista.</div></div>
   <div class="card"><h2>Situazione in pista</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
   <div class="card"><h2>Chiedi all'ingegnere</h2>
