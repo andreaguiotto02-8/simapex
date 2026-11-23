@@ -32,6 +32,7 @@ PISTE = {0: "melbourne", 2: "shanghai", 3: "sakhir", 4: "catalunya", 5: "monaco"
 
 MESCOLE = {16: "morbida", 17: "media", 18: "dura", 7: "intermedia", 8: "bagnato", 19: "morbida", 20: "media", 21: "dura"}
 BANDIERE = {1: "verde", 2: "blu", 3: "gialla", 4: "rossa"}
+METEO = {0: "sereno", 1: "poco nuvoloso", 2: "coperto", 3: "pioggia leggera", 4: "pioggia forte", 5: "temporale"}
 SAFETY = {1: "safety car", 2: "safety car virtuale", 3: "giro di formazione"}
 
 
@@ -135,6 +136,7 @@ class LettoreF1:
                 self._telemetria(b, o)
             elif pid == GIRI:
                 self._giri(b, o)
+                self._distacchi(b, int(n), dim)
             elif pid == STATO_AUTO:
                 self._stato_auto(b, o)
             elif pid == DANNI:
@@ -181,6 +183,36 @@ class LettoreF1:
                        "posizione": pos, "in_box": pit > 0,
                        "pos_norm": round(max(0.0, min(0.9999, dist / lunghezza)), 5) if lunghezza > 0 else 0.0})
 
+    def _distacchi(self, b, n, dim):
+        """Distacco dalla macchina davanti e vantaggio su quella dietro, e tempi dell'ultimo giro dei due."""
+        auto = []
+        for k in range(n):
+            q = INTESTAZIONE + k * dim
+            ultimo, = struct.unpack_from("<I", b, q)
+            ms, mn = struct.unpack_from("<HB", b, q + 14)
+            pos = b[q + 32]
+            auto.append((pos, ultimo, ms + mn * 60000))
+        mio = auto[self.player]
+        if mio[0] <= 0:
+            return
+
+        def vicino(p):
+            for a in auto:
+                if a[0] == p:
+                    return a
+            return None
+        dav, dietro = vicino(mio[0] - 1), vicino(mio[0] + 1)
+        for k in ("distacco_davanti_ms", "distacco_dietro_ms", "ultimo_davanti_ms", "ultimo_dietro_ms"):
+            self.d.pop(k, None)
+        if dav and mio[2] > 0:
+            self.d["distacco_davanti_ms"] = mio[2]
+            if dav[1] > 0:
+                self.d["ultimo_davanti_ms"] = dav[1]
+        if dietro and dietro[2] > 0:
+            self.d["distacco_dietro_ms"] = dietro[2]
+            if dietro[1] > 0:
+                self.d["ultimo_dietro_ms"] = dietro[1]
+
     def _stato_auto(self, b, o):
         tc, abs_, _mix, bias, limitatore = struct.unpack_from("<5B", b, o)
         carb, = struct.unpack_from("<f", b, o + 5)
@@ -197,6 +229,7 @@ class LettoreF1:
         meteo, t_pista, t_aria, giri_tot = struct.unpack_from("<BbbB", b, INTESTAZIONE)
         lung, tipo, pista = struct.unpack_from("<HBb", b, INTESTAZIONE + 4)
         self.d["_lunghezza_pista"] = lung
+        self.d["meteo"] = METEO.get(meteo, "")
         self.d["temp_aria"] = float(t_aria)
         self.d["temp_asfalto"] = float(t_pista)
         self.d["sessione"] = tipo_sessione(tipo)

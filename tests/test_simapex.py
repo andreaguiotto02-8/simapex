@@ -711,6 +711,32 @@ class TestF1(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             ingegnere.rispondi("k", "  ", {})
 
+    def test_f1_distacchi(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        corpo = bytearray(57 * 22 + 2)
+        def metti(i, pos, ultimo, delta):
+            o = i * 57
+            struct.pack_into("<I", corpo, o, ultimo)
+            struct.pack_into("<HB", corpo, o + 14, delta % 60000, delta // 60000)
+            corpo[o + 32] = pos
+        metti(2, 3, 91000, 1500)   # davanti (posizione 3)
+        metti(3, 4, 92000, 2200)   # io (posizione 4)
+        metti(4, 5, 93000, 900)    # dietro (posizione 5)
+        r.elabora(self._int(2) + bytes(corpo))
+        r.elabora(self._tele())
+        s = r.stato()
+        self.assertEqual(s["distacco_davanti_ms"], 2200)
+        self.assertEqual(s["distacco_dietro_ms"], 900)
+        self.assertEqual(s["ultimo_davanti_ms"], 91000)
+        self.assertEqual(s["ultimo_dietro_ms"], 93000)
+
+    def test_vicini_acc(self):
+        from simapex.telemetria import calcola_vicini
+        v = calcola_vicini([0, 0, 0], [0, 20], [[3, 0], [-3, 2], [0, -10], [100, 0]])
+        self.assertEqual(v[0], {"lon": 0.0, "lat": 3.0})
+        self.assertEqual(calcola_vicini([0, 0, 0], [0, 1], [[3, 0]]), [])
+
 
 if __name__ == "__main__":
     unittest.main()

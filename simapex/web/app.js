@@ -39,6 +39,8 @@ const PROVE_ING=[
  {id:"ing_radio",t:"Radio da vero ingegnere",p:["Fai una gara con la voce attiva e ascolta i messaggi in pista."],a:"I messaggi sono brevi, arrivano sui rettilinei e mai in frenata o in curva veloce, e ti dicono quando spingere, quando risparmiare carburante e come stanno le gomme."},
  {id:"ing_box",t:"Uscita dai box e giro di lancio",p:["Esci dai box in qualifica con la voce attiva."],a:"Ti dice di fare il giro di lancio e, a fine giro, che ora puoi spingere. A metà giro ti dice il distacco dal tuo migliore."},
  {id:"piano",t:"Piano per la sessione (Box)",p:["Nella schermata Box scegli prove, qualifica o gara e i giri, poi tocca «Prepara il piano» e anche «Chiedi alla squadra».","Confronta carburante, gomme e mappa con quello che faresti tu."],a:"Il piano è sensato: carburante in linea con il consumo vero, gomme adatte alla sessione, mappa motore giusta."},
+ {id:"ing_spotter",t:"Spotter: macchine vicine (solo ACC)",p:["Con la voce attiva, in gara con altre auto, affiancati a un'auto a destra e poi a sinistra."],a:"Dice «macchina a destra» o «a sinistra» dal lato giusto e «libero» quando passa. Se i lati sono scambiati, spunta «Inverti destra e sinistra» nella schermata Pista."},
+ {id:"f1_distacchi",t:"Distacchi e ritmo (F1)",p:["In gara F1 chiedi «distacco davanti», «vantaggio dietro» e «ritmo»."],a:"I secondi coincidono con quelli del gioco e a fine giro l'ingegnere li dice da solo."},
  {id:"ing_domanda",t:"Domanda all'ingegnere",p:["Nella schermata Pista scrivi una domanda, per esempio «come sono le gomme?», e tocca Chiedi."],a:"Risponde in poche frasi usando i dati di adesso (se la voce è attiva la legge)."}
 ];
 const PROVE_F1=[
@@ -152,7 +154,7 @@ function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join
 /* ---------- stato generale ---------- */
 async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
  const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const n=$("f1Nota");if(n)n.hidden=ST.gioco!=="F1 25"}
- if(schermo==="guida")disegnaGuida();applicaModo()}catch(e){}}
+ if(schermo==="guida")disegnaGuida();try{spotter()}catch(e){}applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}
 
@@ -231,7 +233,7 @@ $("quad").onclick=async e=>{const b=e.target.closest("button[data-e]");if(!b)ret
 
 /* ---------- PERCORSO ---------- */
 const AUTO={acc:()=>!!ST.collegato&&ST.stato_codice===2,gomme:()=>(ST.temp_gomme||[]).some(x=>x>0),giri:()=>(ST.giri_completati||0)>=3,delta:()=>ST.delta_ms!=null,carburante:()=>!!ST.consumo_giro,mappa:()=>!!tracciato,sessioni:()=>!!ultimaSes,apre:()=>!!ST.versione,
- f1_udp:()=>ST.gioco==="F1 25"&&!!ST.collegato,f1_giri:()=>ST.gioco==="F1 25"&&(ST.giri_completati||0)>=3,f1_mappa:()=>ST.gioco==="F1 25"&&!!tracciato,f1_carb:()=>ST.gioco==="F1 25"&&!!ST.consumo_giro,f1_usura:()=>ST.gioco==="F1 25"&&!!ST.usura_gomme,f1_delta:()=>ST.gioco==="F1 25"&&ST.delta_ms!=null,ing_voce:()=>ING.voce,ing_giro:()=>ING.msgs.some(m=>/^Giro \d/.test(m.testo)),ing_blocco:()=>ING.msgs.some(m=>/Bloccaggio/.test(m.testo)),box:()=>BOXL.length>1};
+ ing_spotter:()=>(ST.vicini||[]).length>0,f1_distacchi:()=>ST.gioco==="F1 25"&&ST.distacco_davanti_ms!=null,f1_udp:()=>ST.gioco==="F1 25"&&!!ST.collegato,f1_giri:()=>ST.gioco==="F1 25"&&(ST.giri_completati||0)>=3,f1_mappa:()=>ST.gioco==="F1 25"&&!!tracciato,f1_carb:()=>ST.gioco==="F1 25"&&!!ST.consumo_giro,f1_usura:()=>ST.gioco==="F1 25"&&!!ST.usura_gomme,f1_delta:()=>ST.gioco==="F1 25"&&ST.delta_ms!=null,ing_voce:()=>ING.voce,ing_giro:()=>ING.msgs.some(m=>/^Giro \d/.test(m.testo)),ing_blocco:()=>ING.msgs.some(m=>/Bloccaggio/.test(m.testo)),box:()=>BOXL.length>1};
 function statoAuto(){const o={};for(const k in AUTO){try{o[k]=!!AUTO[k]()}catch(e){o[k]=false}}return o}
 /* ---------- PROVE ---------- */
 function disegnaProve(){const el=$("proveLista");if(!el)return;let h="";
@@ -244,6 +246,8 @@ $("proveLista").addEventListener("change",e=>{const t=e.target.closest("textarea
 
 
 /* ---------- INGEGNERE DI PISTA E ASSISTENTE AI BOX ---------- */
+let SPOT={on:true,inv:false,prev:""};
+try{SPOT.on=localStorage.getItem("simapex_spotter")!=="0";SPOT.inv=localStorage.getItem("simapex_spotter_inv")==="1"}catch(e){}
 const TIPI_S={0:"prove libere",1:"qualifica",2:"gara",3:"giro lanciato"};
 const RUOTE_IT={ant_sx:"anteriore sinistra",ant_dx:"anteriore destra",post_sx:"posteriore sinistra",post_dx:"posteriore destra"};
 let ING={voce:false,msgs:[],ult:{},prev:{},blocchi:0,sess:null,usura:[],coda:[],tempi:[],giriDaBox:0},BOXL=[];
@@ -277,6 +281,7 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
   if(u.sessione===2&&u.posizione>0)t+=" Sei "+u.posizione+"°.";
   parla("giro"+gc,t,0);
   if(u.giri_totali&&u.giri_totali-gc===1)parla("ultimo","Ultimo giro. Dai tutto.",0);
+  if(u.giri_totali&&gc>=u.giri_totali&&u.sessione===2)parla("fine","Gara finita. Chiudi in "+u.posizione+"°. Ottimo lavoro, rientra ai box.",0,true);
  }
  // radio da ingegnere: consigli a fine giro
  consigliGiro(u,gc);
@@ -285,7 +290,7 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  // carburante
  const gf=F1G()&&u.giri_carburante_gioco!=null?u.giri_carburante_gioco:u.giri_stimati;
  if(gf!=null&&!u.in_box&&(F1G()?true:u.consumo_giro)){
-  if(gf<=1.5)parla("carb2","Carburante quasi finito: rientra ai box adesso.",60000,true);
+  if(gf<=1.5)parla("carb2","Box box. Carburante quasi finito.",60000,true);
   else if(gf<=3.2&&u.sessione!==3)parla("carb1","Carburante: restano circa "+Math.floor(gf)+" giri.",150000)}
  // gomme: temperature
  const tg=media(u.temp_gomme);
@@ -298,7 +303,7 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
   if(f.length)parla("press","Pressioni a caldo fuori intervallo: "+f.join(", ")+". Fine sessione le correggiamo.",300000)}
  // usura F1
  if(F1G()&&u.usura_gomme){const m=Math.max(...u.usura_gomme);
-  if(m>=75)parla("us75","Gomme finite, usura al "+Math.round(m)+" per cento. Rientra ai box.",120000,true);
+  if(m>=75)parla("us75","Box box. Gomme finite, usura al "+Math.round(m)+" per cento.",120000,true);
   else if(m>=60)parla("us60","Usura gomme al "+Math.round(m)+" per cento: valuta il box.",180000)}
  // safety car e bandiere
  if(u.safety_car&&!P.sc)parla("sc",(u.safety_car==="safety car virtuale"?"Safety car virtuale":"Safety car in pista")+". Rallenta: è un buon momento per il box.",0,true);
@@ -312,12 +317,26 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  else if(!P.box&&u.in_box&&P.box!==undefined)parla('entra','Sei ai box. Limitatore inserito.',0,true);
  // delta a metà giro
  if(P.pn!=null&&P.pn<0.5&&(u.pos_norm||0)>=0.5&&u.delta_ms!=null&&Math.abs(u.delta_ms)>=100&&!u.in_box&&u.sessione!==0)parla('mezzo'+gc,'Mezzo giro: '+decimi(u.delta_ms)+(u.delta_ms<0?' avanti':' indietro')+' sul tuo migliore.'+(u.delta_ms>300?' Recupera nella seconda parte.':''),0);
- ING.prev={blocco:!!u.blocco_ruota,gc,pos:u.posizione,sc:u.safety_car,band:u.bandiera,tr,box:!!u.in_box,pn:u.pos_norm};
+ radioF1(u);
+ ING.prev={da:u.distacco_davanti_ms,db:u.distacco_dietro_ms,meteo:u.meteo,ers:u.ers_pct,blocco:!!u.blocco_ruota,gc,pos:u.posizione,sc:u.safety_car,band:u.bandiera,tr,box:!!u.in_box,pn:u.pos_norm};
  // storico usura per giro (F1)
  if(F1G()&&u.usura_gomme&&(ING.usura.length===0||ING.usura[ING.usura.length-1].gc!==gc))ING.usura.push({gc,w:media(u.usura_gomme)});
 }
 
+const secs=ms=>(ms/1000).toFixed(1).replace(".",",")+" secondi";
+function radioF1(u){const P=ING.prev;if(!F1G())return;
+ const da=u.distacco_davanti_ms,db=u.distacco_dietro_ms,pa=P.da,pb=P.db;
+ if(da!=null&&pa!=null&&da<1000&&pa>=1000)parla("dav1","Sei a meno di un secondo da quello davanti. Attacca.",20000);
+ if(db!=null&&pb!=null&&db<1000&&pb>=1000)parla("dietro1","Dietro a meno di un secondo: difendi la posizione.",20000);
+ if(u.meteo&&P.meteo&&u.meteo!==P.meteo)parla("meteo","Meteo che cambia: ora "+u.meteo+(/pioggia|temporale/.test(u.meteo)?". Valuta le gomme da bagnato.":"."),0,true);
+ if(u.ers_pct!=null&&u.ers_pct<8&&(P.ers==null||P.ers>=8))parla("ers","Batteria quasi scarica: usa il recupero in frenata.",90000)}
 function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
+ if(F1G()&&u.sessione===2&&(u.distacco_davanti_ms!=null||u.distacco_dietro_ms!=null)){
+  const p=[];if(u.distacco_davanti_ms!=null)p.push("davanti "+secs(u.distacco_davanti_ms));if(u.distacco_dietro_ms!=null)p.push("dietro "+secs(u.distacco_dietro_ms));
+  let t="Distacchi: "+p.join(", ")+".";
+  if(P.da!=null&&u.distacco_davanti_ms!=null){const d=P.da-u.distacco_davanti_ms;if(Math.abs(d)>=150)t+=d>0?" Stai recuperando "+decimi(d)+" a giro.":" Quello davanti scappa di "+decimi(d)+" a giro."}
+  if(u.ultimo_davanti_ms&&u.ultimo_giro_ms>0&&u.ultimo_giro_ms<36000000){const d=u.ultimo_giro_ms-u.ultimo_davanti_ms;if(Math.abs(d)>=100)t+=" Davanti fa "+decimi(d)+(d>0?" meglio di te.":" peggio di te.")}
+  parla("gap"+gc,t,0)}
  const ok=u.ultimo_giro_ms>0&&u.ultimo_giro_ms<36000000;
  if(ok&&ING.giriDaBox>0)ING.tempi.push(u.ultimo_giro_ms);
  if(u.sessione===1&&ING.giriDaBox===0)parla("lancio","Giro di lancio finito. Ora il giro buono: spingi, gomme e freni sono pronti.",0);
@@ -367,14 +386,60 @@ function disegnaBox(){const m=$("ingMsgs");if(!m)return;
 $("ingVoce").checked=ING.voce;
 $("ingVoce").onchange=e=>{ING.voce=e.target.checked;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}};
 $("ingProva").onclick=()=>{const v=ING.voce;ING.voce=true;parla(null,"Prova radio. Qui è l'ingegnere di pista, mi senti?",0,true);ING.voce=v;if(!window.speechSynthesis)$("ingRis").textContent="Questo programma non ha la voce: puoi comunque leggere i messaggi qui."};
-$("ingChiedi").onclick=async()=>{const q=$("ingDom").value.trim();if(!q)return;$("ingRis").textContent="L'ingegnere sta guardando i dati...";
+
+/* ---------- DOMANDE ALL'INGEGNERE ---------- */
+function rispostaLocale(q){q=q.toLowerCase();const u=ST,F=F1G();if(!u.collegato)return"Non sono collegato al gioco: entra in pista e chiedimelo.";
+ const c=margineCarb(),gc=u.giri_completati||0,ms=x=>secs(x);
+ if(/distacc|davanti|chi ho/.test(q)&&!/dietro/.test(q))return F?(u.distacco_davanti_ms!=null?"Davanti hai "+ms(u.distacco_davanti_ms)+(u.distacco_davanti_ms<1000?". Sei in zona attacco.":"."):"Non ho il distacco: sei primo o non sono in gara."):"In ACC non ho i distacchi dagli avversari, solo i tuoi tempi.";
+ if(/dietro|vantaggio|difend/.test(q))return F?(u.distacco_dietro_ms!=null?"Hai "+ms(u.distacco_dietro_ms)+" di vantaggio su quello dietro"+(u.distacco_dietro_ms<1000?": difenditi.":"."):"Non ho il dato: sei ultimo o non sono in gara."):"In ACC non ho i distacchi dagli avversari.";
+ if(/ritmo|passo|differenza|veloc/.test(q)){const l=ING.tempi.slice(-3);let t=l.length?"Il tuo passo medio degli ultimi giri è "+tempoMs(media(l))+".":"Non ho ancora giri puliti per misurare il passo.";
+  if(F&&u.ultimo_davanti_ms&&u.ultimo_giro_ms<36000000){const d=u.ultimo_giro_ms-u.ultimo_davanti_ms;t+=" Quello davanti ha fatto "+decimi(d)+(d>0?" meglio":" peggio")+" di te nell'ultimo giro."}
+  if(F&&u.ultimo_dietro_ms&&u.ultimo_giro_ms<36000000){const d=u.ultimo_giro_ms-u.ultimo_dietro_ms;t+=" Quello dietro "+decimi(d)+(d>0?" meglio":" peggio")+"."}return t}
+ if(/gomm|usura|pression/.test(q)){const t=media(u.temp_gomme);let r="Gomme: "+(t?Math.round(t)+" gradi di media":"temperature non disponibili");
+  if(F&&u.usura_gomme)r+=", usura "+Math.round(media(u.usura_gomme))+" per cento"+(u.mescola?", mescola "+u.mescola:"")+(u.eta_gomme!=null?", "+u.eta_gomme+" giri":"");
+  if(!F&&(u.pressioni||[]).length===4)r+=", pressioni "+u.pressioni.map(x=>x.toFixed(1)).join(" ");return r+"."}
+ if(/carburante|benzina|serbatoio/.test(q))return u.carburante!=null?"Hai "+u.carburante.toFixed(1)+(F?" chili":" litri")+(c.gf!=null?", circa "+c.gf.toFixed(1)+" giri":"")+(c.m!=null?(c.m<0?". Non bastano: ti mancano "+Math.abs(c.m).toFixed(1)+" giri.":". Bastano fino alla fine con "+c.m.toFixed(1)+" giri di margine."):"."):"Non ho il dato del carburante.";
+ if(/mete|piogg|bagnato|asciutto/.test(q))return F?"Meteo: "+(u.meteo||"non disponibile")+(u.temp_aria!=null?", aria "+Math.round(u.temp_aria)+", asfalto "+Math.round(u.temp_asfalto)+" gradi.":"."):"In ACC non ho il meteo. Asfalto "+Math.round(u.temp_asfalto||0)+" gradi.";
+ if(/posizion|che sono|in che/.test(q))return u.posizione>0?"Sei in posizione "+u.posizione+".":"Non ho la posizione.";
+ if(/quanti giri|mancano|rimast/.test(q))return c.rimasti!=null?"Mancano circa "+c.rimasti+" giri.":"Non so quanti giri mancano: la sessione non me lo dice.";
+ if(/box|rientr|pit|sosta/.test(q)){const L=[];if(c.m!=null&&c.m<0)L.push("per il carburante serve un pit: ti mancano "+Math.abs(c.m).toFixed(1)+" giri");
+  if(F&&u.usura_gomme){const w=media(u.usura_gomme);L.push(w>=60?"gomme al "+Math.round(w)+" per cento: rientra presto":"gomme al "+Math.round(w)+" per cento: per ora reggono")}
+  if(u.safety_car)L.push("c'è la "+u.safety_car+": buon momento per rientrare");return L.length?"Box: "+L.join("; ")+".":"Per ora non serve rientrare."}
+ if(/spingo|spingere|attacc|risparm|push/.test(q)){const L=[];if(c.m!=null&&c.m<0)L.push("risparmia carburante, ti mancano "+Math.abs(c.m).toFixed(1)+" giri");else if(c.m!=null&&c.m>=2)L.push("hai carburante in più, puoi spingere");
+  if(F&&u.distacco_davanti_ms!=null&&u.distacco_davanti_ms<2500)L.push("quello davanti è a "+ms(u.distacco_davanti_ms)+": spingi per prenderlo");
+  if(F&&u.distacco_dietro_ms!=null&&u.distacco_dietro_ms<1500)L.push("quello dietro è a "+ms(u.distacco_dietro_ms)+": non rilassarti");
+  if(F&&u.usura_gomme&&media(u.usura_gomme)>=60)L.push("gomme consumate, gestiscile");
+  return L.length?L.join(". ")+".":"Ritmo da mantenere: nessuna ragione per cambiare."}
+ if(/ers|batteria/.test(q))return u.ers_pct!=null?"Batteria ERS al "+u.ers_pct+" per cento.":"Non ho il dato ERS.";
+ return null}
+async function chiediIng(q){q=(q||"").trim();if(!q)return;$("ingDom").value=q;const l=rispostaLocale(q);
+ if(l){$("ingRis").textContent="";parla(null,l,0,true);disegnaBox();return}
+ $("ingRis").textContent="L'ingegnere sta guardando i dati...";
  try{const d=Object.assign({},ST,{blocchi:ING.blocchi});delete d.funzioni;const j=await api("/api/ingegnere",{domanda:q,dati:d});
-  if(j.ok){$("ingRis").textContent="";parla(null,"Risposta: "+j.risposta,0,true);disegnaBox()}else $("ingRis").textContent="Non riesco: "+j.errore}catch(e){$("ingRis").textContent="Il programma non risponde."}};
-$("ingDom").onkeydown=e=>{if(e.key==="Enter")$("ingChiedi").click()};
+  if(j.ok){$("ingRis").textContent="";parla(null,j.risposta,0,true);disegnaBox()}else $("ingRis").textContent="Non riesco: "+j.errore}catch(e){$("ingRis").textContent="Il programma non risponde."}}
+$("ingChiedi").onclick=()=>chiediIng($("ingDom").value);
+$("ingChips").onclick=e=>{const b=e.target.closest("button[data-q]");if(b)chiediIng(b.dataset.q)};
+$("spotOn").checked=SPOT.on;$("spotInv").checked=SPOT.inv;
+$("spotOn").onchange=e=>{SPOT.on=e.target.checked;try{localStorage.setItem("simapex_spotter",SPOT.on?"1":"0")}catch(x){}};
+$("spotInv").onchange=e=>{SPOT.inv=e.target.checked;try{localStorage.setItem("simapex_spotter_inv",SPOT.inv?"1":"0")}catch(x){}};
+(function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition,b=$("ingMic");if(!SR){b.hidden=true;return}let rec=null,on=false;
+ b.onclick=()=>{if(on){try{rec.stop()}catch(e){}return}
+  try{rec=new SR();rec.lang="it-IT";rec.interimResults=false;rec.onresult=ev=>{const t=ev.results[0][0].transcript;$("ingDom").value=t;chiediIng(t)};
+   rec.onerror=ev=>{$("ingRis").textContent="Il microfono non parte (codice: "+ev.error+"). Per ora scrivi la domanda o usa i tasti."};rec.onend=()=>{on=false;b.textContent="🎤"};rec.start();on=true;b.textContent="⏹"}
+  catch(x){$("ingRis").textContent="Microfono non disponibile: "+x.message}}})();
+$("ingDom").onkeydown=e=>{if(e.key==="Enter")chiediIng($("ingDom").value)};
 setInterval(()=>{try{ingegnere();if(schermo==="pista")disegnaBox();else BOXL=strategia()}catch(e){}},1000);
 setInterval(()=>{try{svuotaCoda()}catch(e){}},300);
 if(window.speechSynthesis)try{speechSynthesis.getVoices()}catch(e){}
 
+
+
+/* ---------- SPOTTER (ACC): macchine vicine ---------- */
+function spotter(){const u=ST;if(F1G()||!SPOT.on||!ING.voce||!u.collegato||u.stato_codice!==2||u.in_box){SPOT.prev="";return}
+ let dx=false,sx=false;(u.vicini||[]).forEach(c=>{if(Math.abs(c.lon)<=5.5&&Math.abs(c.lat)>=1.2&&Math.abs(c.lat)<=4.5){const dest=SPOT.inv?c.lat<0:c.lat>0;if(dest)dx=true;else sx=true}});
+ const k=(dx?"D":"")+(sx?"S":"");
+ if(k!==SPOT.prev){if(dx&&sx)parla("spot",k!==SPOT.prev?"Macchine da entrambi i lati.":"",1200,true);else if(dx)parla("spot","Attenzione, macchina a destra.",1200,true);else if(sx)parla("spot","Attenzione, macchina a sinistra.",1200,true);
+  else if(SPOT.prev)parla("spotl","Libero.",1200,true);SPOT.prev=k}}
 
 /* ---------- PIANO PER LA SESSIONE (Box) ---------- */
 function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri").value||1),F=F1G(),U=F?"kg":"L",L=[];

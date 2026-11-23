@@ -86,6 +86,7 @@ def decodifica_physics(b):
     }
     if len(b) >= 416:  # letture aggiuntive (offset da verificare con guida reale)
         out["vel_ruote"] = [round(x, 2) for x in _4f(b, 104)]   # rad/s
+        out["vettore_vel"] = [round(_f(b, 32), 2), round(_f(b, 40), 2)]   # velocità nel mondo (x, z) in m/s
         out["abs"] = round(_f(b, 252), 2)
         out["temp_aria"] = round(_f(b, 288), 1)
         out["temp_asfalto"] = round(_f(b, 292), 1)
@@ -114,7 +115,30 @@ def decodifica_graphics(b):
         mio = _i(b, 1216)
         idx = ids.index(mio) if mio in ids else 0
         out["coordinate"] = [round(x, 1) for x in struct.unpack_from("<3f", b, 256 + idx * 12)]
+        n = max(0, min(60, _i(b, 252)))
+        out["_altri"] = [[round(x, 1), round(z, 1)] for k in range(n) if k != idx
+                         for x, _y, z in [struct.unpack_from("<3f", b, 256 + k * 12)]]
     return out
+
+
+def calcola_vicini(coord, vel, altri, raggio=25.0):
+    """Macchine vicine rispetto alla mia: lon = metri davanti (+) o dietro (-), lat = metri a destra (+) o sinistra (-).
+    La direzione di marcia si ricava dalla velocità; serve almeno 5 m/s. (Il verso destra/sinistra si può invertire in Simapex.)"""
+    if not coord or not vel or not altri:
+        return []
+    vx, vz = vel[0], vel[1]
+    v = (vx * vx + vz * vz) ** 0.5
+    if v < 5.0:
+        return []
+    fx, fz = vx / v, vz / v
+    out = []
+    for x, z in altri:
+        dx, dz = x - coord[0], z - coord[2]
+        lon, lat = dx * fx + dz * fz, dx * fz - dz * fx
+        if abs(lon) <= raggio and abs(lat) <= raggio:
+            out.append({"lon": round(lon, 1), "lat": round(lat, 1)})
+    out.sort(key=lambda c: abs(c["lon"]) + abs(c["lat"]))
+    return out[:6]
 
 
 def _decodifica_graphics_base(b, ultimo, migliore):
@@ -151,6 +175,8 @@ class Lettore:
             grafica = self._leggi("graphics")
             if grafica and len(grafica) >= 152:
                 out.update(decodifica_graphics(grafica))
+            if out.get("_altri") is not None:
+                out["vicini"] = calcola_vicini(out.get("coordinate"), out.get("vettore_vel"), out.pop("_altri"))
             statica = self._leggi("static")
             if statica and len(statica) >= 200:
                 out.update(decodifica_static(statica))

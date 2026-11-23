@@ -112,9 +112,11 @@
    <div id="ingMsgs" class="mu">Nessun messaggio ancora: entra in pista.</div></div>
   <div class="card"><h2>Situazione in pista</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
   <div class="card"><h2>Chiedi all'ingegnere</h2>
-   <p class="mu">Per esempio: «Quanti giri posso fare con questo carburante?» oppure «Come sono le gomme?». Usa Claude (serve la chiave nelle Impostazioni).</p>
-   <div class="row"><input id="ingDom" type="text" style="flex:1;min-width:14em" placeholder="Scrivi la tua domanda"><button class="pri" id="ingChiedi">Chiedi</button></div>
-   <div id="ingRis" class="mu"></div></div>
+   <p class="mu">Chiedi quello che vuoi: risponde subito con i dati di adesso (distacchi, ritmo, gomme, carburante, meteo, box). Se la domanda è più strana, chiede a Claude (serve la chiave nelle Impostazioni).</p>
+   <div class="row" id="ingChips"><button data-q="Devo spingere?">Devo spingere?</button><button data-q="Distacco davanti">Distacco davanti</button><button data-q="Vantaggio dietro">Vantaggio dietro</button><button data-q="Ritmo">Ritmo</button><button data-q="Gomme">Gomme</button><button data-q="Carburante">Carburante</button><button data-q="Quando rientro?">Quando rientro?</button><button data-q="Meteo">Meteo</button></div>
+   <div class="row"><input id="ingDom" type="text" style="flex:1;min-width:14em" placeholder="Scrivi la tua domanda"><button id="ingMic" title="Parla">🎤</button><button class="pri" id="ingChiedi">Chiedi</button></div>
+   <div id="ingRis" class="mu"></div>
+   <div class="row"><label><input type="checkbox" id="spotOn"> Spotter ACC: avvisa delle macchine vicine</label><label><input type="checkbox" id="spotInv"> Inverti destra e sinistra</label></div></div></div>
  </div>
 </section>
 
