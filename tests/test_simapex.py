@@ -469,6 +469,29 @@ class TestTelecomando(unittest.TestCase):
         self.assertEqual((t.conta["invio"], t.conta["su"]), (2, 1))
 
 
+class TestDisegnoPulito(unittest.TestCase):
+    def test_giro_sporco_non_disegna_e_rifa_il_vecchio(self):
+        import math
+        from simapex import circuito
+        cart = tempfile.mkdtemp()
+        r = circuito.Registratore(cart)
+
+        def giro(gc, valido):
+            for k in range(400):
+                a = 2 * math.pi * k / 400
+                r.alimenta({"collegato": True, "pista": "x", "giri_completati": gc, "pos_norm": (k + 0.5) / 400,
+                            "coordinate": [500 * math.cos(a), 0, 500 * math.sin(a)], "velocita": 100,
+                            "giro_valido": valido if k > 5 else True})
+        r.alimenta({"collegato": True, "pista": "x", "giri_completati": 0, "pos_norm": 0.0})
+        giro(0, True)
+        giro(1, False)      # giro sporco: chiude il giro 1 senza disegnare
+        giro(2, True)       # il giro 2 si chiude quando parte il 3
+        r.alimenta({"collegato": True, "pista": "x", "giri_completati": 3, "pos_norm": 0, "coordinate": [0, 0, 0], "velocita": 0, "giro_valido": True})
+        t = circuito.carica_tracciato("x", cart)
+        self.assertIsNotNone(t)
+        self.assertTrue(t.get("pulito"))
+
+
 class TestMulti(unittest.TestCase):
     def test_acc_spento_non_copre_f1(self):
         from simapex import f1 as _f1

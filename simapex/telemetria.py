@@ -9,7 +9,7 @@ NOMI_PAGINE = {
     "static": "Local\\acpmf_static",
 }
 BYTE_LETTI = 512
-BYTE_PAGINA = {"physics": 512, "graphics": 1280, "static": 256}
+BYTE_PAGINA = {"physics": 512, "graphics": 1420, "static": 256}
 STATI = {0: "spento", 1: "replay", 2: "in pista", 3: "pausa"}
 
 
@@ -105,6 +105,8 @@ def decodifica_graphics(b):
     if len(b) >= 1220:  # posizione sul giro e coordinate dell'auto (offset da verificare con guida reale)
         out["pos_norm"] = round(_f(b, 248), 5)
         out["in_box"] = bool(_i(b, 160))
+        if len(b) >= 1412:
+            out["giro_valido"] = bool(_i(b, 1408))   # ACC: 0 se hai tagliato/sei uscito dai limiti pista (offset da verificare)
         tl = _f(b, 152)          # tempo rimasto nella sessione, in ms (offset da verificare con guida reale)
         if 0 < tl < 86400000:
             out["tempo_rimasto_s"] = round(tl / 1000.0)

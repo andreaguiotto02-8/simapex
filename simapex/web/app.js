@@ -292,7 +292,7 @@ function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex
 function riempiVoci(){const e=$("ingVoceSel");if(!e)return;const L=vociIt(),v=voceIng();e.innerHTML=L.length?L.map(x=>`<option value="${esc(x.name)}"${v&&x.name===v.name?" selected":""}>${esc(x.name.replace(/^Microsoft /,""))}</option>`).join(""):"<option>Nessuna voce italiana trovata</option>"}
 try{speechSynthesis.onvoiceschanged=riempiVoci}catch(e){}
 function emetti(testo,grave){if(ING.voce)bip(1300,45);ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
- if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=1.0;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+ if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=1.0;u.volume=1;u.pitch=1;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
  if(schermo==="pista")disegnaBox()}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
  if(grave||sicuro()){emetti(testo,grave);return}

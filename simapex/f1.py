@@ -182,7 +182,7 @@ class LettoreF1:
         self.d.update({"giri_completati": max(0, giro - 1), "giro_corrente_ms": corrente,
                        "ultimo_giro_ms": ultimo if ultimo > 0 else 2147483647,
                        "miglior_giro_ms": self.migliore_ms if self.migliore_ms else 2147483647,
-                       "posizione": pos, "in_box": pit > 0,
+                       "posizione": pos, "in_box": pit > 0, "giro_valido": not self._invalido,
                        "pos_norm": round(max(0.0, min(0.9999, dist / lunghezza)), 5) if lunghezza > 0 else 0.0})
 
     def _setup(self, b, o):

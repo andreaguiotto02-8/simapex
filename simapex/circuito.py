@@ -77,6 +77,7 @@ class Registratore:
         self.pista = None
         self.sporco = False
         self.prec = 0.0
+        self.controllo_validita = False
 
     def alimenta(self, d):
         if not d.get("collegato"):
@@ -88,13 +89,21 @@ class Registratore:
             self.pista, self.giro, self.punti, self.sporco, self.prec = pista, gc, [], False, 0.0
             return
         if gc != self.giro:
-            if gc == self.giro + 1 and not self.sporco and carica_tracciato(pista, self.cartella) is None:
-                t = costruisci(self.punti)
-                if t:
-                    self._salva(pista, t)
+            if gc == self.giro + 1 and not self.sporco:
+                vecchio = carica_tracciato(pista, self.cartella)
+                # si disegna col primo giro pulito; un disegno fatto prima senza controllo della validità si rifà al primo giro valido
+                if vecchio is None or (self.controllo_validita and not vecchio.get("pulito") and vecchio.get("origine") == "registrato da ACC"):
+                    t = costruisci(self.punti)
+                    if t:
+                        t["pulito"] = bool(self.controllo_validita)
+                        self._salva(pista, t)
             self.giro, self.punti, self.sporco, self.prec = gc, [], False, 0.0
             return
         pos, c = d.get("pos_norm"), d.get("coordinate")
+        if d.get("giro_valido") is True:
+            self.controllo_validita = True    # il dato esiste ed è credibile (l'ho visto "valido" almeno una volta)
+        if self.controllo_validita and d.get("giro_valido") is False:
+            self.sporco = True               # fuori pista o limiti tagliati: questo giro non serve per il disegno
         if pos is None or not c or d.get("in_box"):
             if d.get("in_box"):
                 self.sporco = True
