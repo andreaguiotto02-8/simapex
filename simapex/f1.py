@@ -290,12 +290,22 @@ class LettoreMulti:
 
     def stato(self):
         s = self.acc.stato()
-        # ACC conta come aperto solo se non è "spento": la memoria condivisa può restare presente
-        # (altri programmi, ACC chiuso male) anche col gioco chiuso
-        acc_vivo = bool(s.get("collegato")) and s.get("stato_codice") not in (0, None)
+        # ACC conta come aperto solo se i suoi dati si muovono davvero: la memoria condivisa può
+        # restare presente (ACC chiuso male, altri programmi) anche col gioco chiuso
+        ora = time.time()
+        pid = s.get("pacchetto")
+        if pid is not None and pid != getattr(self, "_pid", None):
+            self._pid, self._t_pid = pid, ora
+        movimento = pid is None or ora - getattr(self, "_t_pid", 0) < 3
+        acc_vivo = bool(s.get("collegato")) and s.get("stato_codice") not in (0, None) and movimento
         if acc_vivo:
             s["gioco"] = "ACC"
             return s
+        f = self.f1.stato()
+        if f.get("collegato"):
+            return f
+        s["collegato"] = False
+        return s
         f = self.f1.stato()
         if f.get("collegato"):
             return f

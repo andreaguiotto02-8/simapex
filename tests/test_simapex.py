@@ -470,6 +470,13 @@ class TestMulti(unittest.TestCase):
         self.assertEqual(_f1.LettoreMulti(A(0), F()).stato()["gioco"], "F1 25")
         self.assertEqual(_f1.LettoreMulti(A(2), F()).stato()["gioco"], "ACC")
 
+        class Fermo:  # memoria condivisa rimasta lì, ma i dati non si muovono più
+            def stato(s): return {"collegato": True, "stato_codice": 2, "pacchetto": 7}
+        m = _f1.LettoreMulti(Fermo(), F())
+        m.stato()
+        m._t_pid -= 10
+        self.assertEqual(m.stato()["gioco"], "F1 25")
+
 
 class TestTastiVolante(unittest.TestCase):
     def test_assegna_e_conta(self):

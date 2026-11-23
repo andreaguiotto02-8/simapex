@@ -171,6 +171,7 @@ class Lettore:
             if not fisica or len(fisica) < 168:
                 return out
             out["collegato"] = True
+            out["pacchetto"] = _i(fisica, 0)  # cambia di continuo solo se ACC sta davvero girando
             out.update(decodifica_physics(fisica))
             grafica = self._leggi("graphics")
             if grafica and len(grafica) >= 152:
