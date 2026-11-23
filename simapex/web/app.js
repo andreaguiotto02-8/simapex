@@ -582,24 +582,30 @@ disegnaProve();giro();giroSetup();controllaAgg();
 setInterval(giro,200);setInterval(giroMappe,2000);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);
 
-// Telecomando a tastiera (tastierino numerico, Bloc Num acceso): muove un contorno arancione e clicca come il mouse
-let TE=null,TEsel=null;
+// Telecomando a tastiera (frecce, Invio, Cancella; si accende con Bloc Scorr): contorno arancione che si muove come col mouse
+let TE=null,TEsel=null,TEmod=false;
 function teElementi(){const sc=document.getElementById("s-"+schermo);const a=[...document.querySelectorAll("#nav button")];
  if(sc)a.push(...sc.querySelectorAll("button,input:not([type=hidden]),select,textarea,.sess,summary,a[href]"));
  return a.filter(e=>e.offsetParent!==null&&!e.disabled&&getComputedStyle(e).visibility!=="hidden")}
-function teSegna(e){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=e;if(e){e.classList.add("tele");e.scrollIntoView({block:"center",behavior:"smooth"})}}
-function teMuovi(d){const L=teElementi();if(!L.length)return;let i=L.indexOf(TEsel);if(i<0)i=d>0?-1:0;i=(i+d+L.length)%L.length;teSegna(L[i])}
+function teSegna(e){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=e;TEmod=false;if(e){e.classList.add("tele");e.scrollIntoView({block:"center",behavior:"smooth"})}}
+function teDir(d){const L=teElementi();if(!L.length)return;if(!TEsel||!document.contains(TEsel)||L.indexOf(TEsel)<0){teSegna(L[0]);return}
+ const r=TEsel.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let best=null,bs=1e9;
+ for(const e of L){if(e===TEsel)continue;const q=e.getBoundingClientRect(),x=q.left+q.width/2-cx,y=q.top+q.height/2-cy;
+  const av=d==="giu"?y:d==="su"?-y:d==="dx"?x:-x,la=(d==="giu"||d==="su")?Math.abs(x):Math.abs(y);if(av<=2)continue;const sc=av+la*2.2;if(sc<bs){bs=sc;best=e}}
+ if(best)teSegna(best)
+ else{const i=L.indexOf(TEsel),k=(d==="giu"||d==="dx")?1:-1,n=L[i+k];if(n)teSegna(n)}}
 function teAzione(n){
- if(n==="n8"||n==="n4")return teMuovi(-1);
- if(n==="n2"||n==="n6")return teMuovi(1);
- if(n==="n5"||n==="n0"){const e=TEsel&&document.contains(TEsel)?TEsel:null;if(!e)return teMuovi(1);if(e.tagName==="SELECT"){e.selectedIndex=(e.selectedIndex+1)%e.options.length;e.dispatchEvent(new Event("change",{bubbles:true}))}else e.click();return}
- if(n==="add"||n==="sub"){const e=TEsel;if(!e)return;if(e.tagName==="SELECT"){const k=e.options.length;e.selectedIndex=(e.selectedIndex+(n==="add"?1:k-1))%k;e.dispatchEvent(new Event("change",{bubbles:true}))}else if(e.type==="number"||e.type==="range"){n==="add"?e.stepUp():e.stepDown();e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))}return}
- if(n==="n7")return window.scrollBy({top:-window.innerHeight*0.7,behavior:"smooth"});
- if(n==="n9")return window.scrollBy({top:window.innerHeight*0.7,behavior:"smooth"});
- if(n==="n1")return azioneVolante("indietro");
- if(n==="n3")return azioneVolante("avanti")}
-function telecomando(){const T=ST.tele;if(!T)return;if(TE){for(const n in T){{let k=Math.min(6,(T[n]||0)-(TE[n]||0));if(k>0&&!TEsel){teMuovi(1);k=0}while(k-->0)teAzione(n)}}}TE=Object.assign({},T)}
-
+ if(n==="canc")n="indietro";
+ if(TEmod&&TEsel){const e=TEsel;if(n==="indietro"||n==="invio"){TEmod=false;e.classList.remove("tele-mod");return}
+  if(e.tagName==="SELECT"&&(n==="su"||n==="giu")){const k=e.options.length;e.selectedIndex=(e.selectedIndex+(n==="giu"?1:k-1))%k;e.dispatchEvent(new Event("change",{bubbles:true}));return}
+  if((e.type==="number"||e.type==="range")&&(n==="su"||n==="giu"||n==="sx"||n==="dx")){(n==="su"||n==="dx")?e.stepUp():e.stepDown();e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}));return}}
+ if(n==="su"||n==="giu"||n==="sx"||n==="dx")return teDir(n);
+ if(n==="invio"){const e=TEsel&&document.contains(TEsel)?TEsel:null;if(!e)return teDir("giu");
+  if(e.tagName==="SELECT"||e.type==="number"||e.type==="range"){TEmod=true;e.classList.add("tele-mod");return}
+  e.click();return}
+ if(n==="indietro"){const nav=[...document.querySelectorAll("#nav button")].find(b=>b.dataset.s===schermo);if(nav)teSegna(nav)}}
+function telecomando(){const T=ST.tele;if(!T)return;if(TE&&ST.tele_acceso!==false){for(const n in T){let k=Math.min(6,(T[n]||0)-(TE[n]||0));while(k-->0)teAzione(n)}}TE=Object.assign({},T);
+ if(ST.tele_acceso===false&&TEsel){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=null}}
 // Invio automatico dei dati: ogni giro nuovo (al massimo ogni 2 minuti) e quando il gioco si chiude, senza toccare niente
 let INV={g:null,t:0,col:false};
 setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,ora=Date.now();

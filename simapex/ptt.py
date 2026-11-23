@@ -82,10 +82,10 @@ class Ptt:
 
 
 
-# Telecomando: tasti del tastierino numerico letti anche quando Simapex non è la finestra attiva
-# (Bloc Num acceso). Nome -> codice virtuale di Windows.
-TASTI_TELECOMANDO = {"n0": 0x60, "n1": 0x61, "n2": 0x62, "n3": 0x63, "n4": 0x64, "n5": 0x65, "n6": 0x66,
-                     "n7": 0x67, "n8": 0x68, "n9": 0x69, "mul": 0x6A, "add": 0x6B, "sub": 0x6D, "dec": 0x6E, "div": 0x6F}
+# Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva.
+# Nome -> codice virtuale di Windows. Si accende e si spegne con Bloc Scorr (Scroll Lock).
+TASTI_TELECOMANDO = {"su": 0x26, "giu": 0x28, "sx": 0x25, "dx": 0x27, "invio": 0x0D, "indietro": 0x08, "canc": 0x2E}
+VK_BLOC_SCORR = 0x91
 
 
 def _lettore_tastiera():
@@ -93,9 +93,17 @@ def _lettore_tastiera():
     u = ctypes.WinDLL("user32")
     u.GetAsyncKeyState.argtypes = [ctypes.c_int]
     u.GetAsyncKeyState.restype = ctypes.c_short
+    u.GetKeyState.argtypes = [ctypes.c_int]
+    u.GetKeyState.restype = ctypes.c_short
 
     def premuti():
+        if not (u.GetKeyState(VK_BLOC_SCORR) & 1):   # interruttore spento: nessun comando
+            return set()
         return {n for n, vk in TASTI_TELECOMANDO.items() if u.GetAsyncKeyState(vk) & 0x8000}
+
+    def acceso():
+        return bool(u.GetKeyState(VK_BLOC_SCORR) & 1)
+    premuti.acceso = acceso
     return premuti
 
 
@@ -105,6 +113,10 @@ class Tastiera:
         self.conta = {n: 0 for n in TASTI_TELECOMANDO}
         self._prima = set()
         self._attivo = False
+
+    def acceso(self):
+        f = getattr(self._premuti, "acceso", None)
+        return bool(f()) if f else True
 
     def avvia(self):
         if self._premuti is None:

@@ -396,6 +396,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt_visti"] = _ptt.ultimi
                 d["gioco_aperto"] = gioco_aperto()
                 d["tele"] = dict(_tastiera.conta)
+                d["tele_acceso"] = _tastiera.acceso()
                 d["tasti"] = dict(_ptt.azioni)
                 d["tasti_conta"] = dict(_ptt.conta)
                 d["tasti_assegna"] = _ptt.assegna
