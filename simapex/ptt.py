@@ -82,10 +82,10 @@ class Ptt:
 
 
 
-# Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva. Si accende con Ctrl+Alt+K (o Bloc Scorr).
+# Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva. Si accende con Bloc Maiusc (Caps Lock) o con Ctrl+Alt+K.
 # Nome -> codice virtuale di Windows. 
 TASTI_TELECOMANDO = {"su": 0x26, "giu": 0x28, "sx": 0x25, "dx": 0x27, "invio": 0x0D, "indietro": 0x08, "canc": 0x2E}
-VK_BLOC_SCORR = 0x91
+VK_BLOC_MAIUSC = 0x14   # Caps Lock: acceso = telecomando acceso
 
 
 def _lettore_tastiera():
@@ -102,7 +102,7 @@ def _lettore_tastiera():
         return all(u.GetAsyncKeyState(vk) & 0x8000 for vk in (0x11, 0x12, 0x4B))   # Ctrl + Alt + K
 
     def acceso():
-        return stato["on"] or bool(u.GetKeyState(VK_BLOC_SCORR) & 1)
+        return stato["on"] or bool(u.GetKeyState(VK_BLOC_MAIUSC) & 1)
 
     def premuti():
         c = combinazione()
