@@ -432,7 +432,7 @@ class Gestore(BaseHTTPRequestHandler):
                 if not k:
                     self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API) nelle Impostazioni."}), "application/json")
                 else:
-                    r = ingegnere.rispondi(k, c.get("domanda"), c.get("dati") if isinstance(c.get("dati"), dict) else {})
+                    r = ingegnere.rispondi(k, c.get("domanda"), c.get("dati") if isinstance(c.get("dati"), dict) else {}, bool(c.get("piano")))
                     self._invia(200, json.dumps({"ok": True, "risposta": r}), "application/json")
             except RuntimeError as e:
                 self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")

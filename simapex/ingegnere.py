@@ -27,10 +27,18 @@ def contesto(d):
     return "\n".join(r) or "Nessun dato in diretta (gioco non collegato)."
 
 
-def rispondi(chiave, domanda, dati):
-    domanda = str(domanda or "").strip()[:500]
+SISTEMA_PIANO = ("Sei la squadra ai box (ingegnere di pista, ingegnere ai box e meccanici) di un pilota italiano di simulatori "
+                 "(Assetto Corsa Competizione GT3 oppure F1 25). Prepari il piano per la prossima uscita in pista. Rispondi in italiano "
+                 "semplice, una riga breve per voce (Carburante, Gomme, Mappa motore, Quando spingere, Quando risparmiare), senza "
+                 "elenchi puntati e senza termini difficili. Usa solo i dati ricevuti e il piano base; se un numero manca dillo. "
+                 "ABS, controllo di trazione e mappa motore le cambia solo il pilota: consigliale, non darle per fatte. "
+                 "Le regole esatte del gioco o del server possono cambiare: ricorda di controllarle quando conta.")
+
+
+def rispondi(chiave, domanda, dati, piano=False):
+    domanda = str(domanda or "").strip()[:2500 if piano else 500]
     if not domanda:
         raise RuntimeError("Scrivi una domanda.")
     testo, _ = claude_api.chiedi(chiave, "Dati in diretta:\n%s\n\nDomanda del pilota: %s" % (contesto(dati or {}), domanda),
-                                 sistema=SISTEMA, max_token=300)
+                                 sistema=SISTEMA_PIANO if piano else SISTEMA, max_token=600 if piano else 300)
     return testo.strip()

@@ -10,8 +10,8 @@
  <nav id="nav">
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
-  <button data-s="setup">Setup</button>
-  <button data-s="box" class="solo-dev">Box</button>
+  <button data-s="setup">Box</button>
+  <button data-s="pista" class="solo-dev">Pista</button>
   <button data-s="prove" class="solo-dev">Percorso</button>
   <button data-s="aiuto">Aiuto</button>
   <button data-s="impostazioni">Impostazioni</button>
@@ -78,6 +78,13 @@
 <!-- SETUP -->
 <section id="s-setup" class="schermo" hidden>
  <div class="setup">
+  <div class="w" data-f="piano" data-t="Piano per la sessione" id="pianoBox"><h3>Piano per la sessione (la squadra ai box)</h3>
+   <p class="mu">Dimmi cosa devi fare in pista: il programma ti suggerisce carburante, gomme e mappa motore. Se il gioco è aperto usa il consumo vero che ha misurato.</p>
+   <div class="row"><select id="pnTipo"><option value="1">Qualifica</option><option value="0">Prove libere</option><option value="2" selected>Gara</option></select>
+    <label>Giri <input id="pnGiri" type="number" min="1" max="200" value="10" style="width:5em;flex:none"></label>
+    <label>Consumo a giro <input id="pnCons" type="number" step="0.1" min="0" placeholder="auto" style="width:6em;flex:none"></label>
+    <button class="pri" id="pnCalcola">Prepara il piano</button><button id="pnClaude">Chiedi alla squadra (Claude)</button></div>
+   <div id="pnRis" class="mu">Scegli sessione e giri, poi tocca «Prepara il piano».</div></div>
   <div class="w sc1" data-f="base" data-t="Setup con l'assistente">
    <h3>Setup</h3>
    <p class="st ko" id="f1Nota" hidden>Con F1 25 i setup non sono file che il programma può scrivere: per ora qui funzionano solo i dati in diretta, i giri, le sessioni e le pressioni. I consigli di setup per F1 li aggiungiamo dopo i primi test.</p>
@@ -96,14 +103,14 @@
 </section>
 
 <!-- PERCORSO (solo Sviluppo) -->
-<!-- BOX: ingegnere di pista e assistente ai box -->
-<section id="s-box" class="schermo" hidden>
+<!-- PISTA: ingegnere di pista -->
+<section id="s-pista" class="schermo" hidden>
  <div class="imp">
   <div class="card"><h2>Ingegnere di pista</h2>
-   <p class="mu">Ti parla mentre guidi (blocchi in frenata, tempi del giro, carburante, gomme, safety car). Tieni Simapex aperto, anche su un altro schermo. La voce è quella di Windows.</p>
+   <p class="mu">Apri questa schermata quando esci dai box. Parla come un vero ingegnere di pista: brevi messaggi radio, solo nei punti dove puoi ascoltare (rettilinei e curve lente, mai in frenata), e ti dice quando spingere, quando risparmiare e come stanno gomme e carburante. La voce è quella di Windows.</p>
    <div class="row"><label><input type="checkbox" id="ingVoce"> Voce attiva</label><button id="ingProva">Prova la voce</button></div>
    <div id="ingMsgs" class="mu">Nessun messaggio ancora: entra in pista.</div></div>
-  <div class="card"><h2>Assistente ai box</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
+  <div class="card"><h2>Situazione in pista</h2><div id="boxLinee" class="mu">Entra in pista: ti dico carburante, gomme e quando rientrare.</div></div>
   <div class="card"><h2>Chiedi all'ingegnere</h2>
    <p class="mu">Per esempio: «Quanti giri posso fare con questo carburante?» oppure «Come sono le gomme?». Usa Claude (serve la chiave nelle Impostazioni).</p>
    <div class="row"><input id="ingDom" type="text" style="flex:1;min-width:14em" placeholder="Scrivi la tua domanda"><button class="pri" id="ingChiedi">Chiedi</button></div>
@@ -174,8 +181,8 @@
   <div class="card"><h2>Formula 1 25</h2>
    <p>Simapex legge anche F1 25 (con il pacchetto 2026): in F1 vai su Impostazioni → Telemetria, UDP On, indirizzo 127.0.0.1, porta 20777, frequenza 20 Hz o più, formato <b>2025</b>. Se Windows chiede il permesso di rete, premi Consenti. In alto compare «F1 25 collegato». Guida, Sessioni e confronti funzionano come in ACC; i setup di F1 non sono file, quindi qui non vengono creati.</p></div>
 
-  <div class="card"><h2>Ingegnere di pista e Box</h2>
-   <p>Nella schermata <b>Box</b> (per ora solo in Sviluppo) c'è l'ingegnere che ti parla mentre guidi: blocchi, tempo del giro, carburante, gomme, safety car. L'assistente ai box ti dice se il carburante basta fino alla fine e quando rientrare per le gomme, con consigli diversi per prove, qualifica e gara. Puoi anche fargli una domanda scritta.</p></div>
+  <div class="card"><h2>Pista e Box: la tua squadra</h2>
+   <p><b>Box</b> (dove c'era Setup): prima di uscire dici cosa devi fare (prove, qualifica, gara, quanti giri) e il programma prepara il piano: carburante, gomme, mappa motore. Sotto c'è l'assistente per il setup. <b>Pista</b> (per ora solo in Sviluppo): quando esci dai box ti parla l'ingegnere di pista, con messaggi brevi come alla radio, e puoi fargli una domanda scritta.</div>
 
   <div class="card"><h2>Gioca e Sviluppo</h2>
    <p><b>Gioca</b> mostra solo le funzioni che abbiamo già verificato. <b>Sviluppo</b> mostra anche quelle ancora da provare: ogni riquadro ha un pallino in alto a destra, e toccandolo segni se funziona o no e puoi scrivere una nota. In Sviluppo c'è anche la sezione <b>Percorso</b>, la giornata di prova guidata. Il tasto in alto a destra cambia modalità.</p></div>
