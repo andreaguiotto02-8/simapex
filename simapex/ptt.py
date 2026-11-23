@@ -57,7 +57,7 @@ class Ptt:
     def _ciclo(self):
         while self._attivo:
             self.passo()
-            time.sleep(0.03)
+            time.sleep(0.01)
 
     def passo(self):
         try:
