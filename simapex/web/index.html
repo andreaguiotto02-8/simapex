@@ -8,6 +8,7 @@
  <b class="logo">SIMAPEX</b><span class="v" id="ver">v__VERSIONE__</span>
  <span class="pill" id="acc">Gioco non collegato</span>
  <nav id="nav">
+  <button data-s="giochi">Giochi</button>
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
   <button data-s="setup">Box</button>
@@ -25,7 +26,13 @@
 
 <main>
 <!-- GUIDA: schermata da tenere aperta mentre guidi -->
-<section id="s-guida" class="schermo">
+<section id="s-giochi" class="schermo" hidden>
+ <div class="card"><h2>Scegli il gioco</h2>
+  <p class="mu">Ogni gioco ha le sue schermate: vedi solo i dati di quel gioco. Puoi cambiare quando vuoi da «Giochi» nel menu in alto.</p>
+  <div class="row" id="giochiLista"><button class="pri grande" data-g="ACC">Assetto Corsa Competizione</button><button class="pri grande" data-g="F1 25">F1 25 (anche pacchetto 2026)</button></div>
+  <p class="mu" id="giochiNota"></p></div>
+</section>
+<section id="s-guida" class="schermo" hidden>
  <div class="guida">
   <div class="w g-gomme" data-f="gomme" data-t="Gomme">
    <div class="gomme4" id="gomme4"></div>

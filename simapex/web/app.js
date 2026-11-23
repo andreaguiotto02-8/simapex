@@ -2,6 +2,8 @@
 const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
 let tMappa=0, ST={}, FUN={}, SETUP={}, assId=null, schermo="guida", pistaMappa=null, tracciato=null, sesAperta=null, rifSel="precedente", ultimaSes=null;
+let GSEL="";try{GSEL=localStorage.getItem("simapex_gioco")||""}catch(e){}
+const giocoDi=x=>/^f1_/.test(x||"")?"F1 25":"ACC";
 let MODO="dev";try{MODO=localStorage.getItem("simapex_modo")||"dev"}catch(e){}
 
 /* ---------- funzioni da provare (le stesse in Gioca e Sviluppo) ---------- */
@@ -63,6 +65,7 @@ const PROVE_F1=[
  {id:"f1_2026",t:"Auto e piste del pacchetto 2026",p:["Se guidi un'auto o una pista nuova del pacchetto 2026 guarda auto e pista nelle Sessioni."],a:"Il nome è sensato. Se vedi «circuito_NN» o «team_NN» scrivimi il numero e lo aggiungo."}
 ];
 const TUTTE=()=>PROVE.concat(PROVE_ING,PROVE_F1);
+const TUTTE_G=()=>GSEL==="F1 25"?PROVE.filter(p=>p.id==="apre").concat(PROVE_ING,PROVE_F1):GSEL==="ACC"?PROVE.concat(PROVE_ING):TUTTE();
 let MAPPE=null,mappeAuto=null,mappeTentata={};
 function testoMappa(n){return n?"mappa "+n:"la mappa consigliata nella nota qui sopra (se non c'è, quella di partenza)"}
 async function giroMappe(){const a=ST.auto;if(!a||mappeAuto===a)return;mappeAuto=a;MAPPE=null;
@@ -115,9 +118,12 @@ async function setFun(id,d){try{const r=await api("/api/funzione",Object.assign(
 document.addEventListener("click",e=>{if(!e.target.closest(".popup")&&!e.target.closest(".pallino"))chiudiPopup()});
 
 /* ---------- navigazione ---------- */
+function disegnaGiochi(){const n=$("giochiNota");if(n)n.textContent=GSEL?"Gioco scelto: "+GSEL+".":"Scegli un gioco per iniziare.";document.querySelectorAll("#giochiLista button").forEach(b=>b.classList.toggle("act",b.dataset.g===GSEL))}
+function applicaGioco(){document.body.classList.toggle("g-f1",GSEL==="F1 25");document.body.classList.toggle("g-acc",GSEL==="ACC");const b=document.querySelector("#nav [data-s=giochi]");if(b)b.textContent=GSEL||"Giochi"}
 function vai(s){schermo=s;document.querySelectorAll(".schermo").forEach(x=>x.hidden=x.id!=="s-"+s);document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("act",b.dataset.s===s));
- if(s==="sessioni")giroSessioni();if(s==="setup"){giroQuaderno();riempiAss()}if(s==="prove")disegnaProve();if(s==="pista")disegnaBox();if(s==="guida")disegnaGuida()}
+ if(s==="giochi")disegnaGiochi();if(s==="sessioni")giroSessioni();if(s==="setup"){giroQuaderno();riempiAss()}if(s==="prove")disegnaProve();if(s==="pista")disegnaBox();if(s==="guida")disegnaGuida()}
 $("aiutoVai").onclick=()=>{try{localStorage.setItem("simapex_aiuto_visto","1")}catch(e){}vai("guida")};
+$("giochiLista").onclick=e=>{const b=e.target.closest("button[data-g]");if(!b)return;GSEL=b.dataset.g;try{localStorage.setItem("simapex_gioco",GSEL)}catch(x){}sesAperta=null;pistaMappa=null;tracciato=null;applicaGioco();vai("guida")};
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)vai(b.dataset.s)};
 $("intero").onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen()}catch(e){}};
 $("chiudi").onclick=async()=>{try{await fetch("/api/chiudi",{method:"POST"})}catch(e){}document.body.innerHTML="<p style='padding:30px'>Programma chiuso. Puoi chiudere questa pagina.</p>"};
@@ -158,14 +164,14 @@ function xy(x,z,b){return[((x-b.mx+b.ox)/b.W*270+15),((b.Mz-z+b.oz)/b.W*270+15)]
 function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join(",")).join(" ")}
 
 /* ---------- stato generale ---------- */
-async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
- const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":ST.gioco_aperto?ST.gioco_aperto+" aperto: in attesa dei dati (entra in pista)":"Gioco non collegato";a.className="pill"+(ST.collegato||ST.gioco_aperto?" on":"");$("ver").textContent="v"+ST.versione;{const F=ST.gioco==="F1 25",n=$("f1Nota");if(n)n.hidden=!F;["assFile","assBase","assVai","assPress","accNota"].forEach(i=>{const e=$(i);if(e)e.style.display=F?"none":""})}
+async function giro(){try{ST=await api("/api/stato");if(GSEL&&ST.collegato&&ST.gioco!==GSEL){ST.altro_gioco=ST.gioco;ST.collegato=false;ST.gioco=GSEL}FUN=ST.funzioni||FUN;
+ const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":ST.altro_gioco?ST.altro_gioco+" è attivo, ma hai scelto "+GSEL:ST.gioco_aperto&&(!GSEL||ST.gioco_aperto===GSEL)?ST.gioco_aperto+" aperto: in attesa dei dati (entra in pista)":"Gioco non collegato";a.className="pill"+(ST.collegato||ST.gioco_aperto?" on":"");$("ver").textContent="v"+ST.versione;{const F=F1G(),n=$("f1Nota");if(n)n.hidden=!F;["assFile","assBase","assVai","assPress","accNota"].forEach(i=>{const e=$(i);if(e)e.style.display=F?"none":""})}
  if(schermo==="guida")disegnaGuida();try{spotter();radioPtt()}catch(e){}applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}
 
 /* ---------- SESSIONI ---------- */
-async function giroSessioni(){try{const l=(await api("/api/sessioni")).sessioni||[];if(!l.length)return;
+async function giroSessioni(){try{let l=(await api("/api/sessioni")).sessioni||[];if(GSEL)l=l.filter(x=>giocoDi(x.auto)===GSEL);if(!l.length){$("sesLista").innerHTML=`<p class="mu">Nessuna sessione di ${esc(GSEL||"questo gioco")} ancora: dopo qualche giro compare qui.</p>`;$("rep").innerHTML="";return}
  $("sesLista").innerHTML=l.map(x=>`<div class="sess ${x.id===sesAperta?"act":""}" data-s="${x.id}"><b>${esc(bello(x.pista))}</b> · ${x.miglior_giro}${x.tipo?` <span class="pill">${esc(x.tipo)}</span>`:""}<small>${esc(bello(x.auto))}</small><small>${dt(x.data)} · ${x.giri} giri${x.blocchi?" · "+x.blocchi+" blocchi":""}</small></div>`).join("");
  if(sesAperta===null||sesAperta===l[0].id)apriSessione(sesAperta===null?l[0].id:sesAperta,true)}catch(e){}}
 $("sesLista").onclick=e=>{const t=e.target.closest(".sess");if(t){apriSessione(parseInt(t.dataset.s));giroSessioni()}};
@@ -259,7 +265,7 @@ const AUTO={acc:()=>!!ST.collegato&&ST.stato_codice===2,gomme:()=>(ST.temp_gomme
 function statoAuto(){const o={};for(const k in AUTO){try{o[k]=!!AUTO[k]()}catch(e){o[k]=false}}return o}
 /* ---------- PROVE ---------- */
 function disegnaProve(){const el=$("proveLista");if(!el)return;let h="";
- TUTTE().forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
+ TUTTE_G().forEach((p,i)=>{const x=FUN[p.id]||{};if(p.g)h+=`<h3>${p.g}</h3>`;
   const au=AUTO[p.id]&&AUTO[p.id]();h+=`<div class="prova"><b>${i+1}. ${esc(p.t)}</b><span class="st ${x.s==="ok"?"ok":x.s==="ko"?"ko":""}"> ${x.s==="ok"?"Funziona":x.s==="ko"?"Non funziona":""}</span>${au?`<span class="pill on" style="margin-left:.5em">visto dal programma</span>`:""}<ol>${p.p.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>${p.r?`<div class="st" style="color:var(--ye)"><b>Ritmo e mappa:</b> ${esc(p.r.replace(/__MAPPA_C__/g,testoMappa(MAPPE&&MAPPE.mappa_giri_costanti)).replace(/__MAPPA_S__/g,testoMappa(MAPPE&&MAPPE.mappa_spinta)))}</div>`:""}<div class="mu">Cosa deve succedere: ${esc(p.a.replace("__VERSIONE__",ST.versione||""))}</div><div class="row"><button class="ok ${x.s==="ok"?"sel":""}" data-p="${p.id}" data-s="ok">Funziona</button><button class="ko ${x.s==="ko"?"sel":""}" data-p="${p.id}" data-s="ko">Non funziona</button></div><textarea data-n="${p.id}" placeholder="Nota (facoltativa)">${esc(x.n||"")}</textarea></div>`});
  h=`<div class="prova"><b>Commento generale</b><div class="mu">Scrivi qui qualsiasi cosa che non va o che vorresti diverso, anche non legata a un punto preciso.</div><textarea data-n="generale" placeholder="Commento libero">${esc((FUN.generale||{}).n||"")}</textarea></div>`+h;
  if(el.dataset.h!==h){const f=document.activeElement;if(f&&f.dataset&&f.dataset.n)return;el.innerHTML=h;el.dataset.h=h}}
@@ -274,7 +280,7 @@ const TIPI_S={0:"prove libere",1:"qualifica",2:"gara",3:"giro lanciato"};
 const RUOTE_IT={ant_sx:"anteriore sinistra",ant_dx:"anteriore destra",post_sx:"posteriore sinistra",post_dx:"posteriore destra"};
 let ING={consigli:[],voce:false,msgs:[],ult:{},prev:{},blocchi:0,sess:null,usura:[],coda:[],tempi:[],giriDaBox:0},BOXL=[];
 try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
-const F1G=()=>ST.gioco==="F1 25";
+const F1G=()=>(GSEL||ST.gioco)==="F1 25";
 const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
 let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
@@ -577,7 +583,7 @@ $("claudeProva").onclick=async()=>{$("claudeMsg").textContent="Sto chiamando Cla
 async function controllaAgg(){try{const j=await api("/api/aggiornamenti");if(j.disponibile){$("aggv").textContent="v"+j.ultima;$("agg").hidden=false;$("aggb").onclick=()=>window.open(j.scarica,"_blank")}}catch(e){}}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
 
-costruisciGomme();applicaModo();try{if(!localStorage.getItem("simapex_aiuto_visto"))vai("aiuto")}catch(e){}
+costruisciGomme();applicaModo();applicaGioco();try{if(!GSEL)vai("giochi");else if(!localStorage.getItem("simapex_aiuto_visto"))vai("aiuto")}catch(e){}
 disegnaProve();giro();giroSetup();controllaAgg();
 setInterval(giro,200);setInterval(giroMappe,2000);setInterval(()=>{if(schermo==="prove")disegnaProve()},3000);setInterval(giroSetup,5000);setInterval(controllaAgg,3600000);
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);

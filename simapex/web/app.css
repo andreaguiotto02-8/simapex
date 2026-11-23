@@ -82,3 +82,4 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 
 .tele{outline:3px solid #ff7a1a!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(255,122,26,.25)!important}
 .tele-mod{outline-color:#2ecc71!important;box-shadow:0 0 0 6px rgba(46,204,113,.3)!important}
+.grande{padding:1em 1.4em;font-size:1.1em}
