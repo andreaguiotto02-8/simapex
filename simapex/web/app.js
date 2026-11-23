@@ -569,7 +569,7 @@ $("pnClaude").onclick=async()=>{const L=pianoLocale();disegnaPiano(L);$("pnRis")
 
 /* ---------- invio a Claude ---------- */
 function istantanea(){const u=ST;return {collegato:u.collegato,auto:u.auto,pista:u.pista,velocita:u.velocita,marcia:u.marcia,giri_motore:u.giri_motore,carburante:u.carburante,pressioni:u.pressioni,temp_gomme:u.temp_gomme,ultimo_giro:u.ultimo_giro,miglior_giro:u.miglior_giro,delta_ms:u.delta_ms}}
-function raccogli(){return {ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:TUTTE().map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
+function raccogli(){return {telecomando_log:TL.slice(-40),ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:TUTTE().map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
 let tAuto=null;function autoInvia(){if(!ST.invio_configurato)return;clearTimeout(tAuto);tAuto=setTimeout(async()=>{try{const p=raccogli();p.automatico=true;p.istantanea=istantanea();const j=await api("/api/invia",p);if($("invioSt"))$("invioSt").textContent=j.ok?"Inviato a Claude da solo alle "+new Date().toLocaleTimeString("it-IT"):"Invio non riuscito: "+j.errore}catch(e){}},4000)}
 $("invia").onclick=async()=>{if(!ST.invio_configurato){$("copiato").textContent="Prima serve la chiave di accesso (qui sopra).";return}
  $("copiato").textContent="Invio in corso...";try{const j=await api("/api/invia",raccogli());$("copiato").textContent=j.ok?"Inviato a Claude. Scrivi «controlla» nella chat.":"Invio non riuscito: "+j.errore}catch(e){$("copiato").textContent="Invio non riuscito: il programma non risponde."}};
@@ -589,7 +589,9 @@ setInterval(giro,200);setInterval(giroMappe,2000);setInterval(()=>{if(schermo===
 setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")giroQuaderno();aggiornaClaudeSt()},5000);
 
 // Telecomando a tastiera (frecce, Invio, Cancella; si accende con Bloc Scorr): contorno arancione che si muove come col mouse
-let TE=null,TEsel=null,TEmod=false;
+let TE=null,TEsel=null,TEmod=false;const TL=[];
+const teNome=e=>e?((e.id?"#"+e.id+" ":"")+(e.dataset&&e.dataset.s?"["+e.dataset.s+"] ":"")+(e.textContent||e.value||e.tagName).trim().slice(0,30)):"-";
+const teXY=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.left+r.width/2),Math.round(r.top+r.height/2)]};
 function teElementi(){const sc=document.getElementById("s-"+schermo);const a=[...document.querySelectorAll("#nav button")];
  if(sc)a.push(...sc.querySelectorAll("button,input:not([type=hidden]),select,textarea,.sess,summary,a[href]"));
  return a.filter(e=>e.offsetParent!==null&&!e.disabled&&getComputedStyle(e).visibility!=="hidden")}
@@ -602,7 +604,8 @@ function teDir(d){const L=teElementi();if(!L.length)return;if(!TEsel||!document.
   const av=d==="giu"?y:d==="su"?-y:d==="dx"?x:-x,la=(d==="giu"||d==="su")?Math.abs(x):Math.abs(y);if(av<=2)continue;const sc=av+la*2.2;if(sc<bs){bs=sc;best=e}}
  if(best){teSegna(best);teAuto(best)}
  else{const i=L.indexOf(TEsel),k=(d==="giu"||d==="dx")?1:-1,n=L[i+k];if(n){teSegna(n);teAuto(n)}}}
-function teAzione(n){
+function teAzione(n){const da=TEsel;try{teAzione2(n)}finally{TL.push({t:new Date().toLocaleTimeString("it-IT"),tasto:n,da:teNome(da),da_xy:teXY(da),a:teNome(TEsel),a_xy:teXY(TEsel),schermo});if(TL.length>60)TL.shift()}}
+function teAzione2(n){
  if(n==="canc")n="indietro";
  if(TEmod&&TEsel){const e=TEsel;if(n==="indietro"||n==="invio"){TEmod=false;e.classList.remove("tele-mod");return}
   if(e.tagName==="SELECT"&&(n==="su"||n==="giu")){const k=e.options.length;e.selectedIndex=(e.selectedIndex+(n==="giu"?1:k-1))%k;e.dispatchEvent(new Event("change",{bubbles:true}));return}
