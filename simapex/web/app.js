@@ -189,7 +189,7 @@ function disegnaReport(j){
   const opt=(k,t)=>`<option value="${esc(k)}"${k===kb?" selected":""}>${esc(t)}</option>`;
   return `<div class="cmpbox"><div><small class="mu">1) Scegli il tuo giro di questa sessione</small><table class="cmpt">${D.map(x=>`<tr><td><input type="radio" name="cmpA" value="${esc(x.k)}"${x.k===ka?" checked":""}></td><td>Giro ${x.giro}</td><td><b>${esc(x.tempo)}</b></td><td class="mu">${x.pulito?"":"lento o sporco"}</td></tr>`).join("")}</table></div>
   <div><small class="mu">2) Confrontalo con</small><select id="cmpB"><optgroup label="Giri di riferimento">${R.map(r=>opt(r.k,r.nome+" · "+tempoMs(r.tempo_ms))).join("")}</optgroup><optgroup label="Altri tuoi giri su questa pista">${O.map(x=>opt(x.k,"Giro "+tempoMs(x.tempo_ms)+" · "+new Date(x.ts*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+(x.record?" ★":""))).join("")}</optgroup></select>
-  <div class="row"><button class="pri" data-cmp="vai">Confronta</button>${CMP.a?`<button data-cmp="auto">Confronti automatici</button>`:""}</div></div></div>`})()}`;
+  <div class="row"><small class="mu">Il confronto parte da solo quando scegli i giri.</small>${CMP.a?`<button data-cmp="auto">Confronti automatici</button>`:""}</div></div></div>`})()}`;
  if(j._t){const [X,Z]=ruota(j._t.x,j._t.z,rotGet(j.pista)),b=limiti(X,Z),n=X.length;let sv="";
   if(rif){const per=n/rif.segmenti.length;rif.segmenti.forEach((ms,s)=>{const a=Math.floor(s*per),e=Math.min(n,Math.floor((s+1)*per)+1);const pts=[];for(let i=a;i<=e;i++)pts.push(xy(X[i%n],Z[i%n],b).map(v=>v.toFixed(1)).join(","));sv+=`<polyline points="${pts.join(" ")}" fill="none" stroke="${coloreSeg(ms)}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`});
    [].concat(rif.guadagni,rif.perdite).forEach(s=>{const i=Math.floor((s+0.5)*n/rif.segmenti.length)%n,q=xy(X[i],Z[i],b);sv+=`<circle cx="${q[0]}" cy="${q[1]}" r="11" fill="#0b0e13" stroke="${coloreSeg(rif.segmenti[s])}" stroke-width="2"/><text x="${q[0]}" y="${q[1]+4}" text-anchor="middle" font-size="11" fill="#fff">${s+1}</text>`})}
@@ -221,6 +221,7 @@ function disegnaReport(j){
  h+="</div>";
  $("rep").innerHTML=h;applicaModo();
 }
+$("rep").onchange=e=>{const t=e.target;if(t&&(t.name==="cmpA"||t.id==="cmpB")){const r=document.querySelector("input[name=cmpA]:checked"),b=$("cmpB");if(r&&b&&b.value){CMP={a:r.value,b:b.value};apriSessione(sesAperta)}}};
 $("rep").onclick=e=>{const ro=e.target.closest("button[data-rot]");if(ro){const v=+ro.dataset.rot;rotSet(sesAperta&&ultimaSes?ultimaSes.pista:"",v===0?0:rotGet(ultimaSes.pista)+v);tracciato=null;pistaMappa=null;apriSessione(sesAperta);return}const c=e.target.closest("button[data-cmp]");if(c){if(c.dataset.cmp==="vai"){const r=document.querySelector("input[name=cmpA]:checked");if(!r)return;CMP={a:r.value,b:$("cmpB").value}}else CMP={a:"",b:""};apriSessione(sesAperta);return}
  const b=e.target.closest("button[data-r]");if(b&&ultimaSes){rifSel=b.dataset.r;if(CMP.a){CMP={a:"",b:""};apriSessione(sesAperta)}else disegnaReport(ultimaSes)}};
 

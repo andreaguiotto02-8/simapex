@@ -470,26 +470,26 @@ class TestTelecomando(unittest.TestCase):
 
 
 class TestDisegnoPulito(unittest.TestCase):
-    def test_giro_sporco_non_disegna_e_rifa_il_vecchio(self):
+    def test_mediana_scarta_giro_sporco_e_rifa_il_vecchio(self):
         import math
         from simapex import circuito
         cart = tempfile.mkdtemp()
         r = circuito.Registratore(cart)
 
-        def giro(gc, valido):
+        def giro(gc, raggio, tempo):
             for k in range(400):
                 a = 2 * math.pi * k / 400
                 r.alimenta({"collegato": True, "pista": "x", "giri_completati": gc, "pos_norm": (k + 0.5) / 400,
-                            "coordinate": [500 * math.cos(a), 0, 500 * math.sin(a)], "velocita": 100,
-                            "giro_valido": valido if k > 5 else True})
+                            "coordinate": [raggio * math.cos(a), 0, raggio * math.sin(a)], "velocita": 100, "ultimo_giro_ms": tempo})
         r.alimenta({"collegato": True, "pista": "x", "giri_completati": 0, "pos_norm": 0.0})
-        giro(0, True)
-        giro(1, False)      # giro sporco: chiude il giro 1 senza disegnare
-        giro(2, True)       # il giro 2 si chiude quando parte il 3
-        r.alimenta({"collegato": True, "pista": "x", "giri_completati": 3, "pos_norm": 0, "coordinate": [0, 0, 0], "velocita": 0, "giro_valido": True})
+        giro(0, 800, 0)          # primo giro sporco (largo); i pacchetti portano il tempo del giro appena chiuso
+        giro(1, 500, 90000)
+        giro(2, 500, 80000)
+        giro(3, 500, 80100)
+        r.alimenta({"collegato": True, "pista": "x", "giri_completati": 4, "pos_norm": 0, "coordinate": [0, 0, 0], "velocita": 0, "ultimo_giro_ms": 80200})
         t = circuito.carica_tracciato("x", cart)
-        self.assertIsNotNone(t)
-        self.assertTrue(t.get("pulito"))
+        self.assertGreaterEqual(t["giri_usati"], 3)
+        self.assertAlmostEqual(max(t["x"]), 500, delta=2)
 
 
 class TestMulti(unittest.TestCase):

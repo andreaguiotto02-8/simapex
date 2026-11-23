@@ -57,6 +57,9 @@ def costruisci(punti):
             xs.append(sx[i] / n[i]); zs.append(sz[i] / n[i]); vs.append(sv[i] / n[i])
         else:
             xs.append(xs[-1] if xs else 0.0); zs.append(zs[-1] if zs else 0.0); vs.append(vs[-1] if vs else 0.0)
+    prima = next(i for i in range(PUNTI) if n[i])
+    for i in range(prima):          # buchi all'inizio del giro: si usa il primo punto disponibile
+        xs[i], zs[i], vs[i] = xs[prima], zs[prima], vs[prima]
     passi = [math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]) for i in range(1, PUNTI)]
     ampiezza = max(max(xs) - min(xs), max(zs) - min(zs))
     if ampiezza < 150 or max(passi) > 150:  # troppo piccolo o con salti: dato non valido
@@ -78,6 +81,7 @@ class Registratore:
         self.sporco = False
         self.prec = 0.0
         self.controllo_validita = False
+        self.cand = []
 
     def alimenta(self, d):
         if not d.get("collegato"):
@@ -87,23 +91,18 @@ class Registratore:
             return
         if pista != self.pista or self.giro is None:
             self.pista, self.giro, self.punti, self.sporco, self.prec = pista, gc, [], False, 0.0
+            self.cand = []
             return
         if gc != self.giro:
             if gc == self.giro + 1 and not self.sporco:
-                vecchio = carica_tracciato(pista, self.cartella)
-                # si disegna col primo giro pulito; un disegno fatto prima senza controllo della validità si rifà al primo giro valido
-                if vecchio is None or (self.controllo_validita and not vecchio.get("pulito") and vecchio.get("origine") == "registrato da ACC"):
-                    t = costruisci(self.punti)
-                    if t:
-                        t["pulito"] = bool(self.controllo_validita)
-                        self._salva(pista, t)
+                t = costruisci(self.punti)
+                if t:
+                    self.cand.append((d.get("ultimo_giro_ms") or 0, t))
+                    self.cand = self.cand[-10:]
+                    self._aggiorna(pista)
             self.giro, self.punti, self.sporco, self.prec = gc, [], False, 0.0
             return
         pos, c = d.get("pos_norm"), d.get("coordinate")
-        if d.get("giro_valido") is True:
-            self.controllo_validita = True    # il dato esiste ed è credibile (l'ho visto "valido" almeno una volta)
-        if self.controllo_validita and d.get("giro_valido") is False:
-            self.sporco = True               # fuori pista o limiti tagliati: questo giro non serve per il disegno
         if pos is None or not c or d.get("in_box"):
             if d.get("in_box"):
                 self.sporco = True
@@ -112,6 +111,37 @@ class Registratore:
             self.sporco = True
         self.prec = pos
         self.punti.append((pos, c[0], c[2], d.get("velocita") or 0))
+
+    def _aggiorna(self, pista):
+        """Il disegno è la mediana dei giri migliori: un giro sporco o fuori traiettoria viene scartato dagli altri."""
+        con_tempo = [c for c in self.cand if c[0] > 0]
+        if con_tempo:
+            mn = min(c[0] for c in con_tempo)
+            usati = sorted([c for c in con_tempo if c[0] <= mn * 1.05], key=lambda c: c[0])[:5]
+        else:
+            usati = self.cand[-3:]
+        n = len(usati)
+        if not n:
+            return
+        vecchio = carica_tracciato(pista, self.cartella)
+        if not con_tempo and vecchio is not None:
+            return
+        firma = sorted(c[0] for c in usati)
+        if vecchio is not None and (vecchio.get("origine") != "registrato da ACC" or vecchio.get("firma") == firma
+                                    or n < vecchio.get("giri_usati", 0)):
+            return
+        if n == 1:
+            t = dict(usati[0][1])
+        else:
+            def med(k):
+                return [sorted(u[1][k][i] for u in usati)[n // 2] for i in range(len(usati[0][1][k]))]
+            t = dict(usati[0][1], x=[round(v, 1) for v in med("x")], z=[round(v, 1) for v in med("z")], v=[round(v) for v in med("v")])
+            xs, zs = t["x"], t["z"]
+            t["lunghezza_m"] = round(sum(math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]) for i in range(1, len(xs))))
+        t["giri_usati"] = n
+        t["firma"] = firma
+        t["pulito"] = n >= 3
+        self._salva(pista, t)
 
     def _salva(self, pista, t):
         try:
