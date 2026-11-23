@@ -599,3 +599,10 @@ function teAzione(n){
  if(n==="n1")return azioneVolante("indietro");
  if(n==="n3")return azioneVolante("avanti")}
 function telecomando(){const T=ST.tele;if(!T)return;if(TE){for(const n in T){{let k=Math.min(6,(T[n]||0)-(TE[n]||0));if(k>0&&!TEsel){teMuovi(1);k=0}while(k-->0)teAzione(n)}}}TE=Object.assign({},T)}
+
+// Invio automatico dei dati: ogni giro nuovo (al massimo ogni 2 minuti) e quando il gioco si chiude, senza toccare niente
+let INV={g:null,t:0,col:false};
+setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,ora=Date.now();
+ if(col&&ST.giri_completati!==INV.g&&ora-INV.t>120000){INV.g=ST.giri_completati;INV.t=ora;autoInvia()}
+ else if(!col&&INV.col){INV.t=ora;autoInvia()}
+ INV.col=col}catch(e){}},5000);
