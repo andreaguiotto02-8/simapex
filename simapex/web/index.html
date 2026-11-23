@@ -6,7 +6,7 @@
 </head><body>
 <header id="top">
  <b class="logo">SIMAPEX</b><span class="v" id="ver">v__VERSIONE__</span>
- <span class="pill" id="acc">ACC non collegato</span>
+ <span class="pill" id="acc">Gioco non collegato</span>
  <nav id="nav">
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
@@ -79,7 +79,8 @@
  <div class="setup">
   <div class="w sc1" data-f="base" data-t="Setup con l'assistente">
    <h3>Setup</h3>
-   <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
+   <p class="st ko" id="f1Nota" hidden>Con F1 25 i setup non sono file che il programma può scrivere: per ora qui funzionano solo i dati in diretta, i giri, le sessioni e le pressioni. I consigli di setup per F1 li aggiungiamo dopo i primi test.</p>
+  <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
    <select id="assFile"></select>
    <textarea id="assSens" rows="4" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..."></textarea>
    <div class="row"><button id="assMic" data-f="mic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai" data-f="migliora1">Migliora (una modifica alla volta)</button><button id="assPress" data-f="pressioni" title="Sistema le pressioni a caldo con i dati dei tuoi giri, senza Claude">Correggi le pressioni</button></div>

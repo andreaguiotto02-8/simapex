@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, claude_api, invio
-from . import circuito, esito, mappe, pressioni, tracce
+from . import circuito, esito, f1, mappe, pressioni, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
@@ -19,7 +19,7 @@ from .versione import VERSIONE
 
 PORTA = 8765
 _ultima_richiesta = [time.time()]
-_lettore = Lettore()
+_lettore = f1.LettoreMulti(Lettore(), f1.LettoreF1(log=lambda m: scrivi_log(m)))
 _fermati = threading.Event()
 
 
@@ -159,7 +159,7 @@ def consumo_per_giro(auto, pista):
     return round(sum(d) / len(d), 2) if d else None
 
 
-FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi")
+FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi", "gomme", "delta", "carburante", "sessioni", "dettaglio", "confronto", "esito")
 
 
 def funzioni():
@@ -547,7 +547,7 @@ class Gestore(BaseHTTPRequestHandler):
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "f1": getattr(getattr(_lettore, "f1", None), "diag", lambda: None)(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:
@@ -593,6 +593,11 @@ def main(apri_browser=True):
             apri_finestra("http://127.0.0.1:%d/" % PORTA)
         return
     scrivi_log("avviato versione " + VERSIONE)
+    try:
+        if hasattr(_lettore, "f1") and _lettore.f1.avvia():
+            scrivi_log("F1 25: in ascolto sulla porta %d" % f1.PORTA)
+    except Exception as e:
+        scrivi_log("F1 25: avvio non riuscito (%s)" % e)
     aggiorna.pulisci_vecchi()
     avviato = [False]
 

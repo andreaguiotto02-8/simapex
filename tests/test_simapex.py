@@ -601,5 +601,77 @@ class TestPressioniESessioni(unittest.TestCase):
         self.assertEqual(reg.giri[-1]["sess"], 2)
 
 
+class TestF1(unittest.TestCase):
+    def _int(self, pid, player=3):
+        # formato 2025, anno 25, versione 1.0, pacchetto pid, 22 auto
+        return struct.pack("<HBBBBBQfIIBB", 2025, 25, 1, 0, 1, pid, 1, 12.5, 100, 100, player, 255)
+
+    def _tele(self, player=3):
+        corpo = bytearray(60 * 22 + 3)
+        o = player * 60
+        struct.pack_into("<Hfff", corpo, o, 180, 0.8, -0.2, 0.0)
+        struct.pack_into("<bH", corpo, o + 15, 4, 9000)
+        struct.pack_into("<4H", corpo, o + 22, 400, 410, 300, 310)             # RL RR FL FR
+        struct.pack_into("<4B", corpo, o + 34, 90, 91, 80, 81)
+        struct.pack_into("<4f", corpo, o + 40, 22.0, 22.1, 23.0, 23.1)
+        return self._int(6, player) + bytes(corpo)
+
+    def test_telemetria_e_ordine_ruote(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        r.elabora(self._tele())
+        s = r.d
+        self.assertEqual(s["marcia"], "4")
+        self.assertEqual(s["velocita"], 180.0)
+        self.assertEqual(s["pressioni"], [23.0, 23.1, 22.0, 22.1])      # ordine ACC: ant sx, ant dx, post sx, post dx
+        self.assertEqual(s["temp_gomme"], [80.0, 81.0, 90.0, 91.0])
+        self.assertEqual(len(self._tele()), 1352)
+
+    def test_giri_sessione_pista(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        sess = bytearray(753 - 29)
+        struct.pack_into("<BbbB", sess, 0, 0, 30, 24, 5)
+        struct.pack_into("<HBb", sess, 4, 7004, 15, 10)    # lunghezza, gara, Spa
+        r.elabora(self._int(1) + bytes(sess))
+        corpo = bytearray(57 * 22 + 2)
+        o = 3 * 57
+        struct.pack_into("<II", corpo, o, 0, 30000)
+        struct.pack_into("<f", corpo, o + 20, 3502.0)
+        struct.pack_into("<6B", corpo, o + 32, 4, 2, 0, 0, 1, 0)
+        r.elabora(self._int(2) + bytes(corpo))
+        r.elabora(self._tele())
+        s = r.stato()
+        self.assertTrue(s["collegato"])
+        self.assertEqual(s["gioco"], "F1 25")
+        self.assertEqual(s["pista"], "spa")
+        self.assertEqual(s["sessione"], 2)
+        self.assertEqual(s["giri_completati"], 1)
+        self.assertAlmostEqual(s["pos_norm"], 0.5, places=2)
+        self.assertEqual(s["posizione"], 4)
+        # giro completato valido: il migliore si aggiorna
+        corpo2 = bytearray(corpo)
+        struct.pack_into("<II", corpo2, o, 98765, 1000)
+        struct.pack_into("<6B", corpo2, o + 32, 4, 3, 0, 0, 0, 0)
+        r.elabora(self._int(2) + bytes(corpo2))
+        self.assertEqual(r.stato()["miglior_giro_ms"], 98765)
+
+    def test_lunghezza_inattesa_scartata(self):
+        from simapex import f1
+        r = f1.LettoreF1()
+        r.elabora(self._int(6) + bytes(100))
+        self.assertIn(6, r.scartati)
+        self.assertNotIn("velocita", r.d)
+
+    def test_ruote_in_rad_s_per_i_blocchi(self):
+        from simapex import f1, stile
+        r = f1.LettoreF1()
+        corpo = bytearray(273 - 29)
+        struct.pack_into("<4f", corpo, 48, 20.0, 20.0, 8.0, 20.0)       # RL RR FL FR: ant sx bloccata
+        r.elabora(self._int(13) + bytes(corpo))
+        d = {"vel_ruote": r.d["vel_ruote"], "freno": 0.9, "velocita": 200}
+        self.assertEqual(stile.ruota_bloccata(d), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

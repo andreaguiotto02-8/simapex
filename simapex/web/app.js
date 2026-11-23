@@ -119,7 +119,7 @@ function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join
 
 /* ---------- stato generale ---------- */
 async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
- const a=$("acc");a.textContent=ST.collegato?"ACC collegato":"ACC non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;
+ const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const n=$("f1Nota");if(n)n.hidden=ST.gioco!=="F1 25"}
  if(schermo==="guida")disegnaGuida();applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}
