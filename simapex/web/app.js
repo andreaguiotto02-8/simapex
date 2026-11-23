@@ -159,7 +159,7 @@ function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join
 
 /* ---------- stato generale ---------- */
 async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
- const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const F=ST.gioco==="F1 25",n=$("f1Nota");if(n)n.hidden=!F;["assFile","assBase","assVai","assPress","accNota"].forEach(i=>{const e=$(i);if(e)e.style.display=F?"none":""})}
+ const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":ST.gioco_aperto?ST.gioco_aperto+" aperto: in attesa dei dati (entra in pista)":"Gioco non collegato";a.className="pill"+(ST.collegato||ST.gioco_aperto?" on":"");$("ver").textContent="v"+ST.versione;{const F=ST.gioco==="F1 25",n=$("f1Nota");if(n)n.hidden=!F;["assFile","assBase","assVai","assPress","accNota"].forEach(i=>{const e=$(i);if(e)e.style.display=F?"none":""})}
  if(schermo==="guida")disegnaGuida();try{spotter();radioPtt()}catch(e){}applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}

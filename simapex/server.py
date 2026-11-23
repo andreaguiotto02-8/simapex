@@ -176,6 +176,25 @@ _box = [None]
 _cache_box = {}
 
 
+_proc = {"t": 0, "v": ""}
+
+
+def gioco_aperto():
+    """Nome del gioco aperto sul PC (F1 25 o ACC), anche se non manda ancora dati. Solo Windows."""
+    if not sys.platform.startswith("win"):
+        return ""
+    if time.time() - _proc["t"] < 5:
+        return _proc["v"]
+    _proc["t"] = time.time()
+    try:
+        out = subprocess.run(["tasklist", "/FO", "CSV", "/NH"], capture_output=True, text=True, timeout=4,
+                             creationflags=0x08000000).stdout.lower()
+        _proc["v"] = "F1 25" if "f1_25.exe" in out else ("ACC" if "ac2-win64-shipping.exe" in out else "")
+    except Exception:
+        _proc["v"] = ""
+    return _proc["v"]
+
+
 def box_corsia():
     if _box[0] is None:
         _box[0] = circuito.Box(os.path.join(cartella_dati(), "piste"))
@@ -374,6 +393,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt"] = _ptt.premuto
                 d["ptt_tasto"] = _ptt.tasto
                 d["ptt_visti"] = _ptt.ultimi
+                d["gioco_aperto"] = gioco_aperto()
                 d["tasti"] = dict(_ptt.azioni)
                 d["tasti_conta"] = dict(_ptt.conta)
                 d["tasti_assegna"] = _ptt.assegna
