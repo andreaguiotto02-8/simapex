@@ -82,8 +82,8 @@ class Ptt:
 
 
 
-# Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva.
-# Nome -> codice virtuale di Windows. Si accende e si spegne con Bloc Scorr (Scroll Lock).
+# Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva. Si accende con Ctrl+Alt+K (o Bloc Scorr).
+# Nome -> codice virtuale di Windows. 
 TASTI_TELECOMANDO = {"su": 0x26, "giu": 0x28, "sx": 0x25, "dx": 0x27, "invio": 0x0D, "indietro": 0x08, "canc": 0x2E}
 VK_BLOC_SCORR = 0x91
 
@@ -96,13 +96,23 @@ def _lettore_tastiera():
     u.GetKeyState.argtypes = [ctypes.c_int]
     u.GetKeyState.restype = ctypes.c_short
 
+    stato = {"on": False, "prima": False}
+
+    def combinazione():
+        return all(u.GetAsyncKeyState(vk) & 0x8000 for vk in (0x11, 0x12, 0x4B))   # Ctrl + Alt + K
+
+    def acceso():
+        return stato["on"] or bool(u.GetKeyState(VK_BLOC_SCORR) & 1)
+
     def premuti():
-        if not (u.GetKeyState(VK_BLOC_SCORR) & 1):   # interruttore spento: nessun comando
+        c = combinazione()
+        if c and not stato["prima"]:      # Ctrl+Alt+K accende e spegne il telecomando (anche sui portatili senza Bloc Scorr)
+            stato["on"] = not stato["on"]
+        stato["prima"] = c
+        if not acceso():
             return set()
         return {n for n, vk in TASTI_TELECOMANDO.items() if u.GetAsyncKeyState(vk) & 0x8000}
 
-    def acceso():
-        return bool(u.GetKeyState(VK_BLOC_SCORR) & 1)
     premuti.acceso = acceso
     return premuti
 
