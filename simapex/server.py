@@ -9,7 +9,7 @@ import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import aggiorna, assistente, claude_api, invio
+from . import aggiorna, assistente, assistente_f1, claude_api, invio
 from . import circuito, esito, f1, ingegnere, mappe, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
@@ -395,6 +395,20 @@ class Gestore(BaseHTTPRequestHandler):
                     r = {"disponibile": False}
                 self._invia(200, json.dumps(r), "application/json")
             elif self.path.startswith("/api/assistente"):
+                try:
+                    st = _lettore.f1.stato()
+                    if st.get("collegato") and st.get("setup_f1"):
+                        qq = carica_quaderno()
+                        mod = False
+                        for v in qq:
+                            if v.get("f1") and not v.get("ts_applicato") and v.get("auto") == st.get("auto") and v.get("pista") == st.get("pista") \
+                                    and assistente_f1.applicato(v, st["setup_f1"]):
+                                v["ts_applicato"] = int(time.time())
+                                mod = True
+                        if mod:
+                            salva_quaderno(qq)
+                except Exception:
+                    scrivi_log(traceback.format_exc())
                 aggiorna_esiti()
                 self._invia(200, json.dumps({"gomme": riepilogo_gomme(), "quaderno": carica_quaderno()[-8:], "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri)}), "application/json")
             elif self.path.startswith("/api/setup"):
@@ -538,6 +552,41 @@ class Gestore(BaseHTTPRequestHandler):
                 for m in ris["modifiche"]:
                     m["nome"] = assistente.nome_leggibile(m["percorso"])
                 ris["nuovo_file"] = nuovo_nome
+                ris["ok"] = True
+                self._invia(200, json.dumps(ris), "application/json")
+            except RuntimeError as e:
+                self._invia(200, json.dumps({"ok": False, "errore": str(e)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Errore imprevisto nell'assistente."}), "application/json")
+        elif self.path == "/api/assistente/f1":
+            try:
+                imp = carica_impostazioni()
+                d = self._corpo_json()
+                if not imp.get("claude_key"):
+                    self._invia(200, json.dumps({"ok": False, "errore": "Prima collega Claude (chiave API)."}), "application/json")
+                    return
+                st = _lettore.f1.stato()
+                if not st.get("collegato") or not st.get("setup_f1"):
+                    self._invia(200, json.dumps({"ok": False, "errore": "Non vedo ancora il tuo setup: apri F1 25, entra in pista (o ai box) e riprova."}), "application/json")
+                    return
+                base = d.get("modo") == "base"
+                q = [x for x in carica_quaderno() if x.get("auto") == st["auto"] and x.get("pista") == st["pista"]][-5:]
+                giri_auto = [x for x in registro_stile().giri if x["auto"] == st["auto"]]
+                ris = assistente_f1.proponi(imp["claude_key"], st, str(d.get("sensazioni", ""))[:2000], riepilogo_gomme(), q,
+                                            registro_stile().profilo(st["auto"], st["pista"]), base=base, log=scrivi_log,
+                                            extra=None)
+                if ris["modifiche"]:
+                    qq = carica_quaderno()
+                    n = 1 + sum(1 for x in qq if x.get("f1"))
+                    voce = {"id": int(time.time()), "ora": time.strftime("%Y-%m-%d %H:%M"), "auto": st["auto"], "pista": st["pista"],
+                            "da": "Setup attuale in F1", "nuovo": "Modifiche F1 n. %d" % n, "f1": True,
+                            "sensazioni": str(d.get("sensazioni", ""))[:500], "problema": ris["problema"], "modifiche": ris["modifiche"],
+                            "esito": None}
+                    qq.append(voce)
+                    salva_quaderno(qq[-200:])
+                    ris["id"] = voce["id"]
+                    ris["nuovo_nome"] = voce["nuovo"]
                 ris["ok"] = True
                 self._invia(200, json.dumps(ris), "application/json")
             except RuntimeError as e:

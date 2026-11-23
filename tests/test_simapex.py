@@ -778,6 +778,30 @@ class TestF1(unittest.TestCase):
         self.assertTrue(all(x < 0 for x in seg))
         self.assertEqual(len(tracce.lista_giri(T(), "a", "b")), 2)
 
+    def test_setup_f1_assistente(self):
+        from simapex import assistente_f1, esito
+        setup = {"ala anteriore": 8, "ala posteriore": 6, "campanatura anteriore": -3.0, "carburante a inizio sessione": 38.0,
+                 "pressioni gomme psi (AS, AD, PS, PD)": [23.0, 23.1, 21.0, 21.1]}
+        ok, scart = assistente_f1.valida(setup, [
+            {"parametro": "ala posteriore", "a": 9, "motivo": "più carico dietro"},
+            {"parametro": "ala anteriore", "a": 40, "motivo": "troppo"},
+            {"parametro": "carburante a inizio sessione", "a": 30, "motivo": "no"},
+            {"parametro": "inventato", "a": 3, "motivo": "no"},
+            {"parametro": "campanatura anteriore", "a": -3.2, "motivo": "ok"}])
+        self.assertEqual([m["parametro"] for m in ok], ["ala posteriore", "campanatura anteriore"])
+        self.assertEqual(scart, 3)
+        voce = {"modifiche": ok}
+        self.assertFalse(assistente_f1.applicato(voce, setup))
+        self.assertTrue(assistente_f1.applicato(voce, {"ala posteriore": 9, "campanatura anteriore": -3.2}))
+        # l'esito parte dal momento in cui il pilota ha messo il setup nel gioco
+        giri = [{"auto": "a", "pista": "p", "ts": 100 + i, "tempo_ms": 90000 + (i % 3) * 100} for i in range(5)] + \
+               [{"auto": "a", "pista": "p", "ts": 300 + i, "tempo_ms": 89000 + (i % 3) * 100} for i in range(5)]
+        v = {"id": 150, "auto": "a", "pista": "p", "f1": True, "modifiche": ok}
+        self.assertEqual(esito.aggiorna([v], giri), False)       # non ancora applicato
+        v["ts_applicato"] = 250
+        self.assertTrue(esito.aggiorna([v], giri))
+        self.assertEqual(v["esito"], "meglio")
+
 
 if __name__ == "__main__":
     unittest.main()

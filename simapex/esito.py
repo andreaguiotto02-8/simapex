@@ -14,12 +14,17 @@ def _top3(g):
     return sum(t) / len(t)
 
 
+def _t(v):
+    """Momento da cui vale il setup nuovo (per F1: quando il pilota lo ha messo nel gioco)."""
+    return v.get("ts_applicato") or v["id"]
+
+
 def valuta(giri, voce, prossimo_id=None, precedente_id=None):
     """giri: giri registrati; voce: riga del quaderno (id = momento di creazione del setup nuovo).
     Confronta i giri prima (setup precedente) con quelli dopo (setup nuovo). None se i giri non bastano."""
     stessi = [x for x in giri if x["auto"] == voce["auto"] and x["pista"] == voce["pista"] and x.get("ts")]
-    prima = [x for x in stessi if x["ts"] < voce["id"] and (precedente_id is None or x["ts"] >= precedente_id)]
-    dopo = [x for x in stessi if x["ts"] >= voce["id"] and (prossimo_id is None or x["ts"] < prossimo_id)]
+    prima = [x for x in stessi if x["ts"] < _t(voce) and (precedente_id is None or x["ts"] >= precedente_id)]
+    dopo = [x for x in stessi if x["ts"] >= _t(voce) and (prossimo_id is None or x["ts"] < prossimo_id)]
     if not prima or not dopo:
         return None
     migliore = min(x["tempo_ms"] for x in prima + dopo)
@@ -60,8 +65,10 @@ def aggiorna(quaderno, giri):
     for i, v in enumerate(voci):
         if v.get("esito") and not v.get("esito_auto"):
             continue
-        succ = next((w["id"] for w in voci[i + 1:] if w["auto"] == v["auto"] and w["pista"] == v["pista"]), None)
-        prec = next((w["id"] for w in reversed(voci[:i]) if w["auto"] == v["auto"] and w["pista"] == v["pista"]), None)
+        if v.get("f1") and not v.get("ts_applicato"):
+            continue
+        succ = next((_t(w) for w in voci[i + 1:] if w["auto"] == v["auto"] and w["pista"] == v["pista"] and (not w.get("f1") or w.get("ts_applicato"))), None)
+        prec = next((_t(w) for w in reversed(voci[:i]) if w["auto"] == v["auto"] and w["pista"] == v["pista"] and (not w.get("f1") or w.get("ts_applicato"))), None)
         r = valuta(giri, v, succ, prec)
         if r and (v.get("esito") != r["esito"] or v.get("esito_motivo") != r["motivo"]):
             v["esito"], v["esito_motivo"], v["esito_auto"] = r["esito"], r["motivo"], True

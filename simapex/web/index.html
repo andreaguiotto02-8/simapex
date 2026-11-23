@@ -88,10 +88,9 @@
   <div class="w sc1" data-f="base" data-t="Setup con l'assistente">
    <h3>Setup</h3>
    <div id="f1Nota" hidden class="card" style="margin:.4em 0"><b>Setup di F1 25</b>
-    <p class="mu">In F1 il setup non è un file: lo cambi tu nel gioco. Simapex legge i valori che hai adesso e ti dice cosa cambiare, uno alla volta e con il motivo. Racconta il problema e tocca il tasto.</p>
-    <div class="row"><input id="f1Prob" type="text" placeholder="Per esempio: sottosterzo in uscita di curva"><button class="pri" id="f1Chiedi">Consiglio sul setup (Claude)</button></div>
-    <div id="f1Ris" class="mu"></div></div>
-  <p class="mu">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
+    <p class="mu">In F1 il setup non è un file: Simapex legge i valori che hai nel gioco e ti scrive la lista di quelli da cambiare, con il numero preciso e il motivo. Li cambi tu a mano nel gioco; quando i valori coincidono lo capisce da solo e poi giudica meglio, uguale o peggio dai tuoi giri. Racconta come va la macchina nella casella qui sotto.</p>
+    <div class="row"><button class="pri" id="f1Base">Crea il mio setup base</button><button id="f1Vai">Migliora (una modifica alla volta)</button></div></div>
+  <p class="mu" id="accNota">Scegli un setup salvato in ACC e racconta come va la macchina. Il programma crea un setup NUOVO nella lista di ACC: l'originale non viene toccato.</p>
    <select id="assFile"></select>
    <textarea id="assSens" rows="4" placeholder="Come va la macchina? Per esempio: sottosterza in ingresso curva, le gomme dietro scaldano troppo..."></textarea>
    <div class="row"><button id="assMic" data-f="mic">🎤 Parla</button><button class="pri" id="assBase">Crea il mio setup base</button><button id="assVai" data-f="migliora1">Migliora (una modifica alla volta)</button><button id="assPress" data-f="pressioni" title="Sistema le pressioni a caldo con i dati dei tuoi giri, senza Claude">Correggi le pressioni</button></div>

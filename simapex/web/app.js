@@ -156,7 +156,7 @@ function punti(X,Z,b){return X.map((x,i)=>xy(x,Z[i],b).map(v=>v.toFixed(1)).join
 
 /* ---------- stato generale ---------- */
 async function giro(){try{ST=await api("/api/stato");FUN=ST.funzioni||FUN;
- const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const n=$("f1Nota");if(n)n.hidden=ST.gioco!=="F1 25"}
+ const a=$("acc");a.textContent=ST.collegato?(ST.gioco||"ACC")+" collegato":"Gioco non collegato";a.className="pill"+(ST.collegato?" on":"");$("ver").textContent="v"+ST.versione;{const F=ST.gioco==="F1 25",n=$("f1Nota");if(n)n.hidden=!F;["assFile","assBase","assVai","assPress","accNota"].forEach(i=>{const e=$(i);if(e)e.style.display=F?"none":""})}
  if(schermo==="guida")disegnaGuida();try{spotter();radioPtt()}catch(e){}applicaModo()}catch(e){}}
 let sigSetup=null;
 async function giroSetup(){try{SETUP=await api("/api/setup");riempiAss();listaSetup();if(ST.invio_configurato){const sg=(SETUP.file||[]).map(f=>f.auto+f.pista+f.nome+f.modificato).join("|");if(sigSetup===null||sg!==sigSetup)autoInvia();sigSetup=sg}}catch(e){}}
@@ -465,11 +465,21 @@ function radioPtt(){const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesi
 $("pttSalva").onclick=async()=>{try{await api("/api/ptt",{tasto:+$("pttN").value||0});$("pttSt").textContent="Salvato."}catch(e){}};
 $("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;try{localStorage.setItem("simapex_freq",ING.freq)}catch(x){}};
 
-$("f1Chiedi").onclick=async()=>{const q=$("f1Prob").value.trim();if(!q){$("f1Ris").textContent="Scrivi prima il problema.";return}
- if(!ST.setup_f1){$("f1Ris").textContent="Non vedo ancora il tuo setup: entra in pista con F1 aperto e riprova.";return}
- $("f1Ris").textContent="La squadra sta guardando il setup...";
- try{const d=Object.assign({},ST);delete d.funzioni;const dom="Il pilota dice: «"+q+"». Guarda il setup attuale e i dati. Proponi UNA sola modifica (la più utile) con il valore nuovo preciso, il motivo in una frase e cosa controllare dopo qualche giro. ABS e controllo di trazione li decide solo il pilota.";
-  const j=await api("/api/ingegnere",{domanda:dom,dati:d,piano:true});$("f1Ris").textContent=j.ok?j.risposta:"Non riesco: "+j.errore}catch(e){$("f1Ris").textContent="Il programma non risponde."}};
+async function f1Chiedi(modo){if(!ST.setup_f1){$("assMsg").textContent="Non vedo ancora il tuo setup: apri F1 25 ed entra in pista (o ai box).";return}
+ $("assMsg").textContent="La squadra sta guardando il tuo setup (anche un minuto per quello base)...";$("assRis").innerHTML="";let j;
+ try{j=await api("/api/assistente/f1",{sensazioni:$("assSens").value,modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
+ if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
+ $("assMsg").textContent="";F1P=j;if(j.modifiche&&j.modifiche.length)$("assSens").value="";disegnaF1();giroQuaderno()}
+let F1P=null;
+function disegnaF1(){const j=F1P;if(!j)return;const S=ST.setup_f1||{};
+ let h=`<div class="card"><b>${esc(j.problema||"Proposta")}</b><p class="mu">${esc(j.spiegazione||"")}</p>`;
+ if(j.modifiche.length){h+="<p><b>Cambia questi valori nel gioco (Setup della macchina):</b></p><table><tr><th>Parametro</th><th>Ora</th><th></th><th>Metti</th><th>Perché</th></tr>"+j.modifiche.map(m=>{const att=S[m.parametro],fatto=att!=null&&Math.abs(att-m.a)<=0.051;return `<tr><td>${esc(m.parametro)}</td><td>${m.da}</td><td>→</td><td><b>${m.a}</b> ${fatto?'<span class="mig">✓ fatto</span>':""}</td><td>${esc(m.motivo)}</td></tr>`}).join("")+"</table>";
+  h+=`<p class="mu">${esc(j.cosa_aspettarsi||"")}</p><p class="mu">Quando i valori nel gioco coincidono il programma lo vede da solo. Dopo almeno 4 giri puliti dice se è andato meglio, uguale o peggio.</p>`}
+ else h+=`<p>Nessuna modifica proposta.</p><p class="mu">${esc(j.cosa_aspettarsi||"")}</p>`;
+ if((j.suggerimenti_pilota||[]).length)h+="<p><b>Da decidere tu (ABS, controllo trazione, mappa motore):</b></p><ul>"+j.suggerimenti_pilota.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>";
+ $("assRis").innerHTML=h+"</div>"}
+$("f1Base").onclick=()=>f1Chiedi("base");$("f1Vai").onclick=()=>f1Chiedi("migliora");
+setInterval(()=>{try{if(F1P&&schermo==="setup")disegnaF1()}catch(e){}},2000);
 /* ---------- PIANO PER LA SESSIONE (Box) ---------- */
 let PN={auto:true};
 function datiAuto(){const u=ST;if(!u.collegato)return null;const tipo=u.sessione===2?2:u.sessione===0?0:u.sessione>=1?1:2;
