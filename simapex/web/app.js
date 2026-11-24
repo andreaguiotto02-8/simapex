@@ -286,7 +286,7 @@ const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
 let AC=null;function volIng(){let v=1;try{const x=parseFloat(localStorage.getItem("simapex_vol"));if(x>=0&&x<=1)v=x}catch(e){}return v}
 function bip(f,ms,gv){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=Math.min(1,(gv||0.08)*(arguments.length>2&&gv>0.1?volIng()*3.3:1));o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
-ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
+ING.freq="minima";try{ING.freq=localStorage.getItem("simapex_freq2")||"minima"}catch(e){}
 function vociIt(){try{return speechSynthesis.getVoices().filter(x=>x.lang&&x.lang.toLowerCase().replace("_","-").startsWith("it"))}catch(e){return[]}}
 function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex_voce_nome")||""}catch(e){}
  const sc=x=>(/natural/i.test(x.name)?4:0)+(/online/i.test(x.name)?2:0)+(x.localService?0:1)+(/diego|giuseppe|cosimo|luca|paolo|male|uomo/i.test(x.name)?8:0)-(/elsa|isabella|lucia|female|donna/i.test(x.name)?8:0);
@@ -319,9 +319,9 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
   parla(null,(tp?"Sessione di "+tp:"Sessione")+(u.pista?" a "+bello(u.pista):"")+"."+pj+" Buon lavoro.");return}
  const U=F1G()?"chili":"litri";
  // consigli di guida dell'ultimo giro (microsettore dove hai perso di più)
- const cg=u.consiglio_guida;if(cg&&cg.testo&&cg.ts!==P.cgts&&P.cgts!==undefined){ING.consigli.unshift({t:new Date(),testo:cg.testo,micro:cg.micro,breve:cg.breve});if(ING.consigli.length>12)ING.consigli.length=12;ING.cg=cg;if(ING.freq!=="minima")parla("guida"+cg.ts,cg.testo,0)}
+ const cg=u.consiglio_guida;if(cg&&cg.testo&&cg.ts!==P.cgts&&P.cgts!==undefined){ING.consigli.unshift({t:new Date(),testo:cg.testo,micro:cg.micro,breve:cg.breve});if(ING.consigli.length>12)ING.consigli.length=12;ING.cg=cg;/* consiglio solo scritto: a voce era troppo e poco chiaro */}
  // avviso in tempo reale a inizio del microsettore dove hai perso
- if(ING.cg&&ING.freq!=="minima"&&P.pn!=null&&u.pos_norm!=null&&u.sessione!==2||ING.cg&&ING.freq==="alta"&&P.pn!=null){const st=Math.max(0,(ING.cg.micro-1)/25-0.025);if(P.pn<st&&(u.pos_norm||0)>=st&&(u.pos_norm||0)<st+0.05)parla("live"+ING.cg.micro,"Attento: microsettore "+ING.cg.micro+". "+ING.cg.breve.charAt(0).toUpperCase()+ING.cg.breve.slice(1)+".",30000)}
+ if(ING.cg&&ING.freq==="alta"&&P.pn!=null&&u.pos_norm!=null){const st=Math.max(0,(ING.cg.micro-1)/25-0.025);if(P.pn<st&&(u.pos_norm||0)>=st&&(u.pos_norm||0)<st+0.05)parla("live"+ING.cg.micro,"Attento. "+ING.cg.breve.charAt(0).toUpperCase()+ING.cg.breve.slice(1)+".",30000)}
  // blocchi in frenata
  if(u.blocco_ruota&&!P.blocco){ING.blocchi++;parla("blocco",`Bloccaggio ${RUOTE_IT[u.blocco_ruota]||"ruota"}. Frena meno forte all'inizio e rilascia con progressione.`,12000,true)}
  // giro completato
@@ -402,7 +402,7 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
   else if(F1G()&&u.usura_gomme){const w=Math.max(...u.usura_gomme);if(w>=70){mot="le gomme sono al "+Math.round(w)+" per cento di usura";urg=w>=80}}
   if(!mot&&u.meteo&&/pioggia|temporale/i.test(u.meteo)&&/media|dura|morbida|soft|medium|hard/i.test(u.mescola||"")&&P.meteo&&!/pioggia|temporale/i.test(P.meteo)){mot="sta piovendo, serve la gomma da bagnato";urg=true}
   if(mot&&gc!==ING.boxCall){ING.boxCall=gc;parla("boxcall"+gc,(urg?"Box, box, box! ":"Box questo giro. ")+"Entra ai box: "+mot+".",0,true)}}
- if(u.sessione===2&&ING.freq!=="minima"&&gc%(ING.freq==="alta"?2:3)===0)parla("riep"+gc,riepilogoRadio(u),0);
+ if(u.sessione===2&&ING.freq!=="minima"&&gc%(ING.freq==="alta"?3:5)===0)parla("riep"+gc,riepilogoRadio(u),0);
  if(u.sessione===2){const c=margineCarb();
   if(c.m!=null&&c.m<0)parla("save"+gc,"Risparmia carburante: alza prima delle staccate e non insistere sull'acceleratore."+mp+" Ti mancano "+Math.abs(c.m).toFixed(1).replace(".",",")+" giri di carburante.",0);
   else if(c.m!=null&&c.m>=2&&c.rimasti>0&&c.rimasti<=Math.max(3,(u.giri_totali||0)/3))parla("spingi"+gc,"Hai carburante in più: puoi spingere."+ms,0);
@@ -533,7 +533,7 @@ function azioneVolante(a){
  else if(a==="voce"){ING.voce=!ING.voce;$("ingVoce").checked=ING.voce;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}bip(ING.voce?1200:600,80)}}
 $("tastiAz").onclick=async e=>{const b=e.target.closest("button");if(!b)return;try{if(b.dataset.az)await api("/api/tasti",{azione:b.dataset.az});else if(b.dataset.azt)await api("/api/tasti",{azione:b.dataset.azt,togli:1})}catch(x){}};
 $("pttSalva").onclick=async()=>{try{await api("/api/ptt",{tasto:+$("pttN").value||0});$("pttSt").textContent="Salvato."}catch(e){}};
-$("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;try{localStorage.setItem("simapex_freq",ING.freq)}catch(x){}};
+$("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;try{localStorage.setItem("simapex_freq2",ING.freq)}catch(x){}};
 
 async function f1Chiedi(modo){if(!ST.setup_f1){$("assMsg").textContent="Non vedo ancora il tuo setup: apri F1 25 ed entra in pista (o ai box).";return}
  $("assMsg").textContent="La squadra sta guardando il tuo setup (anche un minuto per quello base)...";$("assRis").innerHTML="";let j;
@@ -653,7 +653,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Gara a tempo: i giri si calcolano dal tuo passo storico anche prima del primo giro, e l'ingegnere ti dice quanto carburante caricare.","Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["L'ingegnere parla molto meno: niente consigli a voce sui microsettori, solo l'essenziale (si può cambiare in Pista, «Frequenza radio»).","Gara a tempo: i giri si calcolano dal tuo passo storico anche prima del primo giro, e l'ingegnere ti dice quanto carburante caricare.","Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
