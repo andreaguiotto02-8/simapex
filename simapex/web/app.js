@@ -284,16 +284,17 @@ try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
 const F1G=()=>(GSEL||ST.gioco)==="F1 25";
 const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
-let AC=null;function bip(f,ms,gv){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=gv||0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
+let AC=null;function volIng(){let v=1;try{const x=parseFloat(localStorage.getItem("simapex_vol"));if(x>=0&&x<=1)v=x}catch(e){}return v}
+function bip(f,ms,gv){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=Math.min(1,(gv||0.08)*(arguments.length>2&&gv>0.1?volIng()*3.3:1));o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
 ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
 function vociIt(){try{return speechSynthesis.getVoices().filter(x=>x.lang&&x.lang.toLowerCase().replace("_","-").startsWith("it"))}catch(e){return[]}}
 function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex_voce_nome")||""}catch(e){}
- const sc=x=>(/natural/i.test(x.name)?4:0)+(/online/i.test(x.name)?2:0)+(x.localService?0:1);
+ const sc=x=>(/natural/i.test(x.name)?4:0)+(/online/i.test(x.name)?2:0)+(x.localService?0:1)+(/diego|giuseppe|cosimo|luca|paolo|male|uomo/i.test(x.name)?8:0)-(/elsa|isabella|lucia|female|donna/i.test(x.name)?8:0);
  return L.find(x=>x.name===n)||L.slice().sort((a,b)=>sc(b)-sc(a))[0]||null}
 function riempiVoci(){const e=$("ingVoceSel");if(!e)return;const L=vociIt(),v=voceIng();e.innerHTML=L.length?L.map(x=>`<option value="${esc(x.name)}"${v&&x.name===v.name?" selected":""}>${esc(x.name.replace(/^Microsoft /,""))}</option>`).join(""):"<option>Nessuna voce italiana trovata</option>"}
 try{speechSynthesis.onvoiceschanged=riempiVoci}catch(e){}
 function emetti(testo,grave){if(ING.voce){bip(880,90,0.3);setTimeout(()=>bip(1320,110,0.3),110)}try{const r=$("radioTxt");r.textContent=testo.replace(/^\s+/,"");r.hidden=false;clearTimeout(emetti.t);emetti.t=setTimeout(()=>{r.hidden=true},Math.min(12000,3500+testo.length*70))}catch(e){}ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
- if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=1.0;u.volume=1;u.pitch=1;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+ if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=0.97;u.volume=volIng();u.pitch=0.92;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
  if(schermo==="pista")disegnaBox()}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
  if(grave||sicuro()){emetti(testo,grave);return}
@@ -439,6 +440,7 @@ function disegnaBox(){const m=$("ingMsgs");if(!m)return;
  BOXL=strategia();const b=$("boxLinee");if(b)b.innerHTML=BOXL.map(l=>`<div>${esc(l)}</div>`).join("")}
 $("ingVoce").checked=ING.voce;
 $("ingVoce").onchange=e=>{ING.voce=e.target.checked;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}};
+if($("ingVol")){try{$("ingVol").value=Math.round(volIng()*100)}catch(e){}$("ingVol").onchange=e=>{try{localStorage.setItem("simapex_vol",String(e.target.value/100))}catch(x){}$("ingVolN").textContent=e.target.value+"%";$("ingProva").click()};$("ingVolN").textContent=Math.round(volIng()*100)+"%"}
 if($("ingVoceSel"))$("ingVoceSel").onchange=e=>{try{localStorage.setItem("simapex_voce_nome",e.target.value)}catch(x){}$("ingProva").click()};
 setTimeout(riempiVoci,800);
 $("ingProva").onclick=()=>{const v=ING.voce;ING.voce=true;parla(null,"Prova radio. Qui è l'ingegnere di pista, mi senti?",0,true);ING.voce=v;if(!window.speechSynthesis)$("ingRis").textContent="Questo programma non ha la voce: puoi comunque leggere i messaggi qui."};
@@ -634,7 +636,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
