@@ -284,7 +284,7 @@ try{ING.voce=localStorage.getItem("simapex_voce")==="1"}catch(e){}
 const F1G=()=>(GSEL||ST.gioco)==="F1 25";
 const media=a=>a&&a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function sicuro(){const u=ST;return u.in_box||(u.velocita||0)<25||((u.freno||0)<0.1&&Math.abs(u.sterzo||0)<0.2)}
-let AC=null;function bip(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
+let AC=null;function bip(f,ms,gv){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.value=gv||0.08;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+ms/1000)}catch(e){}}
 ING.freq="normale";try{ING.freq=localStorage.getItem("simapex_freq")||"normale"}catch(e){}
 function vociIt(){try{return speechSynthesis.getVoices().filter(x=>x.lang&&x.lang.toLowerCase().replace("_","-").startsWith("it"))}catch(e){return[]}}
 function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex_voce_nome")||""}catch(e){}
@@ -292,7 +292,7 @@ function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex
  return L.find(x=>x.name===n)||L.slice().sort((a,b)=>sc(b)-sc(a))[0]||null}
 function riempiVoci(){const e=$("ingVoceSel");if(!e)return;const L=vociIt(),v=voceIng();e.innerHTML=L.length?L.map(x=>`<option value="${esc(x.name)}"${v&&x.name===v.name?" selected":""}>${esc(x.name.replace(/^Microsoft /,""))}</option>`).join(""):"<option>Nessuna voce italiana trovata</option>"}
 try{speechSynthesis.onvoiceschanged=riempiVoci}catch(e){}
-function emetti(testo,grave){if(ING.voce)bip(1300,45);ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
+function emetti(testo,grave){if(ING.voce){bip(880,90,0.3);setTimeout(()=>bip(1320,110,0.3),110)}try{const r=$("radioTxt");r.textContent=testo.replace(/^\s+/,"");r.hidden=false;clearTimeout(emetti.t);emetti.t=setTimeout(()=>{r.hidden=true},Math.min(12000,3500+testo.length*70))}catch(e){}ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
  if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=1.0;u.volume=1;u.pitch=1;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
  if(schermo==="pista")disegnaBox()}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
@@ -601,7 +601,7 @@ setInterval(()=>{if(schermo==="sessioni")giroSessioni();if(schermo==="setup")gir
 let TE=null,TEsel=null,TEmod=false;const TL=[];
 const teNome=e=>e?((e.id?"#"+e.id+" ":"")+(e.dataset&&e.dataset.s?"["+e.dataset.s+"] ":"")+(e.textContent||e.value||e.tagName).trim().slice(0,30)):"-";
 const teXY=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.left+r.width/2),Math.round(r.top+r.height/2)]};
-function teElementi(){const sc=document.getElementById("s-"+schermo);const a=[...document.querySelectorAll("#nav button")];
+function teElementi(){const nv=document.getElementById("novOk");if(nv&&!document.getElementById("novita").hidden)return [nv];const sc=document.getElementById("s-"+schermo);const a=[...document.querySelectorAll("#nav button")];
  if(sc)a.push(...sc.querySelectorAll("button,input:not([type=hidden]),select,textarea,.sess,summary,a[href]"));
  return a.filter(e=>e.offsetParent!==null&&!e.disabled&&getComputedStyle(e).visibility!=="hidden")}
 function teSegna(e){document.querySelectorAll(".tele").forEach(x=>x.classList.remove("tele"));TEsel=e;TEmod=false;if(e){e.classList.add("tele");e.scrollIntoView({block:"center",behavior:"smooth"})}}
@@ -632,3 +632,15 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  if(col&&ST.giri_completati!==INV.g&&ora-INV.t>120000){INV.g=ST.giri_completati;INV.t=ora;autoInvia()}
  else if(!col&&INV.col){INV.t=ora;autoInvia()}
  INV.col=col}catch(e){}},5000);
+
+/* ---------- Novità, Richieste, avviso F1 ---------- */
+const NOVITA=["Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+(function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
+function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
+ const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
+setInterval(aggiornaAvvisi,1000);
+async function disegnaRichieste(){const L=$("richLista");try{const j=await api("/api/richieste");
+ if(!j.aperte.length){L.innerHTML='<p>Nessuna richiesta: puoi solo guidare.</p>';return}
+ L.innerHTML=j.aperte.map(r=>'<div class="rich" data-id="'+esc(r.id)+'"><b>'+esc(r.titolo)+'</b><ol>'+r.passi.map(p=>"<li>"+esc(p)+"</li>").join("")+'</ol><div class="row"><button class="pri" data-e="fatto">Fatto</button><button data-e="funziona">Funziona</button><button data-e="non_funziona">Non funziona</button><button data-e="salta">Salta</button></div></div>').join("");
+ L.querySelectorAll("button[data-e]").forEach(b=>b.onclick=async()=>{const id=b.closest(".rich").dataset.id;await api("/api/richieste/risposta",{id,esito:b.dataset.e});autoInvia();await giro();disegnaRichieste()})}catch(e){L.textContent="Non riesco a leggere le richieste."}}
+document.querySelector("#nav [data-s=richieste]").addEventListener("click",()=>setTimeout(disegnaRichieste,0));

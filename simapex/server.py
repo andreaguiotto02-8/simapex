@@ -47,6 +47,70 @@ def salva_impostazioni(d):
         json.dump(d, f)
 
 
+# ---- Richieste: poche cose piccole da provare, scritte da Claude nel deposito dati ----
+_rich_lock = threading.Lock()
+
+
+def _file_richieste():
+    return os.path.join(cartella_dati(), "richieste.json")
+
+
+def carica_richieste():
+    try:
+        with open(_file_richieste(), "r", encoding="utf-8") as f:
+            d = json.load(f)
+        if isinstance(d, dict):
+            d.setdefault("lista", [])
+            d.setdefault("risposte", {})
+            return d
+    except Exception:
+        pass
+    return {"lista": [], "risposte": {}, "t": 0}
+
+
+def salva_richieste(d):
+    with open(_file_richieste(), "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False)
+
+
+def _pulisci_richieste(lista):
+    out = []
+    for r in lista if isinstance(lista, list) else []:
+        try:
+            rid = str(r["id"])[:60]
+            out.append({"id": rid, "titolo": str(r.get("titolo", ""))[:160],
+                        "passi": [str(p)[:300] for p in (r.get("passi") or [])][:8]})
+        except Exception:
+            continue
+    return out[:5]
+
+
+def aggiorna_richieste(forza=False):
+    """Scarica la lista scritta da Claude (al massimo ogni 5 minuti)."""
+    with _rich_lock:
+        d = carica_richieste()
+        imp = carica_impostazioni()
+        if not imp.get("gh_token") or (not forza and time.time() - d.get("t", 0) < 300):
+            return d
+        try:
+            testo = invio.leggi_file(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], "pc/richieste.json")
+            d["lista"] = _pulisci_richieste(json.loads(testo)) if testo else []
+            d["t"] = time.time()
+            salva_richieste(d)
+        except Exception as e:
+            d["t"] = time.time() - 240   # riprova tra un minuto
+            try:
+                salva_richieste(d)
+            except Exception:
+                pass
+        return d
+
+
+def richieste_aperte(d=None):
+    d = d or carica_richieste()
+    return [r for r in d["lista"] if r["id"] not in d["risposte"]]
+
+
 def coda_log(n=40):
     try:
         with open(os.path.join(cartella_dati(), "log.txt"), "r", encoding="utf-8") as f:
@@ -396,6 +460,12 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt_tasto"] = _ptt.tasto
                 d["ptt_visti"] = _ptt.ultimi
                 d["gioco_aperto"] = gioco_aperto()
+                try:
+                    d["richieste_aperte"] = len(richieste_aperte())
+                    d["f1_problema"] = _lettore.f1.problema()
+                except Exception:
+                    d["richieste_aperte"] = 0
+                    d["f1_problema"] = None
                 d["tele"] = dict(_tastiera.conta)
                 d["tele_acceso"] = _tastiera.acceso()
                 d["tasti"] = dict(_ptt.azioni)
@@ -452,6 +522,10 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps({"sessione": det}), "application/json")
             elif self.path.startswith("/api/report"):
                 self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, None, registro_stile().profilo())}), "application/json")
+            elif self.path.startswith("/api/richieste"):
+                d = carica_richieste()
+                ap = richieste_aperte(d)
+                self._invia(200, json.dumps({"ok": True, "aperte": ap, "fatte": len(d["risposte"])}), "application/json")
             elif self.path.startswith("/api/aggiornamenti"):
                 try:
                     r = invio.controlla_aggiornamenti(VERSIONE)
@@ -705,6 +779,20 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
                 self._invia(200, json.dumps({"ok": False, "errore": "Non sono riuscito a salvare."}), "application/json")
+        elif self.path == "/api/richieste/risposta":
+            try:
+                x = self._corpo_json()
+                if x.get("esito") not in ("fatto", "funziona", "non_funziona", "salta"):
+                    raise ValueError("esito")
+                with _rich_lock:
+                    d = carica_richieste()
+                    if any(r["id"] == str(x.get("id")) for r in d["lista"]):
+                        d["risposte"][str(x["id"])] = {"esito": x["esito"], "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                       "versione": VERSIONE, "dati": _lettore.stato()}
+                        salva_richieste(d)
+                self._invia(200, json.dumps({"ok": True, "aperte": len(richieste_aperte())}), "application/json")
+            except Exception:
+                self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/invia":
             try:
                 imp = carica_impostazioni()
@@ -714,6 +802,10 @@ class Gestore(BaseHTTPRequestHandler):
                 pacchetto = self._corpo_json()
                 automatico = bool(pacchetto.pop("automatico", False))
                 pacchetto["versione_programma"] = VERSIONE
+                try:
+                    pacchetto["richieste_risposte"] = carica_richieste()["risposte"]
+                except Exception:
+                    pass
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
                         "stato_attuale": _lettore.stato(), "f1": getattr(getattr(_lettore, "f1", None), "diag", lambda: None)(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
@@ -781,6 +873,16 @@ def main(apri_browser=True):
         threading.Thread(target=_aggiorna_gioco, daemon=True).start()
     except Exception as e:
         scrivi_log("tasto radio: avvio non riuscito (%s)" % e)
+    def _ciclo_lento():
+        time.sleep(5)
+        while True:
+            try:
+                _lettore.f1.riprova()
+                aggiorna_richieste()
+            except Exception:
+                pass
+            time.sleep(15)
+    threading.Thread(target=_ciclo_lento, daemon=True).start()
     aggiorna.pulisci_vecchi()
     avviato = [False]
 

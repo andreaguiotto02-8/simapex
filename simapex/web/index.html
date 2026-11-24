@@ -14,6 +14,7 @@
   <button data-s="setup">Box</button>
   <button data-s="pista" class="solo-dev">Pista</button>
   <button data-s="prove" class="solo-dev">Percorso</button>
+  <button data-s="richieste" id="navRich">Richieste<i class="badge" id="richN" hidden>0</i></button>
   <button data-s="aiuto">Aiuto</button>
   <button data-s="impostazioni">Impostazioni</button>
  </nav>
@@ -24,6 +25,9 @@
 </header>
 <div id="agg" class="banner" hidden><b>Versione nuova: <span id="aggv"></span></b> <button class="pri" id="aggb">Scarica</button></div>
 
+<div id="f1av" class="banner avviso" hidden></div>
+<div id="radioTxt" hidden></div>
+<div id="novita" class="velo" hidden><div class="card"><h2>Novità <span id="novV"></span></h2><ul id="novL"></ul><button class="pri grande" id="novOk">Ok, ho capito</button></div></div>
 <main>
 <!-- GUIDA: schermata da tenere aperta mentre guidi -->
 <section id="s-giochi" class="schermo" hidden>
@@ -149,6 +153,11 @@
 </section>
 
 <!-- AIUTO -->
+<section id="s-richieste" class="schermo" hidden>
+ <div class="card"><h2>Richieste</h2>
+  <p class="mu">Qui ti scrivo solo se ho davvero bisogno di una prova. Ogni richiesta dura pochi minuti al simulatore.</p>
+  <div id="richLista"></div></div>
+</section>
 <section id="s-aiuto" class="schermo" hidden>
  <div class="imp">
   <div class="card"><h2>Benvenuto in Simapex</h2><p>Simapex legge i dati di Assetto Corsa Competizione mentre guidi e ti aiuta in tre cose: <b>vedere cosa succede</b> (Guida), <b>capire come sei andato</b> (Sessioni) e <b>sistemare la macchina</b> (Setup). Qui sotto trovi a cosa serve ogni parte. Puoi riaprire questa pagina quando vuoi dal tasto «Aiuto».</p></div>

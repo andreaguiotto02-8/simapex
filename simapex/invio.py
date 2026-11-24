@@ -60,6 +60,15 @@ def carica_file(repo, token, percorso, testo, messaggio):
         raise RuntimeError("GitHub ha risposto con l'errore %s." % codice)
 
 
+def leggi_file(repo, token, percorso):
+    """Testo di un file del deposito dati (None se non esiste)."""
+    url = "%s/repos/%s/contents/%s" % (base_api(), repo, percorso)
+    codice, info = _richiesta("GET", url, token)
+    if codice == 200 and isinstance(info, dict) and info.get("content"):
+        return base64.b64decode(info["content"]).decode("utf-8")
+    return None
+
+
 def invia_risultati(repo, token, pacchetto, diagnostica, automatico=False):
     ora = time.strftime("%Y-%m-%d_%H%M%S")
     nome = "ultimo" if automatico else ora

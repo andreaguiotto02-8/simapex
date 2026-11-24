@@ -943,3 +943,67 @@ class TestF1(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRichiesteEF1(unittest.TestCase):
+    def test_leggi_file_e_richieste(self):
+        import base64
+        import shutil
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from simapex import invio
+        lista = [{"id": "a1", "titolo": "Prova", "passi": ["Guida un giro"]}, {"id": "a2", "titolo": "Altra", "passi": []}]
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                if self.path.endswith("pc/richieste.json"):
+                    b = json.dumps({"content": base64.b64encode(json.dumps(lista).encode()).decode()}).encode()
+                    self.send_response(200)
+                else:
+                    b = b"null"
+                    self.send_response(404)
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+        srv = HTTPServer(("127.0.0.1", 8797), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        dati = tempfile.mkdtemp()
+        os.environ.update(SIMAPEX_GH_API="http://127.0.0.1:8797", LOCALAPPDATA=dati)
+        try:
+            self.assertIn("a1", invio.leggi_file("a/b", "t", "pc/richieste.json"))
+            self.assertIsNone(invio.leggi_file("a/b", "t", "pc/non_c_e.json"))
+            server.salva_impostazioni({"gh_token": "t"})
+            d = server.aggiorna_richieste(True)
+            self.assertEqual([r["id"] for r in server.richieste_aperte(d)], ["a1", "a2"])
+            d["risposte"]["a1"] = {"esito": "fatto"}
+            server.salva_richieste(d)
+            self.assertEqual([r["id"] for r in server.richieste_aperte()], ["a2"])
+        finally:
+            srv.shutdown()
+            os.environ.pop("SIMAPEX_GH_API", None)
+            os.environ.pop("LOCALAPPDATA", None)
+            shutil.rmtree(dati, ignore_errors=True)
+
+    def test_f1_porta_occupata_messaggio(self):
+        import socket
+        from simapex import f1 as _f1
+        occ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        occ.bind(("0.0.0.0", 0))
+        porta = occ.getsockname()[1]
+        try:
+            l = _f1.LettoreF1(log=lambda m: None)
+            l.porta = porta
+            l._sock = None
+            l.errore = "porta occupata"
+            l.occupata_da = "TrackTitan.exe"
+            self.assertIn("TrackTitan.exe", l.problema())
+            l.occupata_da = None
+            self.assertIn("Track Titan", l.problema())
+            l.errore = None
+            self.assertIsNone(l.problema())
+        finally:
+            occ.close()
+        self.assertIsNone(_f1.chi_usa_porta(20777) if not __import__("sys").platform.startswith("win") else None)

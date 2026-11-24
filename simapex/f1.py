@@ -58,6 +58,32 @@ def _marcia(g):
     return "R" if g < 0 else "N" if g == 0 else str(g)
 
 
+def chi_usa_porta(porta):
+    """Nome del programma che tiene la porta UDP (solo Windows; None se non si riesce a capire)."""
+    import subprocess
+    import sys
+    if not sys.platform.startswith("win"):
+        return None
+    try:
+        fl = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        out = subprocess.run(["netstat", "-ano", "-p", "UDP"], capture_output=True, text=True, timeout=8, creationflags=fl).stdout
+        pids = []
+        for riga in out.splitlines():
+            p = riga.split()
+            if len(p) >= 4 and p[0].upper() == "UDP" and p[1].endswith(":%d" % porta) and p[-1].isdigit():
+                pids.append(p[-1])
+        nomi = []
+        for pid in dict.fromkeys(pids):
+            t = subprocess.run(["tasklist", "/FI", "PID eq " + pid, "/FO", "CSV", "/NH"], capture_output=True, text=True, timeout=8, creationflags=fl).stdout.strip()
+            if t.startswith('"'):
+                n = t.split('","')[0].strip('"')
+                if n and n.lower() != "simapex.exe" and n not in nomi:
+                    nomi.append(n)
+        return ", ".join(nomi) or None
+    except Exception:
+        return None
+
+
 class LettoreF1:
     def __init__(self, porta=PORTA, log=None):
         self.porta = porta
@@ -74,6 +100,7 @@ class LettoreF1:
         self._sock = None
         self._ferma = False
         self.errore = None
+        self.occupata_da = None
         self.squadra = None
         self.pista_nome = None
 
@@ -87,10 +114,33 @@ class LettoreF1:
             self._sock = s
         except OSError as e:
             self.errore = "porta %d occupata o bloccata (%s)" % (self.porta, e)
-            self.log("F1: " + self.errore)
+            self.occupata_da = chi_usa_porta(self.porta)
+            self.log("F1: " + self.errore + (" - usata da " + self.occupata_da if self.occupata_da else ""))
             return False
+        self.errore = None
+        self.occupata_da = None
         threading.Thread(target=self._ciclo, daemon=True).start()
         return True
+
+    def riprova(self):
+        """Se la porta era occupata, ritenta: appena l'altro programma si chiude F1 si collega da solo."""
+        if self._sock is None and not self._ferma:
+            vecchio = self.occupata_da
+            if self.avvia():
+                self.log("F1 25: porta liberata, in ascolto")
+                return True
+            if vecchio and not self.occupata_da:
+                self.occupata_da = vecchio
+        return False
+
+    def problema(self):
+        """Frase semplice da mostrare a Otto se F1 non può ricevere i dati."""
+        if self._sock is not None or not self.errore:
+            return None
+        chi = self.occupata_da
+        if chi:
+            return "F1 25 non riesce a mandare i dati a Simapex perché un altro programma sta usando la stessa porta: %s. Chiudilo (o spegni il suo ascolto di F1) e Simapex si collega da solo." % chi
+        return "F1 25 non riesce a mandare i dati a Simapex: la porta è occupata da un altro programma (per esempio Track Titan). Chiudi gli altri programmi di telemetria e Simapex si collega da solo."
 
     def ferma(self):
         self._ferma = True
@@ -279,7 +329,7 @@ class LettoreF1:
 
     def diag(self):
         return {"formato": self.formato, "pacchetti": self.diag_pacchetti, "scartati": self.scartati, "errore": self.errore,
-                "porta": self.porta, "giocatore": self.player}
+                "porta": self.porta, "giocatore": self.player, "occupata_da": self.occupata_da}
 
 
 class LettoreMulti:
