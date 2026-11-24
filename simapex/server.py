@@ -372,6 +372,46 @@ def apri_finestra(url):
     webbrowser.open(url)
 
 
+
+_VOCE_PS = r"""
+Add-Type -AssemblyName System.Speech
+$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$it = $s.GetInstalledVoices() | Where-Object { $_.Enabled -and $_.VoiceInfo.Culture.Name -like 'it*' }
+$m = $it | Where-Object { $_.VoiceInfo.Gender -eq 'Male' } | Select-Object -First 1
+if (-not $m) { $m = $it | Select-Object -First 1 }
+if ($m) { $s.SelectVoice($m.VoiceInfo.Name) }
+$s.Rate = 1
+$s.SetOutputToWaveFile($env:SIMAPEX_WAV)
+$s.Speak($env:SIMAPEX_TXT)
+$s.Dispose()
+"""
+
+
+def sintetizza_voce(testo):
+    """Voce di Windows (SAPI) salvata in un file audio: il browser può poi amplificarla oltre il 100%. None se non riesce."""
+    import hashlib
+    import tempfile
+    testo = (testo or "").strip()[:400]
+    if not testo or sys.platform != "win32":
+        return None
+    cart = os.path.join(tempfile.gettempdir(), "simapex_voce")
+    os.makedirs(cart, exist_ok=True)
+    wav = os.path.join(cart, hashlib.sha1(testo.encode("utf-8")).hexdigest()[:20] + ".wav")
+    if not os.path.exists(wav):
+        env = dict(os.environ, SIMAPEX_WAV=wav + ".tmp", SIMAPEX_TXT=testo)
+        try:
+            subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", _VOCE_PS], env=env, timeout=20,
+                           creationflags=0x08000000, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            os.replace(wav + ".tmp", wav)
+        except Exception:
+            return None
+    try:
+        with open(wav, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
 class Gestore(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -520,6 +560,18 @@ class Gestore(BaseHTTPRequestHandler):
                                           for x in cur for b in x.get("blocchi", []) if b.get("pos") is not None]
                     det["quaderno"] = [x for x in carica_quaderno() if x.get("auto") == det["auto"] and x.get("pista") == det["pista"]][-6:]
                 self._invia(200, json.dumps({"sessione": det}), "application/json")
+            elif self.path.startswith("/api/voce"):
+                from urllib.parse import parse_qs, urlparse
+                b = sintetizza_voce((parse_qs(urlparse(self.path).query).get("t") or [""])[0])
+                if b:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "audio/wav")
+                    self.send_header("Content-Length", str(len(b)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(b)
+                else:
+                    self._invia(404, "{}", "application/json")
             elif self.path.startswith("/api/report"):
                 self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, None, registro_stile().profilo())}), "application/json")
             elif self.path.startswith("/api/richieste"):

@@ -1007,3 +1007,11 @@ class TestRichiesteEF1(unittest.TestCase):
         finally:
             occ.close()
         self.assertIsNone(_f1.chi_usa_porta(20777) if not __import__("sys").platform.startswith("win") else None)
+
+
+class TestVocePotenziata(unittest.TestCase):
+    def test_senza_windows_nessun_audio_e_testo_vuoto(self):
+        from simapex import server
+        self.assertIsNone(server.sintetizza_voce(""))
+        if __import__("sys").platform != "win32":
+            self.assertIsNone(server.sintetizza_voce("prova"))

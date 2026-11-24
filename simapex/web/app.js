@@ -294,8 +294,18 @@ function voceIng(){const L=vociIt();let n="";try{n=localStorage.getItem("simapex
 function riempiVoci(){const e=$("ingVoceSel");if(!e)return;const L=vociIt(),v=voceIng();e.innerHTML=L.length?L.map(x=>`<option value="${esc(x.name)}"${v&&x.name===v.name?" selected":""}>${esc(x.name.replace(/^Microsoft /,""))}</option>`).join(""):"<option>Nessuna voce italiana trovata</option>"}
 try{speechSynthesis.onvoiceschanged=riempiVoci}catch(e){}
 function emetti(testo,grave){if(ING.voce){bip(880,90,0.3);setTimeout(()=>bip(1320,110,0.3),110)}try{const r=$("radioTxt");r.textContent=testo.replace(/^\s+/,"");r.hidden=false;clearTimeout(emetti.t);emetti.t=setTimeout(()=>{r.hidden=true},Math.min(12000,3500+testo.length*70))}catch(e){}ING.msgs.unshift({t:new Date(),testo});if(ING.msgs.length>30)ING.msgs.length=30;
- if(ING.voce&&window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=0.97;u.volume=volIng();u.pitch=0.92;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+ if(ING.voce&&potOn()){parlaPot(testo,grave,()=>parlaNormale(testo,grave));if(schermo==="pista")disegnaBox();return}
+ if(ING.voce)parlaNormale(testo,grave);
  if(schermo==="pista")disegnaBox()}
+function potOn(){try{return localStorage.getItem("simapex_pot")!=="0"}catch(e){return true}}
+function parlaPot(testo,grave,fallback){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();
+ fetch("/api/voce?t="+encodeURIComponent(testo)).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(b=>new Promise((ok,ko)=>AC.decodeAudioData(b,ok,ko))).then(buf=>{
+  if(grave&&parlaPot.src){try{parlaPot.src.stop()}catch(e){}parlaPot.fine=0}
+  const src=AC.createBufferSource();src.buffer=buf;const g=AC.createGain();g.gain.value=Math.max(0.3,volIng()*4);
+  const c=AC.createDynamicsCompressor();c.threshold.value=-22;c.knee.value=0;c.ratio.value=20;c.attack.value=0.003;c.release.value=0.15;
+  const m=AC.createGain();m.gain.value=1.8;src.connect(g);g.connect(c);c.connect(m);m.connect(AC.destination);
+  const t0=Math.max(AC.currentTime+0.02,parlaPot.fine||0);src.start(t0);parlaPot.fine=t0+buf.duration+0.3;parlaPot.src=src}).catch(fallback)}catch(e){fallback()}}
+function parlaNormale(testo,grave){if(window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=0.97;u.volume=volIng();u.pitch=0.92;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
  if(grave||sicuro()){emetti(testo,grave);return}
  ING.coda.push({t,testo});if(ING.coda.length>3)ING.coda.shift()}
@@ -440,6 +450,7 @@ function disegnaBox(){const m=$("ingMsgs");if(!m)return;
  BOXL=strategia();const b=$("boxLinee");if(b)b.innerHTML=BOXL.map(l=>`<div>${esc(l)}</div>`).join("")}
 $("ingVoce").checked=ING.voce;
 $("ingVoce").onchange=e=>{ING.voce=e.target.checked;try{localStorage.setItem("simapex_voce",ING.voce?"1":"0")}catch(x){}};
+if($("ingPot")){$("ingPot").checked=potOn();$("ingPot").onchange=e=>{try{localStorage.setItem("simapex_pot",e.target.checked?"1":"0")}catch(x){}$("ingProva").click()}}
 if($("ingVol")){try{$("ingVol").value=Math.round(volIng()*100)}catch(e){}$("ingVol").onchange=e=>{try{localStorage.setItem("simapex_vol",String(e.target.value/100))}catch(x){}$("ingVolN").textContent=e.target.value+"%";$("ingProva").click()};$("ingVolN").textContent=Math.round(volIng()*100)+"%"}
 if($("ingVoceSel"))$("ingVoceSel").onchange=e=>{try{localStorage.setItem("simapex_voce_nome",e.target.value)}catch(x){}$("ingProva").click()};
 setTimeout(riempiVoci,800);
@@ -638,7 +649,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
