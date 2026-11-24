@@ -315,7 +315,8 @@ const decimi=ms=>{const d=Math.abs(ms)/100;return d<10?(Math.round(d)===1?"1 dec
 function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  const chiave=(u.auto||"")+"|"+(u.pista||"")+"|"+u.sessione,P=ING.prev;
  if(ING.sess!==chiave){ING.sess=chiave;ING.prev={};ING.blocchi=0;ING.usura=[];ING.ult={};ING.coda=[];ING.tempi=[];ING.giriDaBox=0;
-  const tp=TIPI_S[u.sessione];parla(null,(tp?"Sessione di "+tp:"Sessione")+(u.pista?" a "+bello(u.pista):"")+". Buon lavoro.");return}
+  const tp=TIPI_S[u.sessione];let pj="";try{const a=datiAuto();if(u.sessione===2&&a&&u.consumo_giro&&!F1G()){const car=Math.ceil((a.giri+1)*u.consumo_giro);pj=" Gara di circa "+a.giri+" giri. Carica circa "+car+" litri."}}catch(e){}
+  parla(null,(tp?"Sessione di "+tp:"Sessione")+(u.pista?" a "+bello(u.pista):"")+"."+pj+" Buon lavoro.");return}
  const U=F1G()?"chili":"litri";
  // consigli di guida dell'ultimo giro (microsettore dove hai perso di più)
  const cg=u.consiglio_guida;if(cg&&cg.testo&&cg.ts!==P.cgts&&P.cgts!==undefined){ING.consigli.unshift({t:new Date(),testo:cg.testo,micro:cg.micro,breve:cg.breve});if(ING.consigli.length>12)ING.consigli.length=12;ING.cg=cg;if(ING.freq!=="minima")parla("guida"+cg.ts,cg.testo,0)}
@@ -551,9 +552,9 @@ $("f1Base").onclick=()=>f1Chiedi("base");$("f1Vai").onclick=()=>f1Chiedi("miglio
 setInterval(()=>{try{if(F1P&&schermo==="setup")disegnaF1()}catch(e){}},2000);
 /* ---------- PIANO PER LA SESSIONE (Box) ---------- */
 let PN={auto:true};
-function passoMs(){const v=ST.miglior_giro_ms>0&&ST.miglior_giro_ms<36000000?ST.miglior_giro_ms:(ST.ultimo_giro_ms>0&&ST.ultimo_giro_ms<36000000?ST.ultimo_giro_ms:0);return v}
+function passoMs(){const ok=x=>x>0&&x<36000000;return ok(ST.miglior_giro_ms)?ST.miglior_giro_ms:ok(ST.ultimo_giro_ms)?ST.ultimo_giro_ms:ok(ST.passo_storico_ms)?ST.passo_storico_ms:0}
 function datiAuto(){const u=ST;if(!u.collegato)return null;const tipo=u.sessione===2?2:u.sessione===0?0:u.sessione>=1?1:2;
- let giri=u.giri_totali||0;if(!giri&&u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)giri=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000));
+ let giri=u.giri_totali||0;if(!giri&&u.tempo_rimasto_s&&passoMs())giri=Math.ceil(u.tempo_rimasto_s/(passoMs()*(tipo===2?1.03:1)/1000))+(tipo===2?1:0);
  if(!giri)giri=tipo===1?4:tipo===0?8:10;return{tipo,giri}}
 function sincPiano(){if(!PN.auto)return;const a=datiAuto();if(!a)return;if(document.activeElement&&/^pn/.test(document.activeElement.id||""))return;
  $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);if(ST.tempo_rimasto_s>0)$("pnMin").value=String(Math.round(ST.tempo_rimasto_s/60));else if(passoMs())$("pnMin").value=String(Math.max(1,Math.round(a.giri*passoMs()/60000)));if(ST.consumo_giro)$("pnCons").value=String(+ST.consumo_giro.toFixed(2));$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+($("pnMin").value?" (circa "+$("pnMin").value+" minuti)":"")+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+(ST.consumo_giro?", consumo "+ST.consumo_giro.toFixed(2)+" a giro (misurato)":", consumo ancora sconosciuto: dopo qualche giro lo imposto io")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
@@ -652,7 +653,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Gara a tempo: i giri si calcolano dal tuo passo storico anche prima del primo giro, e l'ingegnere ti dice quanto carburante caricare.","Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}

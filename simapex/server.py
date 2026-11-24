@@ -223,6 +223,16 @@ def consumo_per_giro(auto, pista):
     return round(sum(d) / len(d), 2) if d else None
 
 
+def passo_storico(auto, pista):
+    """Passo di una gara su questa pista con questa auto, dai giri già fatti (serve prima del primo giro della sessione)."""
+    t = [x["tempo_ms"] for x in registro_stile().giri if x.get("auto") == auto and x.get("pista") == pista and x.get("tempo_ms")]
+    if not t:
+        return None
+    best = min(t)
+    buoni = sorted(x for x in t if x <= best * 1.05)
+    return round(buoni[len(buoni) // 2])
+
+
 _tastiera = ptt.Tastiera()
 _tastiera.blocca = lambda: _proc.get("v") == "F1 25"   # solo con F1 25 aperto i tasti non arrivano al gioco
 _ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25), azioni=carica_impostazioni().get("tasti_azioni", {}))
@@ -484,6 +494,7 @@ class Gestore(BaseHTTPRequestHandler):
                                          if _blocco["ruota"] is not None and time.time() - _blocco["t"] < 2.5 else None)
                     cons = consumo_per_giro(d.get("auto"), d.get("pista"))
                     d["consumo_giro"] = cons
+                    d["passo_storico_ms"] = passo_storico(d.get("auto"), d.get("pista"))
                     d["giri_stimati"] = round((d.get("carburante") or 0) / cons, 1) if cons else None
                     d["giro_attuale_ms"] = round(tracce_giri().trascorso_ms())
                     d["consiglio_guida"] = tracce_giri().consiglio
