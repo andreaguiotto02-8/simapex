@@ -870,7 +870,7 @@ class Gestore(BaseHTTPRequestHandler):
                 except Exception:
                     pass
                 diag = {"versione": VERSIONE, "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "stato_attuale": _lettore.stato(), "f1": getattr(getattr(_lettore, "f1", None), "diag", lambda: None)(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "log": coda_log()}
+                        "stato_attuale": _lettore.stato(), "f1": getattr(getattr(_lettore, "f1", None), "diag", lambda: None)(), "setup": elenco_setup(), "setup_contenuto": contenuti_setup(), "stile": registro_stile().profilo(), "giri_registrati": len(registro_stile().giri), "funzioni": funzioni(), "mappe": mappe.leggi(cartella_dati(), _lettore.stato().get("auto") or ""), "report": crea_report(registro_stile().giri, None, registro_stile().profilo()), "sessioni": elenco_sessioni(registro_stile().giri)[:20], "dettaglio_sessioni": [dettaglio_sessione(registro_stile().giri, x["id"], None) for x in elenco_sessioni(registro_stile().giri)[:3]], "log": coda_log()}
                 ora = invio.invia_risultati(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], pacchetto, diag, automatico)
                 self._invia(200, json.dumps({"ok": True, "ora": ora}), "application/json")
             except RuntimeError as e:
