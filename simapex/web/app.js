@@ -229,7 +229,7 @@ $("rep").onclick=e=>{const ro=e.target.closest("button[data-rot]");if(ro){const 
 function listaSetup(){const f=(SETUP.file||[]);$("setupLista").innerHTML=f.length?"<table>"+f.map(x=>`<tr><td>${esc(bello(x.auto))}</td><td>${esc(bello(x.pista))}</td><td>${esc(x.nome)}</td><td class="${x.valido?"mig":"peg"}">${x.valido?"letto":"non letto"}</td></tr>`).join("")+"</table>":"Apri ACC e salva un setup."}
 function riempiAss(){const s=$("assFile");const f=(SETUP.file||[]).filter(x=>x.valido);const sig=f.map(x=>x.auto+x.pista+x.nome).join("|");if(s.dataset.sig===sig)return;s.dataset.sig=sig;const cur=s.value;s.innerHTML=f.length?f.map(x=>`<option value="${esc(x.auto)}/${esc(x.pista)}/${esc(x.nome)}">${esc(bello(x.auto))} · ${esc(bello(x.pista))} · ${esc(x.nome)}</option>`).join(""):'<option value="">Nessun setup trovato: salvane uno in ACC</option>';if(cur)s.value=cur}
 async function assChiedi(modo){const file=$("assFile").value;if(!file){$("assMsg").textContent="Salva prima un setup in ACC.";return}
- $("assMsg").textContent=modo==="pressioni"?"Controllo le pressioni a caldo dei tuoi ultimi giri...":"Claude sta lavorando (anche un minuto per il setup base)...";$("assRis").innerHTML="";let j;try{j=await api("/api/assistente/proponi",{file:file,sensazioni:$("assSens").value,modo:modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
+ ricordaSens(modo);$("assMsg").textContent=modo==="pressioni"?"Controllo le pressioni a caldo dei tuoi ultimi giri...":"Claude sta lavorando (anche un minuto per il setup base)...";$("assRis").innerHTML="";let j;try{j=await api("/api/assistente/proponi",{file:file,sensazioni:$("assSens").value,modo:modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
  if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
  $("assMsg").textContent="";assId=j.id||null;if(j.modifiche&&j.modifiche.length)$("assSens").value="";
  let h=`<div class="card"><b>${esc(j.problema||"Proposta")}</b><p class="mu">${esc(j.spiegazione||"")}</p>`;
@@ -525,7 +525,7 @@ $("ingFreq").value=ING.freq;$("ingFreq").onchange=e=>{ING.freq=e.target.value;tr
 
 async function f1Chiedi(modo){if(!ST.setup_f1){$("assMsg").textContent="Non vedo ancora il tuo setup: apri F1 25 ed entra in pista (o ai box).";return}
  $("assMsg").textContent="La squadra sta guardando il tuo setup (anche un minuto per quello base)...";$("assRis").innerHTML="";let j;
- try{j=await api("/api/assistente/f1",{sensazioni:$("assSens").value,modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
+ ricordaSens(modo);try{j=await api("/api/assistente/f1",{sensazioni:$("assSens").value,modo})}catch(e){$("assMsg").textContent="Il programma non risponde.";return}
  if(!j.ok){$("assMsg").textContent="Non riuscito: "+j.errore;return}
  $("assMsg").textContent="";F1P=j;if(j.modifiche&&j.modifiche.length)$("assSens").value="";disegnaF1();giroQuaderno()}
 let F1P=null;
@@ -580,7 +580,9 @@ $("pnClaude").onclick=async()=>{const L=pianoLocale();disegnaPiano(L);$("pnRis")
 
 /* ---------- invio a Claude ---------- */
 function istantanea(){const u=ST;return {collegato:u.collegato,auto:u.auto,pista:u.pista,velocita:u.velocita,marcia:u.marcia,giri_motore:u.giri_motore,carburante:u.carburante,pressioni:u.pressioni,temp_gomme:u.temp_gomme,ultimo_giro:u.ultimo_giro,miglior_giro:u.miglior_giro,delta_ms:u.delta_ms}}
-function raccogli(){return {telecomando_log:TL.slice(-40),ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:TUTTE().map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
+let ASSST=[];try{ASSST=JSON.parse(localStorage.getItem("simapex_ass_storia")||"[]")}catch(e){}
+function ricordaSens(modo){const t=($("assSens").value||"").trim();if(!t)return;ASSST.push({ora:new Date().toISOString(),modo:modo||"",testo:t});ASSST=ASSST.slice(-15);try{localStorage.setItem("simapex_ass_storia",JSON.stringify(ASSST))}catch(e){}}
+function raccogli(){return {setup_commenti:ASSST.slice(-8),setup_commento_attuale:($("assSens")||{}).value||"",telecomando_log:TL.slice(-40),ora:new Date().toISOString(),versione:$("ver").textContent,modo:MODO,auto:statoAuto(),commento_generale:(FUN.generale||{}).n||"",prove:TUTTE().map(p=>{const x=FUN[p.id]||{};return {id:p.id,titolo:p.t,stato:x.s==="ok"?"funziona":x.s==="ko"?"non funziona":"non provata",nota:x.n||"",dati_al_momento:null}})}}
 let tAuto=null;function autoInvia(){if(!ST.invio_configurato)return;clearTimeout(tAuto);tAuto=setTimeout(async()=>{try{const p=raccogli();p.automatico=true;p.istantanea=istantanea();const j=await api("/api/invia",p);if($("invioSt"))$("invioSt").textContent=j.ok?"Inviato a Claude da solo alle "+new Date().toLocaleTimeString("it-IT"):"Invio non riuscito: "+j.errore}catch(e){}},4000)}
 $("invia").onclick=async()=>{if(!ST.invio_configurato){$("copiato").textContent="Prima serve la chiave di accesso (qui sopra).";return}
  $("copiato").textContent="Invio in corso...";try{const j=await api("/api/invia",raccogli());$("copiato").textContent=j.ok?"Inviato a Claude. Scrivi «controlla» nella chat.":"Invio non riuscito: "+j.errore}catch(e){$("copiato").textContent="Invio non riuscito: il programma non risponde."}};
@@ -636,7 +638,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
