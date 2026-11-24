@@ -94,6 +94,7 @@
    <p class="mu">Con il gioco aperto il piano si compila da solo: legge sessione, giri e consumo vero e ti suggerisce carburante, gomme e mappa motore. I campi qui sotto servono solo se vuoi cambiarli.</p><p class="mu" id="pnNota"></p>
    <div class="row"><select id="pnTipo"><option value="1">Qualifica</option><option value="0">Prove libere</option><option value="2" selected>Gara</option></select>
     <label>Giri <input id="pnGiri" type="number" min="1" max="200" value="10" style="width:5em;flex:none"></label>
+    <label>oppure Minuti <input id="pnMin" type="number" min="1" max="1440" placeholder="auto" style="width:5em;flex:none"></label>
     <label>Consumo a giro <input id="pnCons" type="number" step="0.1" min="0" placeholder="auto" style="width:6em;flex:none"></label>
     <button class="pri" id="pnCalcola">Prepara il piano</button><button id="pnAuto" hidden>Usa i dati del gioco</button><button id="pnClaude">Chiedi alla squadra (Claude)</button></div>
    <div id="pnRis" class="mu">Scegli sessione e giri, poi tocca «Prepara il piano».</div></div>

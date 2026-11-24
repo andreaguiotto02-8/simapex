@@ -551,11 +551,12 @@ $("f1Base").onclick=()=>f1Chiedi("base");$("f1Vai").onclick=()=>f1Chiedi("miglio
 setInterval(()=>{try{if(F1P&&schermo==="setup")disegnaF1()}catch(e){}},2000);
 /* ---------- PIANO PER LA SESSIONE (Box) ---------- */
 let PN={auto:true};
+function passoMs(){const v=ST.miglior_giro_ms>0&&ST.miglior_giro_ms<36000000?ST.miglior_giro_ms:(ST.ultimo_giro_ms>0&&ST.ultimo_giro_ms<36000000?ST.ultimo_giro_ms:0);return v}
 function datiAuto(){const u=ST;if(!u.collegato)return null;const tipo=u.sessione===2?2:u.sessione===0?0:u.sessione>=1?1:2;
  let giri=u.giri_totali||0;if(!giri&&u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)giri=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000));
  if(!giri)giri=tipo===1?4:tipo===0?8:10;return{tipo,giri}}
 function sincPiano(){if(!PN.auto)return;const a=datiAuto();if(!a)return;if(document.activeElement&&/^pn/.test(document.activeElement.id||""))return;
- $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);if(ST.consumo_giro)$("pnCons").value=String(+ST.consumo_giro.toFixed(2));$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+(ST.consumo_giro?", consumo "+ST.consumo_giro.toFixed(2)+" a giro (misurato)":", consumo ancora sconosciuto: dopo qualche giro lo imposto io")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
+ $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);if(ST.tempo_rimasto_s>0)$("pnMin").value=String(Math.round(ST.tempo_rimasto_s/60));else if(passoMs())$("pnMin").value=String(Math.max(1,Math.round(a.giri*passoMs()/60000)));if(ST.consumo_giro)$("pnCons").value=String(+ST.consumo_giro.toFixed(2));$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+($("pnMin").value?" (circa "+$("pnMin").value+" minuti)":"")+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+(ST.consumo_giro?", consumo "+ST.consumo_giro.toFixed(2)+" a giro (misurato)":", consumo ancora sconosciuto: dopo qualche giro lo imposto io")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
 function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri").value||1),F=F1G(),U=F?"kg":"L",L=[];
  const inp=parseFloat($("pnCons").value),cons=inp>0?inp:(ST.consumo_giro||null),tg=ST.temp_asfalto;
  const nome={0:"Prove libere",1:"Qualifica",2:"Gara"}[tipo];
@@ -581,7 +582,9 @@ function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri"
  return L}
 function disegnaPiano(L,extra){$("pnRis").innerHTML=L.map(x=>`<div><b>${esc(x.t)}:</b> ${esc(x.v)}</div>`).join("")+(extra?`<div style="margin-top:.5em"><b>La squadra dice:</b> ${esc(extra)}</div>`:"")}
 $("pnCalcola").onclick=()=>disegnaPiano(pianoLocale());
-["pnTipo","pnGiri","pnCons"].forEach(i=>$(i).addEventListener("input",()=>{PN.auto=false;$("pnNota").textContent="Dati modificati da te.";$("pnAuto").hidden=false}));
+$("pnMin").addEventListener("input",()=>{const m=parseFloat($("pnMin").value),p=passoMs();if(m>0&&p)$("pnGiri").value=String(Math.max(1,Math.ceil(m*60000/p)))});
+$("pnGiri").addEventListener("input",()=>{const g=parseFloat($("pnGiri").value),p=passoMs();if(g>0&&p)$("pnMin").value=String(Math.max(1,Math.round(g*p/60000)))});
+["pnTipo","pnGiri","pnCons","pnMin"].forEach(i=>$(i).addEventListener("input",()=>{PN.auto=false;$("pnNota").textContent="Dati modificati da te.";$("pnAuto").hidden=false}));
 $("pnAuto").onclick=()=>{PN.auto=true;$("pnAuto").hidden=true;sincPiano()};
 setInterval(()=>{try{if(schermo==="setup")sincPiano()}catch(e){}},3000);
 $("pnClaude").onclick=async()=>{const L=pianoLocale();disegnaPiano(L);$("pnRis").insertAdjacentHTML("beforeend",'<div class="mu" id="pnAtt">La squadra sta ragionando...</div>');
@@ -649,7 +652,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
