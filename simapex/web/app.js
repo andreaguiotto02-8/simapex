@@ -301,9 +301,9 @@ function potOn(){try{return localStorage.getItem("simapex_pot")!=="0"}catch(e){r
 function parlaPot(testo,grave,fallback){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();
  fetch("/api/voce?t="+encodeURIComponent(testo)).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(b=>new Promise((ok,ko)=>AC.decodeAudioData(b,ok,ko))).then(buf=>{
   if(grave&&parlaPot.src){try{parlaPot.src.stop()}catch(e){}parlaPot.fine=0}
-  const src=AC.createBufferSource();src.buffer=buf;const g=AC.createGain();g.gain.value=Math.max(0.3,volIng()*4);
-  const c=AC.createDynamicsCompressor();c.threshold.value=-22;c.knee.value=0;c.ratio.value=20;c.attack.value=0.003;c.release.value=0.15;
-  const m=AC.createGain();m.gain.value=1.8;src.connect(g);g.connect(c);c.connect(m);m.connect(AC.destination);
+  const src=AC.createBufferSource();src.buffer=buf;const g=AC.createGain();g.gain.value=Math.max(0.5,volIng()*8);
+  const c=AC.createDynamicsCompressor();c.threshold.value=-4;c.knee.value=0;c.ratio.value=20;c.attack.value=0.002;c.release.value=0.12;
+  const m=AC.createGain();m.gain.value=1.1;src.connect(g);g.connect(c);c.connect(m);m.connect(AC.destination);
   const t0=Math.max(AC.currentTime+0.02,parlaPot.fine||0);src.start(t0);parlaPot.fine=t0+buf.duration+0.3;parlaPot.src=src}).catch(fallback)}catch(e){fallback()}}
 function parlaNormale(testo,grave){if(window.speechSynthesis){try{const u=new SpeechSynthesisUtterance(testo);u.lang="it-IT";const v=voceIng();if(v)u.voice=v;u.rate=0.97;u.volume=volIng();u.pitch=0.92;if(grave)speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}}
 function parla(chiave,testo,cool,grave){const t=Date.now();if(chiave&&ING.ult[chiave]&&t-ING.ult[chiave]<(cool==null?60000:cool))return;if(chiave)ING.ult[chiave]=t;
