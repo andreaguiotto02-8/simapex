@@ -544,7 +544,7 @@ function datiAuto(){const u=ST;if(!u.collegato)return null;const tipo=u.sessione
  let giri=u.giri_totali||0;if(!giri&&u.tempo_rimasto_s&&u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)giri=Math.ceil(u.tempo_rimasto_s/(u.miglior_giro_ms/1000));
  if(!giri)giri=tipo===1?4:tipo===0?8:10;return{tipo,giri}}
 function sincPiano(){if(!PN.auto)return;const a=datiAuto();if(!a)return;if(document.activeElement&&/^pn/.test(document.activeElement.id||""))return;
- $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
+ $("pnTipo").value=String(a.tipo);$("pnGiri").value=String(a.giri);if(ST.consumo_giro)$("pnCons").value=String(+ST.consumo_giro.toFixed(2));$("pnNota").textContent="Dati presi dal gioco: "+({0:"prove libere",1:"qualifica",2:"gara"}[a.tipo])+", "+a.giri+" giri"+(ST.giri_totali||ST.tempo_rimasto_s?"":" (stimati: la sessione non li dice)")+(ST.consumo_giro?", consumo "+ST.consumo_giro.toFixed(2)+" a giro (misurato)":", consumo ancora sconosciuto: dopo qualche giro lo imposto io")+". Se vuoi cambiare, modifica i campi."; disegnaPiano(pianoLocale())}
 function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri").value||1),F=F1G(),U=F?"kg":"L",L=[];
  const inp=parseFloat($("pnCons").value),cons=inp>0?inp:(ST.consumo_giro||null),tg=ST.temp_asfalto;
  const nome={0:"Prove libere",1:"Qualifica",2:"Gara"}[tipo];
@@ -570,7 +570,7 @@ function pianoLocale(){const tipo=+$("pnTipo").value,giri=Math.max(1,+$("pnGiri"
  return L}
 function disegnaPiano(L,extra){$("pnRis").innerHTML=L.map(x=>`<div><b>${esc(x.t)}:</b> ${esc(x.v)}</div>`).join("")+(extra?`<div style="margin-top:.5em"><b>La squadra dice:</b> ${esc(extra)}</div>`:"")}
 $("pnCalcola").onclick=()=>disegnaPiano(pianoLocale());
-["pnTipo","pnGiri","pnCons"].forEach(i=>$(i).addEventListener("change",()=>{PN.auto=false;$("pnNota").textContent="Dati modificati da te.";$("pnAuto").hidden=false}));
+["pnTipo","pnGiri","pnCons"].forEach(i=>$(i).addEventListener("input",()=>{PN.auto=false;$("pnNota").textContent="Dati modificati da te.";$("pnAuto").hidden=false}));
 $("pnAuto").onclick=()=>{PN.auto=true;$("pnAuto").hidden=true;sincPiano()};
 setInterval(()=>{try{if(schermo==="setup")sincPiano()}catch(e){}},3000);
 $("pnClaude").onclick=async()=>{const L=pianoLocale();disegnaPiano(L);$("pnRis").insertAdjacentHTML("beforeend",'<div class="mu" id="pnAtt">La squadra sta ragionando...</div>');
