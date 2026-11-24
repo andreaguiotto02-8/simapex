@@ -175,10 +175,10 @@ async function giroSessioni(){try{let l=(await api("/api/sessioni")).sessioni||[
  $("sesLista").innerHTML=l.map(x=>`<div class="sess ${x.id===sesAperta?"act":""}" data-s="${x.id}"><b>${esc(bello(x.pista))}</b> · ${x.miglior_giro}${x.tipo?` <span class="pill">${esc(x.tipo)}</span>`:""}<small>${esc(bello(x.auto))}</small><small>${dt(x.data)} · ${x.giri} giri${x.blocchi?" · "+x.blocchi+" blocchi":""}</small></div>`).join("");
  if(sesAperta===null||sesAperta===l[0].id)apriSessione(sesAperta===null?l[0].id:sesAperta,true)}catch(e){}}
 $("sesLista").onclick=e=>{const t=e.target.closest(".sess");if(t){apriSessione(parseInt(t.dataset.s));giroSessioni()}};
-let CMP={a:"",b:""};
+let CMP={a:"",b:""},FORZA=false;
 async function apriSessione(id,silenzioso){sesAperta=id;let j;try{j=(await api("/api/sessione?id="+id+(CMP.a&&CMP.b?"&a="+encodeURIComponent(CMP.a)+"&b="+encodeURIComponent(CMP.b):""))).sessione}catch(e){return}
  if(!j){$("rep").innerHTML="";return}ultimaSes=j;disegnaReport(j);
- let t=null;try{t=(await api("/api/pista?nome="+encodeURIComponent(j.pista))).pista}catch(e){}j._t=t;disegnaReport(j)}
+ let t=null;try{t=(await api("/api/pista?nome="+encodeURIComponent(j.pista))).pista}catch(e){}j._t=t;disegnaReport(j);FORZA=false}
 function coloreSeg(ms){return ms<=-20?"#2ecc71":ms>=20?"#ff4d4d":"#cfd6e2"}
 function disegnaReport(j){
  const c=j.confronto,rif=c&&c.rif&&(c.rif.scelto||c.rif[rifSel]||c.rif.precedente||c.rif.record),rifNome=c&&c.rif&&c.rif.scelto?"scelto":(c&&c.rif&&c.rif[rifSel]?rifSel:(c&&c.rif&&c.rif.precedente?"precedente":"record"));
@@ -187,7 +187,7 @@ function disegnaReport(j){
  h+=`<div class="w mappa" data-f="confronto" data-t="Mappa e confronto"><div class="row"><b>Dove sei migliorato e peggiorato</b><span class="sw">${c&&c.rif&&c.rif.precedente?`<button data-r="precedente" class="${rifNome==="precedente"?"act":""}">Sessione precedente</button>`:""}${c&&c.rif&&c.rif.record?`<button data-r="record" class="${rifNome==="record"?"act":""}">Tuo record</button>`:""}</span></div>${(()=>{const D=(j.dettaglio_giri||[]).filter(x=>x.k);if(!D.length)return"";const mig=D.reduce((m,x)=>x.k&&(!m||x.k<m.k)?x:m,null),best=D.slice().sort((x,y)=>String(x.tempo).localeCompare(String(y.tempo)))[0],ka=CMP.a||best.k;
   const R=j.riferimenti||[],O=j.giri_confronto||[],kb=CMP.b||(R[0]?R[0].k:"");
   const opt=(k,t)=>`<option value="${esc(k)}"${k===kb?" selected":""}>${esc(t)}</option>`;
-  return `<div class="cmpbox"><div><small class="mu">1) Scegli il tuo giro di questa sessione</small><table class="cmpt">${D.map(x=>`<tr><td><input type="radio" name="cmpA" value="${esc(x.k)}"${x.k===ka?" checked":""}></td><td>Giro ${x.giro}</td><td><b>${esc(x.tempo)}</b></td><td class="mu">${x.pulito?"":"lento o sporco"}</td></tr>`).join("")}</table></div>
+  return `<div class="cmpbox"><div><small class="mu">1) Scegli il tuo giro di questa sessione</small><table class="cmpt">${D.map(x=>`<tr><td><input type="radio" name="cmpA" value="${esc(x.k)}"${x.k===ka?" checked":""}></td><td>Giro ${x.giro}</td><td><b>${esc(x.tempo)}</b>${x.k===best.k?` <span style="color:#b266ff" title="Il tuo giro migliore">★</span>`:""}</td><td class="mu">${x.pulito?"":"lento o sporco"}</td></tr>`).join("")}</table></div>
   <div><small class="mu">2) Confrontalo con</small><select id="cmpB"><optgroup label="Giri di riferimento">${R.map(r=>opt(r.k,r.nome+" · "+tempoMs(r.tempo_ms))).join("")}</optgroup><optgroup label="Altri tuoi giri su questa pista">${O.map(x=>opt(x.k,"Giro "+tempoMs(x.tempo_ms)+" · "+new Date(x.ts*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+(x.record?" ★":""))).join("")}</optgroup></select>
   <div class="row"><small class="mu">Il confronto parte da solo quando scegli i giri.</small>${CMP.a?`<button data-cmp="auto">Confronti automatici</button>`:""}</div></div></div>`})()}`;
  if(j._t){const [X,Z]=ruota(j._t.x,j._t.z,rotGet(j.pista)),b=limiti(X,Z),n=X.length;let sv="";
@@ -219,9 +219,9 @@ function disegnaReport(j){
  if(j.carburante_inizio!=null)h+=`<p class="mu">Carburante: da ${j.carburante_inizio} a ${j.carburante_fine} L.</p>`;
  if(j.gomme&&j.gomme.temperatura_media_C){const t=j.gomme.temperatura_media_C,p=j.gomme.pressione_media_psi;h+=`<p class="mu">Gomme (media): `+Object.keys(t).map(k=>`${bello(k)} ${t[k]}° / ${p[k]} psi`).join(" · ")+`</p>`}
  h+="</div>";
- $("rep").innerHTML=h;applicaModo();
+ {const fz=FORZA;const fa=document.activeElement;if(!fz&&fa&&$("rep").contains(fa)&&/^(SELECT|INPUT)$/.test(fa.tagName))return;if(!fz&&$("rep").dataset.h===h)return;$("rep").dataset.h=h}$("rep").innerHTML=h;applicaModo();
 }
-$("rep").onchange=e=>{const t=e.target;if(t&&(t.name==="cmpA"||t.id==="cmpB")){const r=document.querySelector("input[name=cmpA]:checked"),b=$("cmpB");if(r&&b&&b.value){CMP={a:r.value,b:b.value};apriSessione(sesAperta)}}};
+$("rep").onchange=e=>{const t=e.target;if(t&&(t.name==="cmpA"||t.id==="cmpB")){const r=document.querySelector("input[name=cmpA]:checked"),b=$("cmpB");if(r&&b&&b.value){CMP={a:r.value,b:b.value};FORZA=true;apriSessione(sesAperta)}}};
 $("rep").onclick=e=>{const ro=e.target.closest("button[data-rot]");if(ro){const v=+ro.dataset.rot;rotSet(sesAperta&&ultimaSes?ultimaSes.pista:"",v===0?0:rotGet(ultimaSes.pista)+v);tracciato=null;pistaMappa=null;apriSessione(sesAperta);return}const c=e.target.closest("button[data-cmp]");if(c){if(c.dataset.cmp==="vai"){const r=document.querySelector("input[name=cmpA]:checked");if(!r)return;CMP={a:r.value,b:$("cmpB").value}}else CMP={a:"",b:""};apriSessione(sesAperta);return}
  const b=e.target.closest("button[data-r]");if(b&&ultimaSes){rifSel=b.dataset.r;if(CMP.a){CMP={a:"",b:""};apriSessione(sesAperta)}else disegnaReport(ultimaSes)}};
 
@@ -636,7 +636,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
