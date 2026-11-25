@@ -342,7 +342,7 @@ def passo_storico(auto, pista):
 
 _tastiera = ptt.Tastiera()
 _tastiera.blocca = lambda: _proc.get("v") == "F1 25"   # solo con F1 25 aperto i tasti non arrivano al gioco
-_ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 25), azioni=carica_impostazioni().get("tasti_azioni", {}))
+_ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 1120), azioni=carica_impostazioni().get("tasti_azioni", {}))
 
 
 FUNZIONI_OK_DI_PARTENZA = ("apre", "setup", "acc", "giri", "mappa", "base", "carica", "guida1", "blocchi", "gomme", "delta", "carburante", "sessioni", "dettaglio", "confronto", "esito")
