@@ -1012,6 +1012,12 @@ def _guardiano():
     while not _fermati.is_set():
         time.sleep(2)
         if time.time() - _ultima_richiesta[0] > 45:
+            try:
+                if gioco_aperto():  # col gioco aperto la finestra può essere nascosta e rallentata: non chiudere
+                    _ultima_richiesta[0] = time.time() - 30
+                    continue
+            except Exception:
+                pass
             _fermati.set()
 
 
