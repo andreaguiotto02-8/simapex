@@ -13,6 +13,7 @@ from . import aggiorna, assistente, assistente_f1, claude_api, invio
 from . import circuito, esito, f1, ingegnere, mappe, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
+from . import comandi
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .versione import VERSIONE
@@ -359,6 +360,7 @@ _cache_box = {}
 
 
 _proc = {"t": 0, "v": ""}
+_ultima_copia_comandi = [0]
 
 
 def gioco_aperto():
@@ -697,6 +699,22 @@ class Gestore(BaseHTTPRequestHandler):
                 d = carica_richieste()
                 ap = richieste_aperte(d)
                 self._invia(200, json.dumps({"ok": True, "aperte": ap, "fatte": len(d["risposte"])}), "application/json")
+            elif self.path.startswith("/api/comandi"):
+                try:
+                    cart = comandi.cartella_controlli()
+                    if not cart:
+                        self._invia(200, json.dumps({"ok": False, "errore": "Non trovo i comandi di ACC su questo PC."}), "application/json")
+                    else:
+                        d = comandi._leggi(os.path.join(cart, "controls.json"))
+                        tasti = dict(_ptt.azioni)
+                        if _ptt.tasto and _ptt.tasto < 1000:
+                            tasti["radio"] = _ptt.tasto
+                        r = comandi.analizza(d, tasti)
+                        r.update({"ok": True, "copie": comandi.copie(cartella_dati()), "acc_aperto": gioco_aperto() == "ACC"})
+                        self._invia(200, json.dumps(r), "application/json")
+                except Exception:
+                    scrivi_log(traceback.format_exc())
+                    self._invia(200, json.dumps({"ok": False, "errore": "Non riesco a leggere i comandi."}), "application/json")
             elif self.path.startswith("/api/aggiornamenti"):
                 try:
                     r = invio.controlla_aggiornamenti(VERSIONE)
@@ -792,6 +810,23 @@ class Gestore(BaseHTTPRequestHandler):
         elif self.path == "/api/autorizza-limite":
             _AUTORIZZATE["n"] = 1
             self._invia(200, json.dumps({"ok": True}), "application/json")
+        elif self.path == "/api/comandi-copia":
+            try:
+                n = comandi.salva_copia(cartella_dati())
+                self._invia(200, json.dumps({"ok": True, "nuova": bool(n)}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False}), "application/json")
+        elif self.path == "/api/comandi-ripristina":
+            try:
+                d = self._corpo_json()
+                r = comandi.ripristina(cartella_dati(), str(d.get("copia", "")), gioco_aperto() == "ACC")
+                if r.get("ok"):
+                    scrivi_log("comandi ACC ripristinati da " + str(d.get("copia")))
+                self._invia(200, json.dumps(r), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Non riesco a ripristinare."}), "application/json")
         elif self.path == "/api/f1-libera":
             try:
                 ok = bool(_lettore.f1.libera_porta())
@@ -1075,6 +1110,11 @@ def main(apri_browser=True):
                 if gioco_aperto() != "ACC":      # con ACC aperto non serve cercare F1 (niente controlli inutili durante la guida)
                     _lettore.f1.riprova()
                 aggiorna_richieste()
+                if time.time() - _ultima_copia_comandi[0] > 300:      # ogni 5 minuti: copia di sicurezza dei comandi di ACC se sono cambiati
+                    _ultima_copia_comandi[0] = time.time()
+                    n = comandi.salva_copia(cartella_dati())
+                    if n:
+                        scrivi_log("copia comandi ACC: " + n)
             except Exception:
                 pass
             time.sleep(15)

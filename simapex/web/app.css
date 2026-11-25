@@ -106,3 +106,8 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 .pr i{font-style:normal;font-weight:700;width:1.6em;height:1.6em;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
 .pr.ok i{background:#1f6b3b;color:#fff}.pr.ko i{background:#7a2a2a;color:#fff}.pr.ne i{background:#444c5a;color:#fff}
 .pr small{display:block;color:var(--mu)}
+
+.cg{margin:.8em 0 .2em;color:var(--mu);font-size:.85em;text-transform:uppercase;letter-spacing:.06em}
+.cr{display:flex;justify-content:space-between;gap:1em;padding:.35em .1em;border-bottom:1px solid var(--line)}.cr b{font-weight:600}.cr span{color:var(--mu);white-space:nowrap}
+.cr.conf{background:#3d1717;border-radius:8px;padding:.35em .6em}
+#comAvviso .banner{margin:.4em 0}

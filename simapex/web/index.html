@@ -9,6 +9,7 @@
  <span class="pill" id="acc">Gioco non collegato</span><span class="pill on" id="teleP" hidden>Telecomando acceso</span>
  <nav id="nav">
   <button data-s="pronto">Pronto</button>
+  <button data-s="comandi">Comandi</button>
   <button data-s="giochi">Giochi</button>
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
@@ -38,6 +39,17 @@
   <div id="prontoLista"></div>
   <div class="row"><button class="pri grande" id="prontoRiprova">Controlla di nuovo</button></div>
   <p class="mu" id="prontoScheda" hidden>Cos'è: un controllo veloce prima di guidare. Verde = ok, rosso = c'è da sistemare (ti dico cosa fare). Non devi fare altro.</p></div>
+</section>
+<section id="s-comandi" class="schermo" hidden>
+ <div class="card"><h2>Comandi di ACC</h2>
+  <p class="mu" id="comScheda" hidden>A cosa serve: ti mostra i tasti del volante come sono nel gioco e ne tiene una copia. Cosa fare: niente, la copia si fa da sola; se il gioco li azzera, scegli una copia e tocca «Ripristina» (con ACC chiuso). Cosa vedrai: la lista, i tasti liberi e i conflitti con i tasti di Simapex.</p>
+  <div id="comAvviso"></div>
+  <div id="comLista"></div>
+  <h3>Tasti liberi sul volante</h3><p id="comLiberi" class="mu"></p>
+  <h3>Idee</h3><div id="comIdee" class="mu"></div>
+  <h3>Copie di sicurezza</h3>
+  <div class="row"><select id="comCopie"></select><button class="pri" id="comRip">Ripristina</button><button id="comSalva">Salva copia ora</button></div>
+  <p class="mu" id="comMsg"></p></div>
 </section>
 <section id="s-giochi" class="schermo" hidden>
  <div class="card"><h2>Scegli il gioco</h2>
