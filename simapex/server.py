@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, assistente_f1, claude_api, invio
-from . import circuito, esito, f1, ingegnere, mappe, pressioni, ptt, tracce
+from . import circuito, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from . import comandi
@@ -312,6 +312,18 @@ def _carica_pista_online(pista, t):
 
 
 _tr = [None]
+
+
+def _perdita_tratto(auto, pista):
+    def f(giri_sessione):
+        c = tracce.confronto_sessione(tracce_giri(), auto, pista, giri_sessione, [])
+        r = ((c or {}).get("rif") or {}).get("record")
+        if not r:
+            return None
+        seg = r["segmenti"]
+        i = max(range(len(seg)), key=lambda k: seg[k])
+        return (i, seg[i])
+    return f
 
 
 def tracce_giri():
@@ -710,6 +722,18 @@ class Gestore(BaseHTTPRequestHandler):
                     self._invia(404, "{}", "application/json")
             elif self.path.startswith("/api/report"):
                 self._invia(200, json.dumps({"report": crea_report(registro_stile().giri, None, registro_stile().profilo())}), "application/json")
+            elif self.path.startswith("/api/obiettivo"):
+                try:
+                    st = _lettore.stato()
+                    o = obiettivi.stato(cartella_dati(), registro_stile().giri, st.get("auto"), st.get("pista"), _perdita_tratto(st.get("auto"), st.get("pista")))
+                    if o is None:
+                        g = registro_stile().giri
+                        if g:
+                            o = obiettivi.stato(cartella_dati(), g, g[-1]["auto"], g[-1]["pista"], _perdita_tratto(g[-1]["auto"], g[-1]["pista"]))
+                    self._invia(200, json.dumps({"ok": True, "obiettivo": o}), "application/json")
+                except Exception:
+                    scrivi_log(traceback.format_exc())
+                    self._invia(200, json.dumps({"ok": False, "obiettivo": None}), "application/json")
             elif self.path.startswith("/api/richieste"):
                 d = carica_richieste()
                 ap = richieste_aperte(d)
