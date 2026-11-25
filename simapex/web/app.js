@@ -285,7 +285,7 @@ function monitorFreno(){const u=ST;if(!u.collegato||u.stato_codice!==2||u.in_box
   const prima=MF.ev.filter(e=>Math.abs(e.b-MF.bin)<=1||Math.abs(e.b-MF.bin)>=29).map(e=>e.p).sort((a,b)=>a-b);
   MF.ev.push({b:MF.bin,p:MF.pk,r:prima.length>=3?prima[Math.floor(prima.length/2)]:null});if(MF.ev.length>400)MF.ev.shift();
   const ult=MF.ev.slice(-5);
-  if((u.giri_completati||0)>=2&&ult.length===5&&ult.every(e=>e.r!=null&&e.r>=0.6&&e.p<e.r*0.85))parla("frenameno","Frena più forte. Stai frenando meno.",150000)}}}}
+  if((u.giri_completati||0)>=2&&ult.length===5&&ult.every(e=>e.r!=null&&e.r>=0.6&&e.p<e.r*0.85))parla("frenameno","Frena più forte.",150000)}}}}
 /* ---------- INGEGNERE DI PISTA E ASSISTENTE AI BOX ---------- */
 let SPOT={on:true,inv:false,prev:""};
 try{SPOT.on=localStorage.getItem("simapex_spotter")!=="0";SPOT.inv=localStorage.getItem("simapex_spotter_inv")==="1"}catch(e){}
@@ -347,7 +347,7 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
   else if(u.miglior_giro_ms>0&&u.miglior_giro_ms<36000000)t+="Più "+decimi(u.ultimo_giro_ms-u.miglior_giro_ms)+".";
   if(u.sessione===2&&u.posizione>0)t+=" "+u.posizione+"°.";
   parla("giro"+gc,t,0);
-  if(u.giri_totali&&u.giri_totali-gc===1)parla("ultimo","Ultimo giro. Dai tutto.",0);
+  if(u.giri_totali&&u.giri_totali-gc===1)parla("ultimo","Ultimo giro.",0);
   if(u.giri_totali&&gc>=u.giri_totali&&u.sessione===2)parla("fine","Gara finita. "+u.posizione+"°. Rientra ai box.",0,true);
  }
  // radio da ingegnere: consigli a fine giro
@@ -362,12 +362,12 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  // gomme: temperature
  const tg=media(u.temp_gomme);
  if(tg!=null&&tg>0&&(u.velocita||0)>60){const caldo=F1G()?118:100,freddo=F1G()?70:65;
-  if(tg>caldo)parla("g_caldo","Gomme calde. Alleggerisci.",120000);
-  else if(tg<freddo&&gc>=1&&u.sessione!==3)parla("g_freddo","Gomme fredde. Scaldale.",120000)}
+  if(tg>caldo)parla("g_caldo","Gomme calde.",120000);
+  else if(tg<freddo&&gc>=1&&u.sessione!==3)parla("g_freddo","Gomme fredde.",120000)}
  // gomme: pressioni a caldo (solo ACC)
  if(!F1G()&&gc>=3&&(u.velocita||0)>50&&(u.pressioni||[]).length===4){const n=["anteriore sinistra","anteriore destra","posteriore sinistra","posteriore destra"];
   const f=u.pressioni.map((x,i)=>x>0&&(x<26.4||x>27.0)?n[i]+" "+x.toFixed(1):null).filter(Boolean);
-  if(f.length)parla("press","Pressioni da correggere a fine sessione.",300000)}
+  if(f.length)parla("press","Pressioni corrette ai box.",300000)}
  // usura F1
  if(F1G()&&u.usura_gomme){const m=Math.max(...u.usura_gomme);
   if(m>=75)parla("us75","Box box. Gomme finite.",120000,true);
@@ -376,7 +376,7 @@ function ingegnere(){const u=ST;if(!u.collegato||u.stato_codice!==2)return;
  if(u.safety_car&&!P.sc)parla("sc",(u.safety_car==="safety car virtuale"?"Safety car virtuale":"Safety car in pista")+". Box utile.",0,true);
  else if(!u.safety_car&&P.sc)parla("scf","Si riparte.",0);
  if(u.bandiera==="gialla"&&P.band!=="gialla")parla("bg","Bandiera gialla.",20000);
- if(u.bandiera==="blu"&&P.band!=="blu")parla("bb","Bandiera blu: lascia passare.",30000);
+ if(u.bandiera==="blu"&&P.band!=="blu")parla("bb","Blu. Lascia passare.",30000);
  // tempo rimasto (sessioni a tempo)
  const tr=u.tempo_rimasto_s;if(tr){for(const m of [600,300,60])if(P.tr>m&&tr<=m)parla("tr"+m,"Mancano "+(m/60)+(m===60?" minuto.":" minuti."),0)}
  // uscita e ingresso box
@@ -396,7 +396,7 @@ function radioF1(u){const P=ING.prev;if(!F1G())return;
  if(da!=null&&pa!=null&&da<1000&&pa>=1000)parla("dav1","Davanti a meno di un secondo.",20000);
  if(db!=null&&pb!=null&&db<1000&&pb>=1000)parla("dietro1","Dietro a meno di un secondo.",20000);
  if(u.meteo&&P.meteo&&u.meteo!==P.meteo)parla("meteo","Meteo che cambia: ora "+u.meteo+(/pioggia|temporale/.test(u.meteo)?". Valuta le gomme da bagnato.":"."),0,true);
- if(u.ers_pct!=null&&u.ers_pct<8&&(P.ers==null||P.ers>=8))parla("ers","Batteria quasi scarica: usa il recupero in frenata.",90000)}
+ if(u.ers_pct!=null&&u.ers_pct<8&&(P.ers==null||P.ers>=8))parla("ers","Batteria bassa.",90000)}
 function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
  if(F1G()&&u.sessione===2&&(u.distacco_davanti_ms!=null||u.distacco_dietro_ms!=null)){
   const p=[];if(u.distacco_davanti_ms!=null)p.push("davanti "+secs(u.distacco_davanti_ms));if(u.distacco_dietro_ms!=null)p.push("dietro "+secs(u.distacco_dietro_ms));
@@ -407,9 +407,9 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
  const ok=u.ultimo_giro_ms>0&&u.ultimo_giro_ms<36000000;
  if(ok&&ING.giriDaBox>0)ING.tempi.push(u.ultimo_giro_ms);
  if(ok&&ING.giriDaBox>0&&u.sessione!==1&&ING.tempi.length>=5){const T=ING.tempi,so=T.slice().sort((a,b)=>a-b),rif=so[1],l1=T[T.length-1],l2=T[T.length-2];
-  const C=T.filter(x=>x<=rif*1.2),n=C.length;/* giri con incidenti, traffico forte o box non contano */
-  if(n>=5&&C[n-1]===l1&&C[n-1]>rif*1.025&&C[n-2]>rif*1.025&&C[n-3]>rif*1.025&&C[n-1]>=C[n-2]-300)parla("conc","Concentrazione. Respira. Un giro pulito.",300000)}
- if(ING.freq!=="minima"&&u.sessione===1&&ING.giriDaBox===0)parla("lancio","Giro di lancio finito. Ora il giro buono: spingi, gomme e freni sono pronti.",0);
+  const C=T.filter(x=>x<=rif*1.6),n=C.length;/* solo i giri da box/sosta non contano: anche i giri sporchi sono un segnale di distrazione */
+  const u3=C.slice(-3);if(n>=5&&C[n-1]===l1&&u3.length===3&&(u3.every(x=>x>rif*1.025)||u3.filter(x=>x>rif*1.06).length>=2))parla("conc","Testa bassa. Un giro pulito.",300000)}
+ if(ING.freq!=="minima"&&u.sessione===1&&ING.giriDaBox===0)parla("lancio","Gomme pronte. Spingi.",0);
  ING.giriDaBox++;
  const mp=(MAPPE&&MAPPE.mappa_giri_costanti)?" Usa la mappa "+MAPPE.mappa_giri_costanti+".":"";
  const ms=(MAPPE&&MAPPE.mappa_spinta)?" Metti la mappa "+MAPPE.mappa_spinta+".":"";
@@ -421,13 +421,12 @@ function consigliGiro(u,gc){const P=ING.prev;if(P.gc==null||gc<=P.gc)return;
   if(mot&&gc!==ING.boxCall){ING.boxCall=gc;parla("boxcall"+gc,(urg?"Box, box, box! ":"Box questo giro. ")+mot+".",0,true)}}
  if(u.sessione===2&&ING.freq!=="minima"&&gc%(ING.freq==="alta"?3:5)===0)parla("riep"+gc,riepilogoRadio(u),0);
  if(u.sessione===2){const c=margineCarb();
-  if(c.m!=null&&c.m<0)parla("save"+gc,"Risparmia benzina. Alza prima delle staccate.",0);
-  else if(c.m!=null&&c.m>=2&&c.rimasti>0&&c.rimasti<=Math.max(3,(u.giri_totali||0)/3))parla("spingi"+gc,"Benzina in più: spingi.",0);
+  if(c.m!=null&&c.m<0)parla("save"+gc,"Benzina: alza.",0);
+  else if(c.m!=null&&c.m>=2&&c.rimasti>0&&c.rimasti<=Math.max(3,(u.giri_totali||0)/3))parla("spingi"+gc,"Benzina ok. Spingi.",0);
   if(F1G()&&ING.usura.length>=3&&c.rimasti!=null){const a=ING.usura[0],b=ING.usura[ING.usura.length-1];if(b.gc>a.gc){const r=(b.w-a.w)/(b.gc-a.gc),fine=b.w+r*c.rimasti;
-    if(fine>75&&r>0)parla("gestisci","Gestisci le gomme.",0);
-    else if(ING.freq==="alta"&&fine<55&&r>=0&&gc>=4)parla("gomme_ok","Le gomme reggono bene: puoi alzare il ritmo.",0)}}
-  if(ING.freq==="alta"&&ING.tempi.length>=3){const l=ING.tempi.slice(-3);if(Math.max(...l)-Math.min(...l)<500)parla("ritmo","Ritmo costante, ottimo. Mantieni così.",0)}}
- else if(u.sessione===0&&ING.tempi.length>=5)parla("prove5","Hai fatto abbastanza giri puliti per misurare passo e consumo. Se vuoi, rientra e prepariamo la gara.",0)}
+    if(fine>75&&r>0)parla("gestisci","Gestisci gomme.",0)}}
+  }
+ else if(u.sessione===0&&ING.tempi.length>=5)parla("prove5","Dati sufficienti. Puoi rientrare.",0)}
 function riepilogoRadio(u){const c=margineCarb(),P=[];if(u.posizione>0)P.push("posizione "+u.posizione);
  if(c.gf!=null)P.push("carburante per "+c.gf.toFixed(1).replace(".",",")+" giri"+(c.m!=null?(c.m<0?", non bastano":", bastano"):""));
  if(F1G()&&u.usura_gomme)P.push("gomme al "+Math.round(media(u.usura_gomme))+" per cento");else{const t=media(u.temp_gomme);if(t>0)P.push("gomme a "+Math.round(t)+" gradi")}
@@ -540,7 +539,7 @@ function micInizia(){const R=window.SpeechRecognition||window.webkitSpeechRecogn
   MIC.on=true;rec.start();
   clearTimeout(MIC.tm);MIC.tm=setTimeout(micFerma,12000)}
  catch(x){MIC.on=false;MIC.rec=null;micBadge("Microfono non parte","err",4000)}}
-function micFerma(){if(!MIC.rec)return;if(Date.now()-MIC.t0<250){MIC.annulla=true;try{MIC.rec.abort()}catch(e){}return}try{MIC.rec.stop()}catch(e){try{MIC.rec.abort()}catch(x){}}}
+function micFerma(){if(!MIC.rec)return;try{MIC.rec.stop()}catch(e){try{MIC.rec.abort()}catch(x){}}}
 function micElabora(){micBadge("");if(MIC.annulla){MIC.annulla=false;return}
  const e=MIC.err;if(e&&e!=="no-speech"&&e!=="aborted"){micBadge(e==="not-allowed"||e==="service-not-allowed"?"Microfono bloccato":e==="audio-capture"?"Nessun microfono":e==="network"?"Voce: manca internet":"Microfono: errore","err",4000);return}
  const s=VOCE.scegli(MIC.alt);if(!s)return;
@@ -568,8 +567,8 @@ function spotter(){const u=ST;if(F1G()||!SPOT.on||!ING.voce||!u.collegato||u.sta
 
 /* ---------- RADIO: tasto sul volante per parlare ---------- */
 let PTTp=false;
-function radioPtt(){try{tastiVolante()}catch(e){}try{telecomando()}catch(e){}const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;try{speechSynthesis.cancel()}catch(e){}try{if(parlaPot.src){parlaPot.src.stop();parlaPot.fine=0}}catch(e){}bip(900,70);micInizia()}
- else if(!on&&PTTp){PTTp=false;micFerma();bip(650,70)}
+function radioPtt(){try{tastiVolante()}catch(e){}try{telecomando()}catch(e){}const on=!!ST.ptt;if(on&&!PTTp){PTTp=true;if(MIC.on){micFerma();bip(650,70);PTTp=true}else{try{speechSynthesis.cancel()}catch(e){}try{if(parlaPot.src){parlaPot.src.stop();parlaPot.fine=0}}catch(e){}bip(900,70);micInizia()}}
+ else if(!on&&PTTp){PTTp=false;if(Date.now()-MIC.t0>=500){micFerma();bip(650,70)}/* tocco breve: resta in ascolto e si ferma da solo quando smetti di parlare */}
  if(ST.ptt_tasto&&ST.ptt_tasto<1000&&!$("pttN").value&&document.activeElement!==$("pttN"))$("pttN").value=ST.ptt_tasto;try{const sl=$("pttTast");if(sl&&document.activeElement!==sl)sl.value=ST.ptt_tasto>=1000?String(ST.ptt_tasto):"0"}catch(e){}const el=$("pttSt");if(el&&schermo==="pista"){el.textContent=(ST.ptt_tasto?"Tasto radio: "+(ST.ptt_tasto>=1000?"della tastiera":ST.ptt_tasto)+". ":"Tasto radio non impostato. ")+((ST.ptt_visti||[]).length?"Pulsanti premuti ora: "+ST.ptt_visti.filter(x=>x<1000).join(", ")+".":"")}}
 const TASTI_AZ={avanti:"Schermata successiva",indietro:"Schermata precedente",ripeti:"Ripeti l'ultimo messaggio dell'ingegnere",voce:"Voce accesa/spenta"};let TC=null,TCnt=0;
 function tastiVolante(){const T=ST.tasti||{},C=ST.tasti_conta||{};
@@ -703,7 +702,7 @@ setInterval(()=>{try{if(!ST.invio_configurato)return;const col=!!ST.collegato,or
  INV.col=col}catch(e){}},5000);
 
 /* ---------- Novità, Richieste, avviso F1 ---------- */
-const NOVITA=["Microfono: tieni premuto il tasto radio (volante o tastiera), parla e rilascia. Compare «TI ASCOLTO» e l'ingegnere risponde in poche parole: benzina, giri, gomme, posizione, meteo, ultimo giro. Se c'è solo rumore non dice niente.","Controllo di stabilità per la gara: meno scritte inutili nel registro e meno controlli in sottofondo mentre guidi.","Concentrazione: l'avviso arriva solo se i tempi salgono per 3 giri puliti di fila, senza contare incidenti e traffico.","L'ingegnere ora parla a frasi brevi, ti avvisa se per diverse curve di fila freni meno del solito e se perdi concentrazione (tempi che salgono).","Voce potenziata ancora più forte.","L'ingegnere parla molto meno: niente consigli a voce sui microsettori, solo l'essenziale (si può cambiare in Pista, «Frequenza radio»).","Gara a tempo: i giri si calcolano dal tuo passo storico anche prima del primo giro, e l'ingegnere ti dice quanto carburante caricare.","Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
+const NOVITA=["Ingegnere riscritto sul modello dei team radio veri di F1: frasi cortissime, solo informazioni che servono (benzina, gomme, box, bandiere), niente commenti. Giri sporchi o lenti di fila contano come calo di concentrazione: «Testa bassa. Un giro pulito.»","Radio: puoi anche toccare il tasto una volta (senza tenerlo premuto): ascolta finché parli e si ferma da solo. Un secondo tocco lo ferma.","Microfono: tieni premuto il tasto radio (volante o tastiera), parla e rilascia. Compare «TI ASCOLTO» e l'ingegnere risponde in poche parole: benzina, giri, gomme, posizione, meteo, ultimo giro. Se c'è solo rumore non dice niente.","Controllo di stabilità per la gara: meno scritte inutili nel registro e meno controlli in sottofondo mentre guidi.","Concentrazione: l'avviso arriva solo se i tempi salgono per 3 giri puliti di fila, senza contare incidenti e traffico.","L'ingegnere ora parla a frasi brevi, ti avvisa se per diverse curve di fila freni meno del solito e se perdi concentrazione (tempi che salgono).","Voce potenziata ancora più forte.","L'ingegnere parla molto meno: niente consigli a voce sui microsettori, solo l'essenziale (si può cambiare in Pista, «Frequenza radio»).","Gara a tempo: i giri si calcolano dal tuo passo storico anche prima del primo giro, e l'ingegnere ti dice quanto carburante caricare.","Piano sessione: puoi impostare anche i minuti della sessione (si compilano da soli dal gioco) e si collegano ai giri.","Voce dell'ingegnere potenziata: molto più forte (si può spegnere nella schermata Pista).","I commenti che scrivi per il setup ora arrivano a Claude insieme ai dati.","Sessioni: una stellina viola segna il tuo giro migliore, e il menu per scegliere il confronto non si chiude più da solo.","Piano sessione: il consumo a giro si compila da solo.","Nella schermata Pista trovi il regolatore del volume dell'ingegnere. La voce ora è maschile e più naturale.","Nuova schermata «Richieste»: ti scrivo lì, solo se serve davvero (con il numerino rosso).","Se F1 25 non si collega, Simapex ti dice chi occupa il collegamento e riprova da solo.","L'ingegnere fa un suono più forte prima di parlare e scrive anche il messaggio grande sullo schermo.","Il circuito si disegna con i giri puliti e il confronto giri parte da solo."];
 (function(){try{const v=$("ver").textContent;if(localStorage.getItem("simapex_novita_vista")!==v){$("novV").textContent=v;$("novL").innerHTML=NOVITA.map(x=>"<li>"+esc(x)+"</li>").join("");$("novita").hidden=false;$("novOk").onclick=()=>{$("novita").hidden=true;try{localStorage.setItem("simapex_novita_vista",v)}catch(e){}}}}catch(e){}})();
 function aggiornaAvvisi(){const n=ST.richieste_aperte||0,b=$("richN");b.textContent=n;b.hidden=!n;
  const f=$("f1av");const m=GSEL==="F1 25"&&ST.f1_problema&&!ST.collegato?ST.f1_problema:"";f.hidden=!m;f.textContent=m}
