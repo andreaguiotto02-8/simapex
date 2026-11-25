@@ -8,6 +8,7 @@ import urllib.request
 MODELLO_PROVA = "claude-haiku-5-5"
 MODELLO = "claude-sonnet-5-5"
 TEMPO_MAX = 40
+PRIMA = None   # funzione() che può bloccare la chiamata (limite mensile)
 SU_USO = None   # funzione(modello, uso) chiamata dopo ogni risposta, per contare il costo
 # Prezzi stimati in dollari per milione di token (entrata, uscita) e per ricerca web
 PREZZI = {"claude-haiku-5-5": (1.0, 5.0), "claude-sonnet-5-5": (3.0, 15.0)}
@@ -25,6 +26,8 @@ def _url():
 
 
 def chiedi(chiave, domanda, modello=MODELLO, sistema=None, max_token=600, tempo_max=None, strumenti=None):
+    if PRIMA:
+        PRIMA()
     corpo = {"model": modello, "max_tokens": max_token,
              "messages": [{"role": "user", "content": domanda}]}
     if sistema:

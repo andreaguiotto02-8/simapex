@@ -130,30 +130,43 @@ def _file_costo():
     return os.path.join(cartella_dati(), "costo_api.json")
 
 
-def costo_mese():
+LIMITE_MESE = 2.0   # dollari al mese: oltre, le funzioni a pagamento si fermano
+
+
+def _carica_costo():
     try:
         with open(_file_costo(), "r", encoding="utf-8") as f:
             d = json.load(f)
     except Exception:
         d = {}
     m = time.strftime("%Y-%m")
-    return {"mese": m, "dollari": round(d.get(m, 0.0), 4)}
+    if m == "2026-11" and not d.get("base_2026-11"):
+        d[m] = d.get(m, 0.0) + 1.04      # speso prima del contatore (dato dal pilota il 25/11)
+        d["base_2026-11"] = True
+    return d, m
+
+
+def costo_mese():
+    d, m = _carica_costo()
+    return {"mese": m, "dollari": round(d.get(m, 0.0), 4), "limite": LIMITE_MESE}
 
 
 def _registra_costo(modello, uso):
     with _COSTO_LOCK:
-        try:
-            with open(_file_costo(), "r", encoding="utf-8") as f:
-                d = json.load(f)
-        except Exception:
-            d = {}
-        m = time.strftime("%Y-%m")
-        d = {m: d.get(m, 0.0) + claude_api.costo_uso(modello, uso)}
+        d, m = _carica_costo()
+        d[m] = d.get(m, 0.0) + claude_api.costo_uso(modello, uso)
         with open(_file_costo(), "w", encoding="utf-8") as f:
             json.dump(d, f)
 
 
+def _controllo_limite():
+    c = costo_mese()
+    if c["dollari"] >= LIMITE_MESE:
+        raise RuntimeError("limite mensile di %.0f dollari raggiunto: le funzioni con Claude ripartono il 1° del mese." % LIMITE_MESE)
+
+
 claude_api.SU_USO = _registra_costo
+claude_api.PRIMA = _controllo_limite
 
 _AVVISO_SETUP = {"id": 0, "testo": ""}
 _AUTO_FATTO = set()
