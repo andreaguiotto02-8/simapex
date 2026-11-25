@@ -792,6 +792,13 @@ class Gestore(BaseHTTPRequestHandler):
         elif self.path == "/api/autorizza-limite":
             _AUTORIZZATE["n"] = 1
             self._invia(200, json.dumps({"ok": True}), "application/json")
+        elif self.path == "/api/f1-libera":
+            try:
+                ok = bool(_lettore.f1.libera_porta())
+                self._invia(200, json.dumps({"ok": ok}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/pressioni-ora":
             try:
                 r = auto_pressioni(True)

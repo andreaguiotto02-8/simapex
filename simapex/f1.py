@@ -137,6 +137,29 @@ class LettoreF1:
                 self.occupata_da = vecchio
         return False
 
+    # programmi di telemetria che si possono chiudere con un tocco (solo questi, mai altro)
+    CHIUDIBILI = ("trackititandesktopapplication.exe", "tracktitandesktopapplication.exe")
+
+    def libera_porta(self):
+        """Chiude il programma di telemetria che occupa la porta (solo se è nell'elenco) e si ricollega. Ritorna True se F1 ora è in ascolto."""
+        import subprocess
+        import sys
+        if self._sock is not None:
+            return True
+        chi = self.occupata_da or chi_usa_porta(self.porta) or ""
+        nomi = [n.strip() for n in chi.split(",") if n.strip().lower() in self.CHIUDIBILI]
+        if not nomi or not sys.platform.startswith("win"):
+            return False
+        fl = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        for n in nomi:
+            try:
+                subprocess.run(["taskkill", "/IM", n, "/F"], capture_output=True, text=True, timeout=10, creationflags=fl)
+            except Exception:
+                pass
+        time.sleep(1.5)
+        self._ultimo_log = 0
+        return self.avvia()
+
     def problema(self):
         """Frase semplice da mostrare a Otto se F1 non può ricevere i dati."""
         if self._sock is not None or not self.errore:
