@@ -363,6 +363,21 @@ _proc = {"t": 0, "v": ""}
 _ultima_copia_comandi = [0]
 
 
+def libera_conflitti_tasti():
+    """Un tasto del volante dato a Simapex (avanti, indietro, ripeti, voce) che ACC usa già per guidare viene tolto da Simapex: guidare ha la precedenza."""
+    cart = comandi.cartella_controlli()
+    if not cart or not _ptt.azioni:
+        return
+    usati = {v["numero"] for v in comandi.voci_da_dati(comandi._leggi(os.path.join(cart, "controls.json"))) if v["numero"]}
+    tolti = [a for a, n in list(_ptt.azioni.items()) if n in usati]
+    if tolti:
+        for a in tolti:
+            scrivi_log("tasto volante %s tolto a Simapex: già usato da ACC" % _ptt.azioni.pop(a))
+        imp = carica_impostazioni()
+        imp["tasti_azioni"] = dict(_ptt.azioni)
+        salva_impostazioni(imp)
+
+
 def gioco_aperto():
     """Nome del gioco aperto sul PC (F1 25 o ACC), anche se non manda ancora dati. Solo Windows."""
     if not sys.platform.startswith("win"):
@@ -1110,6 +1125,8 @@ def main(apri_browser=True):
                 if gioco_aperto() != "ACC":      # con ACC aperto non serve cercare F1 (niente controlli inutili durante la guida)
                     _lettore.f1.riprova()
                 aggiorna_richieste()
+                if time.time() - _ultima_copia_comandi[0] > 60 and gioco_aperto() != "ACC":
+                    libera_conflitti_tasti()
                 if time.time() - _ultima_copia_comandi[0] > 300:      # ogni 5 minuti: copia di sicurezza dei comandi di ACC se sono cambiati
                     _ultima_copia_comandi[0] = time.time()
                     n = comandi.salva_copia(cartella_dati())
