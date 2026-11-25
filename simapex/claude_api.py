@@ -8,6 +8,16 @@ import urllib.request
 MODELLO_PROVA = "claude-haiku-5-5"
 MODELLO = "claude-sonnet-5-5"
 TEMPO_MAX = 40
+SU_USO = None   # funzione(modello, uso) chiamata dopo ogni risposta, per contare il costo
+# Prezzi stimati in dollari per milione di token (entrata, uscita) e per ricerca web
+PREZZI = {"claude-haiku-5-5": (1.0, 5.0), "claude-sonnet-5-5": (3.0, 15.0)}
+PREZZO_RICERCA = 0.01
+
+
+def costo_uso(modello, uso):
+    pi, po = PREZZI.get(modello, (3.0, 15.0))
+    ric = ((uso or {}).get("server_tool_use") or {}).get("web_search_requests", 0) or 0
+    return ((uso or {}).get("input_tokens", 0) * pi + (uso or {}).get("output_tokens", 0) * po) / 1e6 + ric * PREZZO_RICERCA
 
 
 def _url():
@@ -49,6 +59,11 @@ def chiedi(chiave, domanda, modello=MODELLO, sistema=None, max_token=600, tempo_
     testo = "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")
     uso = dict(d.get("usage", {}))
     uso["stop_reason"] = d.get("stop_reason")
+    try:
+        if SU_USO:
+            SU_USO(modello, dict(uso))
+    except Exception:
+        pass
     fonti = []
     for b in d.get("content", []):
         if b.get("type") == "web_search_tool_result" and isinstance(b.get("content"), list):

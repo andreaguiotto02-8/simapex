@@ -123,6 +123,38 @@ def _file_quaderno():
     return os.path.join(cartella_dati(), "quaderno.json")
 
 
+_COSTO_LOCK = threading.Lock()
+
+
+def _file_costo():
+    return os.path.join(cartella_dati(), "costo_api.json")
+
+
+def costo_mese():
+    try:
+        with open(_file_costo(), "r", encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        d = {}
+    m = time.strftime("%Y-%m")
+    return {"mese": m, "dollari": round(d.get(m, 0.0), 4)}
+
+
+def _registra_costo(modello, uso):
+    with _COSTO_LOCK:
+        try:
+            with open(_file_costo(), "r", encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            d = {}
+        m = time.strftime("%Y-%m")
+        d = {m: d.get(m, 0.0) + claude_api.costo_uso(modello, uso)}
+        with open(_file_costo(), "w", encoding="utf-8") as f:
+            json.dump(d, f)
+
+
+claude_api.SU_USO = _registra_costo
+
 _AVVISO_SETUP = {"id": 0, "testo": ""}
 _AUTO_FATTO = set()
 
@@ -543,6 +575,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d["versione"] = VERSIONE
                 d["invio_configurato"] = bool(carica_impostazioni().get("gh_token"))
                 d["claude_configurato"] = bool(carica_impostazioni().get("claude_key"))
+                d["costo_api"] = costo_mese()
                 if d.get("collegato"):
                     d["delta_ms"] = tracce_giri().delta_live(d)
                     d["blocco_ruota"] = (["ant_sx", "ant_dx", "post_sx", "post_dx"][_blocco["ruota"]]
