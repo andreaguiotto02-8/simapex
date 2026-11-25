@@ -99,3 +99,10 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 #novita .card{max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 #novita #novL{overflow-y:auto;flex:1 1 auto;min-height:0;margin:8px 0}
 #novita #novOk{flex:0 0 auto}
+
+.prontoEsito{font-size:1.4em;font-weight:700;padding:.5em .8em;border-radius:12px;margin:.4em 0 .8em;background:#222a37}
+.prontoEsito.ok{background:#12391f;color:#8be0a8}.prontoEsito.ko{background:#3d1717;color:#ffb4b4}
+.pr{display:flex;gap:.7em;align-items:flex-start;padding:.55em .2em;border-bottom:1px solid var(--line)}
+.pr i{font-style:normal;font-weight:700;width:1.6em;height:1.6em;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.pr.ok i{background:#1f6b3b;color:#fff}.pr.ko i{background:#7a2a2a;color:#fff}.pr.ne i{background:#444c5a;color:#fff}
+.pr small{display:block;color:var(--mu)}

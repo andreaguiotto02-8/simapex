@@ -8,6 +8,7 @@
  <b class="logo">SIMAPEX</b><span class="v" id="ver">v__VERSIONE__</span><span class="v" id="costoApi" title="Costo stimato dell'API di Claude da inizio mese">API: $0.00</span>
  <span class="pill" id="acc">Gioco non collegato</span><span class="pill on" id="teleP" hidden>Telecomando acceso</span>
  <nav id="nav">
+  <button data-s="pronto">Pronto</button>
   <button data-s="giochi">Giochi</button>
   <button data-s="guida" class="act">Guida</button>
   <button data-s="sessioni">Sessioni</button>
@@ -31,6 +32,13 @@
 <div id="novita" class="velo" hidden><div class="card"><h2>Novità <span id="novV"></span></h2><ul id="novL"></ul><button class="pri grande" id="novOk">Ok, ho capito</button></div></div>
 <main>
 <!-- GUIDA: schermata da tenere aperta mentre guidi -->
+<section id="s-pronto" class="schermo" hidden>
+ <div class="card"><h2>Pronto a guidare?</h2>
+  <div id="prontoEsito" class="prontoEsito">Controllo...</div>
+  <div id="prontoLista"></div>
+  <div class="row"><button class="pri grande" id="prontoRiprova">Controlla di nuovo</button></div>
+  <p class="mu" id="prontoScheda" hidden>Cos'è: un controllo veloce prima di guidare. Verde = ok, rosso = c'è da sistemare (ti dico cosa fare). Non devi fare altro.</p></div>
+</section>
 <section id="s-giochi" class="schermo" hidden>
  <div class="card"><h2>Scegli il gioco</h2>
   <p class="mu">Ogni gioco ha le sue schermate: vedi solo i dati di quel gioco. Puoi cambiare quando vuoi da «Giochi» nel menu in alto.</p>
