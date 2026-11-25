@@ -159,10 +159,16 @@ def _registra_costo(modello, uso):
             json.dump(d, f)
 
 
+_AUTORIZZATE = {"n": 0}
+
+
 def _controllo_limite():
     c = costo_mese()
     if c["dollari"] >= LIMITE_MESE:
-        raise RuntimeError("limite mensile di %.0f dollari raggiunto: le funzioni con Claude ripartono il 1° del mese." % LIMITE_MESE)
+        if _AUTORIZZATE["n"] > 0:
+            _AUTORIZZATE["n"] -= 1      # un'autorizzazione vale per una sola richiesta
+            return
+        raise RuntimeError("LIMITE: limite mensile di %.0f dollari raggiunto." % LIMITE_MESE)
 
 
 claude_api.SU_USO = _registra_costo
@@ -783,6 +789,9 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
                 self._invia(200, json.dumps({"ok": False}), "application/json")
+        elif self.path == "/api/autorizza-limite":
+            _AUTORIZZATE["n"] = 1
+            self._invia(200, json.dumps({"ok": True}), "application/json")
         elif self.path == "/api/pressioni-ora":
             try:
                 r = auto_pressioni(True)
