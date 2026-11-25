@@ -127,7 +127,7 @@ _AVVISO_SETUP = {"id": 0, "testo": ""}
 _AUTO_FATTO = set()
 
 
-def auto_pressioni():
+def auto_pressioni(forza=False):
     """Ai box (nessun giro da >60 s) corregge da solo le pressioni nello stesso setup e prepara un avviso breve."""
     st = _lettore.stato()
     if not st.get("collegato") or st.get("gioco") == "F1 25":
@@ -136,16 +136,16 @@ def auto_pressioni():
     if not giri:
         return
     ult = giri[-1]
-    if time.time() - (ult.get("ts") or 0) < 60:
+    if not forza and time.time() - (ult.get("ts") or 0) < 60:
         return
     sess = ultima_sessione(giri, ult["auto"], ult["pista"])
     chiave = (ult["auto"], ult["pista"], ult.get("ts"))
-    if chiave in _AUTO_FATTO or len(sess) < SCARTA_PRIMI_MIN:
-        return
+    if (chiave in _AUTO_FATTO and not forza) or len(sess) < (4 if forza else SCARTA_PRIMI_MIN):
+        return "pochi giri" if forza else None
     _AUTO_FATTO.add(chiave)
     prop = pressioni.proposta(sess, None)
     if not prop["modifiche"]:
-        return
+        return "ok" if forza else None
     el = [f for f in elenco_setup()["file"] if f["valido"] and f["auto"] == ult["auto"] and f["pista"] == ult["pista"]]
     if not el:
         return
@@ -172,6 +172,7 @@ def auto_pressioni():
                "da": f["nome"], "nuovo": f["nome"], "sensazioni": "", "problema": "Correzione automatica pressioni",
                "modifiche": [{"parametro": assistente.nome_leggibile(m["percorso"]), "click": m["click"], "motivo": m["motivo"]} for m in mod], "esito": None})
     salva_quaderno(qq[-200:])
+    return "fatto" if forza else None
 
 
 SCARTA_PRIMI_MIN = 6
@@ -735,6 +736,13 @@ class Gestore(BaseHTTPRequestHandler):
                     _ptt.assegna = None
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
+                self._invia(200, json.dumps({"ok": False}), "application/json")
+        elif self.path == "/api/pressioni-ora":
+            try:
+                r = auto_pressioni(True)
+                self._invia(200, json.dumps({"ok": True, "esito": r or "nulla", "testo": _AVVISO_SETUP["testo"]}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/ingegnere":
             try:

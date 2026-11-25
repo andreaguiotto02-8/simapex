@@ -3,7 +3,7 @@
 from . import claude_api
 
 SISTEMA = ("Sei l'ingegnere di pista di un pilota italiano di simulatori (Assetto Corsa Competizione GT3 oppure F1 25). "
-           "Rispondi in italiano semplice, in massimo 3 frasi brevi, come alla radio: niente elenchi, niente termini difficili. "
+           "Rispondi in italiano semplice, in massimo 2 frasi brevissime, come alla radio: niente elenchi, niente termini difficili. "
            "Usa solo i dati che ricevi; se un dato manca dillo e non inventare. Se la domanda riguarda il setup, rispondi in modo "
            "generale e suggerisci di usare la schermata Setup. ABS, controllo di trazione e mappa motore le cambia solo il pilota: "
            "puoi consigliarli, mai darli per cambiati.")
@@ -42,5 +42,6 @@ def rispondi(chiave, domanda, dati, piano=False):
     if not domanda:
         raise RuntimeError("Scrivi una domanda.")
     testo, _ = claude_api.chiedi(chiave, "Dati in diretta:\n%s\n\nDomanda del pilota: %s" % (contesto(dati or {}), domanda),
-                                 sistema=SISTEMA_PIANO if piano else SISTEMA, max_token=600 if piano else 300)
+                                 modello=claude_api.MODELLO if piano else claude_api.MODELLO_PROVA,
+                                 sistema=SISTEMA_PIANO if piano else SISTEMA, max_token=600 if piano else 160)
     return testo.strip()
