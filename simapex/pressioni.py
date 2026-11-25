@@ -16,8 +16,13 @@ def _mediana(v):
 
 def a_caldo(giri_sessione):
     """Pressione a caldo per ruota (mediana degli ultimi giri, esclusi i primi). None se i dati non bastano."""
-    g = [x["gomme"]["p"] for x in giri_sessione if x.get("gomme") and x["gomme"].get("p")]
-    g = g[SCARTA_PRIMI:][-ULTIMI:]
+    t = [x["tempo_ms"] for x in giri_sessione if x.get("tempo_ms")]
+    best = min(t) if t else None
+    # cause esterne: giri con bloccaggi/fuori pista e giri lenti o sporchi (>105% del migliore) non misurano la pressione vera
+    g = [x["gomme"]["p"] for x in giri_sessione[SCARTA_PRIMI:]
+         if x.get("gomme") and x["gomme"].get("p") and not x.get("blocchi")
+         and (best is None or not x.get("tempo_ms") or x["tempo_ms"] <= best * 1.05)]
+    g = g[-ULTIMI:]
     if len(g) < 2:
         return None
     return [round(_mediana([x[i] for x in g]), 2) for i in range(4)]

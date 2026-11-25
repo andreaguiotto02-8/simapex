@@ -123,6 +123,60 @@ def _file_quaderno():
     return os.path.join(cartella_dati(), "quaderno.json")
 
 
+_AVVISO_SETUP = {"id": 0, "testo": ""}
+_AUTO_FATTO = set()
+
+
+def auto_pressioni():
+    """Ai box (nessun giro da >60 s) corregge da solo le pressioni nello stesso setup e prepara un avviso breve."""
+    st = _lettore.stato()
+    if not st.get("collegato") or st.get("gioco") == "F1 25":
+        return
+    giri = registro_stile().giri
+    if not giri:
+        return
+    ult = giri[-1]
+    if time.time() - (ult.get("ts") or 0) < 60:
+        return
+    sess = ultima_sessione(giri, ult["auto"], ult["pista"])
+    chiave = (ult["auto"], ult["pista"], ult.get("ts"))
+    if chiave in _AUTO_FATTO or len(sess) < SCARTA_PRIMI_MIN:
+        return
+    _AUTO_FATTO.add(chiave)
+    prop = pressioni.proposta(sess, None)
+    if not prop["modifiche"]:
+        return
+    el = [f for f in elenco_setup()["file"] if f["valido"] and f["auto"] == ult["auto"] and f["pista"] == ult["pista"]]
+    if not el:
+        return
+    f = max(el, key=lambda x: x["modificato"])
+    cartella = trova_cartella_setup()
+    percorso = os.path.join(cartella, f["auto"], f["pista"], f["nome"])
+    with open(percorso, "r", encoding="utf-8-sig") as fh:
+        setup = json.load(fh)
+    mod, _ = assistente.valida_modifiche(setup, prop["modifiche"], True)
+    if not mod:
+        return
+    with open(percorso + ".bak", "w", encoding="utf-8") as fh:
+        json.dump(setup, fh, indent=4)
+    tmp = percorso + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(assistente.applica(setup, mod), fh, indent=4)
+    os.replace(tmp, percorso)
+    nome = f["nome"][:-5] if f["nome"].lower().endswith(".json") else f["nome"]
+    _AVVISO_SETUP["id"] = int(time.time())
+    _AVVISO_SETUP["testo"] = "Ho corretto le pressioni. Prima di uscire carica il setup " + nome + "."
+    scrivi_log("auto pressioni: %s (%d modifiche)" % (f["nome"], len(mod)))
+    qq = carica_quaderno()
+    qq.append({"id": int(time.time()), "ora": time.strftime("%Y-%m-%d %H:%M"), "auto": f["auto"], "pista": f["pista"],
+               "da": f["nome"], "nuovo": f["nome"], "sensazioni": "", "problema": "Correzione automatica pressioni",
+               "modifiche": [{"parametro": assistente.nome_leggibile(m["percorso"]), "click": m["click"], "motivo": m["motivo"]} for m in mod], "esito": None})
+    salva_quaderno(qq[-200:])
+
+
+SCARTA_PRIMI_MIN = 6
+
+
 def carica_quaderno():
     try:
         with open(_file_quaderno(), "r", encoding="utf-8") as f:
@@ -495,6 +549,7 @@ class Gestore(BaseHTTPRequestHandler):
                     cons = consumo_per_giro(d.get("auto"), d.get("pista"))
                     d["consumo_giro"] = cons
                     d["passo_storico_ms"] = passo_storico(d.get("auto"), d.get("pista"))
+                    d["avviso_setup"] = dict(_AVVISO_SETUP)
                     d["giri_stimati"] = round((d.get("carburante") or 0) / cons, 1) if cons else None
                     d["giro_attuale_ms"] = round(tracce_giri().trascorso_ms())
                     d["consiglio_guida"] = tracce_giri().consiglio
@@ -940,6 +995,7 @@ def main(apri_browser=True):
         time.sleep(5)
         while True:
             try:
+                auto_pressioni()
                 if gioco_aperto() != "ACC":      # con ACC aperto non serve cercare F1 (niente controlli inutili durante la guida)
                     _lettore.f1.riprova()
                 aggiorna_richieste()
