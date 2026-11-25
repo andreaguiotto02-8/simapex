@@ -27,6 +27,7 @@
 
 <div id="f1av" class="banner avviso" hidden></div>
 <div id="radioTxt" hidden></div>
+<div id="micBadge" hidden></div>
 <div id="novita" class="velo" hidden><div class="card"><h2>Novità <span id="novV"></span></h2><ul id="novL"></ul><button class="pri grande" id="novOk">Ok, ho capito</button></div></div>
 <main>
 <!-- GUIDA: schermata da tenere aperta mentre guidi -->
@@ -128,7 +129,8 @@
    <div class="row"><label>Volume dell'ingegnere <input type="range" id="ingVol" min="10" max="100" step="10" value="100"> <b id="ingVolN">100%</b></label></div>
    <p class="mu">Le voci «Natural» (per esempio Elsa o Isabella) suonano molto più umane: servono la connessione a internet e il browser Edge. Se non le vedi, prova ad aggiornare Windows.</p>
    <div class="row"><label>Frequenza radio <select id="ingFreq"><option value="minima" selected>Minima</option><option value="normale">Normale</option><option value="alta">Alta</option></select></label>
-    <label>Tasto «parla» sul volante (numero) <input id="pttN" type="number" min="0" max="32" style="width:5em;flex:none"></label><button id="pttSalva">Salva</button></div>
+    <label>Tasto «parla» sul volante (numero) <input id="pttN" type="number" min="0" max="32" style="width:5em;flex:none"></label><button id="pttSalva">Salva</button>
+    <label>oppure tasto della tastiera <select id="pttTast"><option value="0">—</option><option value="1019">Pausa</option><option value="1145">Bloc Scorr</option><option value="1120">F9</option><option value="1121">F10</option><option value="1122">F11</option><option value="1123">F12</option><option value="1163">Ctrl destro</option><option value="1096">Tastierino 0</option><option value="1107">Tastierino +</option><option value="1045">Ins</option></select></label></div>
    <p class="mu" id="pttSt"></p>
    <div class="w" style="margin:.5em 0"><b>Comandi di Simapex sul volante</b>
     <p class="mu">Per cambiare schermata senza mouse (spenti se giochi ad ACC). Premi «Assegna», poi premi sul volante il tasto che vuoi usare (uno che il gioco non usa).</p>
@@ -175,6 +177,13 @@
     <tr><td><b>Mappa</b></td><td>Il disegno del circuito con un puntino che segue l'auto. Si disegna da solo dopo il primo giro pulito e poi resta salvato.</td></tr>
     <tr><td><b>Carburante</b></td><td>Litri nel serbatoio, consumo medio per giro e quanti giri puoi ancora fare.</td></tr>
     <tr><td><b>Scritta rossa BLOCCO</b></td><td>Compare quando una ruota si blocca in frenata, con il nome della ruota. Vuol dire che hai frenato troppo forte o troppo di colpo.</td></tr>
+   </table></div>
+
+  <div class="card"><h2>Microfono (radio con l'ingegnere)</h2>
+   <table>
+    <tr><td><b>1. Prepara</b></td><td>Collega le cuffie prima di aprire Simapex. In Windows (Impostazioni → Sistema → Audio) le cuffie devono essere il microfono predefinito.</td></tr>
+    <tr><td><b>2. Parla</b></td><td>Tieni premuto il tasto radio (Pista → numero del volante o tasto della tastiera): suona un bip e compare «TI ASCOLTO». Dì una cosa breve, per esempio «benzina», «giri», «gomme», «posizione», «meteo», «ultimo giro», e rilascia.</td></tr>
+    <tr><td><b>3. Risposta</b></td><td>L'ingegnere risponde a voce in poche parole. Se c'è solo rumore o silenzio non dice niente.</td></tr>
    </table></div>
 
   <div class="card"><h2>Sessioni (dopo aver guidato)</h2>
@@ -237,5 +246,6 @@
  </div>
 </section>
 </main>
+<script src="/voce.js"></script>
 <script src="/app.js"></script>
 </body></html>

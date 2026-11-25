@@ -5,24 +5,41 @@ import threading
 import time
 
 
-def _lettore_windows():
+def _lettore_windows(tasto_attuale=None):
+    """Pulsanti premuti. I tasti della tastiera hanno numero 1000 + codice Windows (es. F9 = 1120) e si leggono solo se scelti come tasto radio."""
     import ctypes
 
     class JOYINFOEX(ctypes.Structure):
         _fields_ = [(n, ctypes.c_uint32) for n in ("dwSize", "dwFlags", "dwXpos", "dwYpos", "dwZpos", "dwRpos", "dwUpos", "dwVpos",
                                                     "dwButtons", "dwButtonNumber", "dwPOV", "dwReserved1", "dwReserved2")]
     winmm = ctypes.WinDLL("winmm")
+    u = ctypes.WinDLL("user32")
+    u.GetAsyncKeyState.argtypes = [ctypes.c_int]
+    u.GetAsyncKeyState.restype = ctypes.c_short
+    stato = {"ids": list(range(16)), "t": 0.0}
 
     def pulsanti():
         """Insieme dei pulsanti premuti (numeri da 1) su tutti i controller collegati."""
         premuti = set()
-        for jid in range(16):
+        ora = time.time()
+        scansione = ora - stato["t"] > 3          # ogni 3 secondi si cercano i controller; negli altri momenti si leggono solo quelli trovati
+        trovati = []
+        for jid in (range(16) if scansione else stato["ids"]):
             info = JOYINFOEX()
             info.dwSize = ctypes.sizeof(JOYINFOEX)
             info.dwFlags = 0xFF
             if winmm.joyGetPosEx(jid, ctypes.byref(info)) == 0:
+                trovati.append(jid)
                 b = info.dwButtons
                 premuti.update(i + 1 for i in range(32) if b & (1 << i))
+        if scansione:
+            stato["ids"], stato["t"] = trovati, ora
+        try:
+            t = int(tasto_attuale()) if tasto_attuale else 0
+            if t >= 1000 and u.GetAsyncKeyState(t - 1000) & 0x8000:
+                premuti.add(t)
+        except Exception:
+            pass
         return premuti
     return pulsanti
 
@@ -47,7 +64,7 @@ class Ptt:
             if not sys.platform.startswith("win"):
                 return False
             try:
-                self._pulsanti = _lettore_windows()
+                self._pulsanti = _lettore_windows(lambda: self.tasto)
             except Exception:
                 return False
         self._attivo = True

@@ -528,7 +528,7 @@ class Gestore(BaseHTTPRequestHandler):
                     salva_impostazioni(imp)
                     _ptt.assegnato = None
                 self._invia(200, json.dumps(d), "application/json")
-            elif self.path in ("/app.css", "/app.js"):
+            elif self.path in ("/app.css", "/app.js", "/voce.js"):
                 self._invia_web(self.path[1:])
             elif self.path.startswith("/api/mappe?"):
                 from urllib.parse import unquote
@@ -656,7 +656,7 @@ class Gestore(BaseHTTPRequestHandler):
         elif self.path == "/api/ptt":
             try:
                 n = int(self._corpo_json().get("tasto", 0))
-                n = n if 0 <= n <= 32 else 0
+                n = n if (0 <= n <= 32 or 1008 <= n <= 1255) else 0
                 imp = carica_impostazioni()
                 imp["ptt_tasto"] = n
                 salva_impostazioni(imp)
@@ -940,7 +940,8 @@ def main(apri_browser=True):
         time.sleep(5)
         while True:
             try:
-                _lettore.f1.riprova()
+                if gioco_aperto() != "ACC":      # con ACC aperto non serve cercare F1 (niente controlli inutili durante la guida)
+                    _lettore.f1.riprova()
                 aggiorna_richieste()
             except Exception:
                 pass

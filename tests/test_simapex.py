@@ -1015,3 +1015,71 @@ class TestVocePotenziata(unittest.TestCase):
         self.assertIsNone(server.sintetizza_voce(""))
         if __import__("sys").platform != "win32":
             self.assertIsNone(server.sintetizza_voce("prova"))
+
+
+class TestRadioMicrofono(unittest.TestCase):
+    def test_tasto_tastiera_come_tasto_radio(self):
+        from simapex import ptt
+        p = ptt.Ptt(1120, pulsanti=lambda: {1120})   # F9
+        p.passo()
+        self.assertTrue(p.premuto)
+        p2 = ptt.Ptt(1120, pulsanti=lambda: {25})
+        p2.passo()
+        self.assertFalse(p2.premuto)
+
+    def test_server_accetta_tasti_tastiera(self):
+        server._lettore = telemetria.Lettore(finta)
+        server.PORTA = 8798
+        server._fermati.clear()
+        t = threading.Thread(target=server.main, kwargs={"apri_browser": False}, daemon=True)
+        t.start()
+        time.sleep(0.8)
+        try:
+            u = "http://127.0.0.1:8798"
+            for n, atteso in ((1120, 1120), (25, 25), (500, 0), (99999, 0)):
+                r = urllib.request.Request(u + "/api/ptt", data=json.dumps({"tasto": n}).encode(), method="POST",
+                                           headers={"Content-Type": "application/json"})
+                self.assertTrue(json.loads(urllib.request.urlopen(r).read())["ok"])
+                self.assertEqual(json.loads(urllib.request.urlopen(u + "/api/stato").read())["ptt_tasto"], atteso)
+            self.assertIn("VOCE", urllib.request.urlopen(u + "/voce.js").read().decode("utf-8"))
+            self.assertIn("/voce.js", urllib.request.urlopen(u + "/").read().decode("utf-8"))
+        finally:
+            urllib.request.urlopen(urllib.request.Request(u + "/api/chiudi", method="POST"))
+            t.join(timeout=3)
+            server._ptt.tasto = 25
+
+    def test_f1_porta_occupata_un_solo_messaggio_nel_registro(self):
+        import socket
+        from simapex import f1
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.bind(("0.0.0.0", 0))
+        porta = s.getsockname()[1]
+        righe = []
+        r = f1.LettoreF1(porta=porta) if "porta" in f1.LettoreF1.__init__.__code__.co_varnames else None
+        if r is None:
+            r = f1.LettoreF1()
+            r.porta = porta
+        r.log = righe.append
+        try:
+            r._sock = None
+            ok = [r.avvia() for _ in range(5)]   # su Linux SO_REUSEADDR permette il bind: simuliamo il fallimento
+        finally:
+            s.close()
+        if not any(ok):
+            self.assertEqual(len(righe), 1)
+
+    def test_comprensione_domande_a_voce(self):
+        import shutil
+        import subprocess
+        if not shutil.which("node"):
+            self.skipTest("node non disponibile")
+        cod = r'''
+const V=require(process.argv[1]);const att={"quanta benzina ho":"carburante","Quanti giri mancano?":"giri","come sono le gomme":"gomme","gonne":"gomme",
+"che posizione sono":"posizione","distaco davanti":"distacco","piove":"meteo","ultimo giro":"tempo","come sto andando":"ritmo","devo spingere":"spingere",
+"quando rientro":"box","ripeti":"ripeti","vroom brrr":null,"":null,"ehm":null};
+let ko=0;for(const k in att){if(V.intento(k)!==att[k]){console.log("ERR",k,V.intento(k));ko++}}
+const s=V.scegli([{t:"bla bla",c:.9},{t:"benzina",c:.6}]);if(!s||s.k!=="carburante")ko++;
+if(V.scegli([])!==null)ko++;
+process.exit(ko)'''
+        r = subprocess.run(["node", "-e", cod, os.path.join(os.path.dirname(server.__file__), "web", "voce.js")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

@@ -114,8 +114,12 @@ class LettoreF1:
             self._sock = s
         except OSError as e:
             self.errore = "porta %d occupata o bloccata (%s)" % (self.porta, e)
-            self.occupata_da = chi_usa_porta(self.porta)
-            self.log("F1: " + self.errore + (" - usata da " + self.occupata_da if self.occupata_da else ""))
+            ora = time.time()
+            if ora - getattr(self, "_ultimo_log", 0) > 900 or not getattr(self, "_ultimo_log", 0):
+                # il controllo di chi occupa la porta e la riga nel registro si fanno rari: niente scatti e registro leggibile
+                self._ultimo_log = ora
+                self.occupata_da = chi_usa_porta(self.porta) or self.occupata_da
+                self.log("F1: " + self.errore + (" - usata da " + self.occupata_da if self.occupata_da else ""))
             return False
         self.errore = None
         self.occupata_da = None
