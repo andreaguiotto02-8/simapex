@@ -447,6 +447,14 @@ class TestCircuito(unittest.TestCase):
         self.assertEqual(g["coordinate"], [10.0, 2.0, -30.0])
         self.assertEqual(g["pos_norm"], 0.25)
 
+    def test_in_box_anche_da_corsia_box(self):
+        import struct
+        from simapex.telemetria import decodifica_graphics
+        b = bytearray(1280)
+        self.assertFalse(decodifica_graphics(bytes(b))["in_box"])
+        struct.pack_into("<i", b, 1236, 1)
+        self.assertTrue(decodifica_graphics(bytes(b))["in_box"])
+
 
 class TestRispostaTagliata(unittest.TestCase):
     def test_recupera_modifiche_complete(self):

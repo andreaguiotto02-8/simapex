@@ -104,7 +104,8 @@ def decodifica_graphics(b):
     out = _decodifica_graphics_base(b, ultimo, migliore)
     if len(b) >= 1220:  # posizione sul giro e coordinate dell'auto (offset da verificare con guida reale)
         out["pos_norm"] = round(_f(b, 248), 5)
-        out["in_box"] = bool(_i(b, 160))
+        # ai box = nel box di servizio (160) oppure nella corsia box (1236, aggiunto come riserva)
+        out["in_box"] = bool(_i(b, 160)) or bool(_i(b, 1236))
         if len(b) >= 1412:
             out["giro_valido"] = bool(_i(b, 1408))   # ACC: 0 se hai tagliato/sei uscito dai limiti pista (offset da verificare)
         tl = _f(b, 152)          # tempo rimasto nella sessione, in ms (offset da verificare con guida reale)
