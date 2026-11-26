@@ -45,7 +45,7 @@ def _lettore_windows(tasto_attuale=None):
 
 
 class Ptt:
-    AZIONI = ("avanti", "indietro", "ripeti", "voce")
+    AZIONI = ("avanti", "indietro", "ripeti", "voce", "ok")
 
     def __init__(self, tasto=0, pulsanti=None, azioni=None):
         self.azioni = {a: int(n) for a, n in (azioni or {}).items() if a in self.AZIONI and n}
