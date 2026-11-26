@@ -13,7 +13,7 @@ from . import aggiorna, assistente, assistente_f1, claude_api, invio
 from . import circuito, coach, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
-from . import comandi
+from . import comandi, community
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .versione import VERSIONE
@@ -734,6 +734,19 @@ class Gestore(BaseHTTPRequestHandler):
                 except Exception:
                     scrivi_log(traceback.format_exc())
                     self._invia(200, json.dumps({"ok": False, "obiettivo": None}), "application/json")
+            elif self.path.startswith("/api/community"):
+                try:
+                    g = registro_stile().giri
+                    st = _lettore.stato()
+                    auto, pista = st.get("auto"), st.get("pista")
+                    if (not auto or not pista) and g:
+                        auto, pista = g[-1]["auto"], g[-1]["pista"]
+                    mio = min([x["tempo_ms"] for x in g if x.get("auto") == auto and x.get("pista") == pista and x.get("tempo_ms")] or [0]) or None
+                    self._invia(200, json.dumps({"ok": True, "auto": auto, "pista": pista, "mio_ms": mio,
+                                                 "community": community.stato(cartella_dati(), auto, pista, mio)}), "application/json")
+                except Exception:
+                    scrivi_log(traceback.format_exc())
+                    self._invia(200, json.dumps({"ok": False}), "application/json")
             elif self.path.startswith("/api/coach"):
                 try:
                     g = registro_stile().giri
@@ -745,7 +758,8 @@ class Gestore(BaseHTTPRequestHandler):
                             seg = ((c or {}).get("rif") or {}).get("record", {}).get("segmenti")
                         except Exception:
                             seg = None
-                    self._invia(200, json.dumps({"ok": True, "coach": coach.riepilogo(sess, seg)}), "application/json")
+                    cm = community.tempo_da_raggiungere(cartella_dati(), sess[0]["auto"], sess[0]["pista"]) if sess else None
+                    self._invia(200, json.dumps({"ok": True, "coach": coach.riepilogo(sess, seg, cm["mediana_ms"] if cm else None)}), "application/json")
                 except Exception:
                     scrivi_log(traceback.format_exc())
                     self._invia(200, json.dumps({"ok": False, "coach": None}), "application/json")
@@ -861,6 +875,22 @@ class Gestore(BaseHTTPRequestHandler):
                 self._invia(200, json.dumps({"ok": True}), "application/json")
             except Exception:
                 self._invia(200, json.dumps({"ok": False}), "application/json")
+        elif self.path == "/api/community":
+            try:
+                d = self._corpo_json()
+                auto, pista = str(d.get("auto") or ""), str(d.get("pista") or "")
+                if d.get("url"):
+                    r = community.leggi_da_url(str(d["url"]))
+                    if not r:
+                        self._invia(200, json.dumps({"ok": False, "errore": "Nella pagina non trovo abbastanza tempi."}), "application/json")
+                        return
+                    community.salva(cartella_dati(), auto, pista, r["primo_ms"], r["mediana_ms"], r["ultimo_ms"], "pagina")
+                else:
+                    community.salva(cartella_dati(), auto, pista, d["primo_ms"], d["mediana_ms"], d["ultimo_ms"])
+                self._invia(200, json.dumps({"ok": True}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False, "errore": "Non riesco a salvare."}), "application/json")
         elif self.path == "/api/autorizza-limite":
             _AUTORIZZATE["n"] = 1
             self._invia(200, json.dumps({"ok": True}), "application/json")

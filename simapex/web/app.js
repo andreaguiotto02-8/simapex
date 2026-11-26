@@ -810,5 +810,11 @@ async function disegnaObiettivo(){const B=$("obTesto");try{const j=await api("/a
  B.innerHTML="<b>Fase "+esc(String(o.fase))+": "+esc(o.titolo)+"</b><p>"+esc(o.testo)+"</p>"+(o.esito?"<p class=\"mu\">Ultima sessione: "+esc(o.esito)+"</p>":"")}catch(e){B.textContent="Non riesco a leggere l'obiettivo."}}
 async function disegnaCoach(){const B=$("coachTesto");try{const j=await api("/api/coach");const c=j.coach;if(!c){B.textContent="Dopo aver guidato qualche giro ti dico dove perdi tempo e UNA cosa da migliorare.";return}
  B.innerHTML="<ol>"+c.righe.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ol>"}catch(e){B.textContent="Non riesco a leggere il coach."}}
-document.querySelector("#nav [data-s=prove]").addEventListener("click",()=>setTimeout(()=>{disegnaObiettivo();disegnaCoach()},0));
+function tms(x){const m=/^(\d):(\d\d)[.,](\d{3})$/.exec((x||"").trim());return m?(+m[1])*60000+(+m[2])*1000+(+m[3]):null}
+let COM={};
+async function disegnaCommunity(){const B=$("comTesto");try{const j=await api("/api/community");COM=j;const c=j.community;B.textContent=c?c.testo:"Ancora nessun tempo salvato per "+(j.pista||"questa pista")+". Incolla la pagina dei risultati o scrivi i tre tempi."}catch(e){B.textContent="Non riesco a leggere i tempi."}}
+async function salvaCommunity(body){const r=await fetch("/api/community",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({auto:COM.auto,pista:COM.pista},body))}).then(x=>x.json());if(!r.ok)$("comTesto").textContent=r.errore||"Non riuscito.";else disegnaCommunity()}
+$("comLeggi").addEventListener("click",()=>{const u=$("comUrl").value.trim();if(u)salvaCommunity({url:u})});
+$("comSalva").addEventListener("click",()=>{const p=tms($("comP").value),m=tms($("comM").value),u=tms($("comU").value);if(p&&m&&u)salvaCommunity({primo_ms:p,mediana_ms:m,ultimo_ms:u});else $("comTesto").textContent="Scrivi i tempi così: 1:34.500"});
+document.querySelector("#nav [data-s=prove]").addEventListener("click",()=>setTimeout(()=>{disegnaObiettivo();disegnaCoach();disegnaCommunity()},0));
 document.querySelector("#nav [data-s=richieste]").addEventListener("click",()=>setTimeout(disegnaRichieste,0));
