@@ -111,3 +111,5 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 .cr{display:flex;justify-content:space-between;gap:1em;padding:.35em .1em;border-bottom:1px solid var(--line)}.cr b{font-weight:600}.cr span{color:var(--mu);white-space:nowrap}
 .cr.conf{background:#3d1717;border-radius:8px;padding:.35em .6em}
 #comAvviso .banner{margin:.4em 0}
+
+.scheda{background:#2a0b0b;border:1px solid #c0392b;border-radius:10px;padding:10px 14px;margin:0 0 12px}.scheda ol{margin:6px 0 8px 18px;padding:0}.scheda button{padding:6px 18px}
