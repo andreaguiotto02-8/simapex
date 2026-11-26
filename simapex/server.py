@@ -13,7 +13,7 @@ from . import aggiorna, assistente, assistente_f1, claude_api, invio
 from . import circuito, coach, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
-from . import comandi, community
+from . import comandi, community, telefono
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .versione import VERSIONE
@@ -1126,6 +1126,31 @@ class Gestore(BaseHTTPRequestHandler):
             self._invia(404, "non trovato", "text/plain")
 
 
+def _invio_telefono():
+    """Ogni ~2,5 minuti manda il riassunto per il telefono al deposito dati (solo se cambia). Non disturba mai il resto."""
+    ultimo = [None]
+    errore = [0]
+    while not _fermati.wait(150):
+        try:
+            imp = carica_impostazioni()
+            if not imp.get("gh_token"):
+                continue
+            d = telefono.costruisci(cartella_dati(), registro_stile().giri, VERSIONE)
+            if not d["piste"]:
+                continue
+            conf = json.dumps({k: v for k, v in d.items() if k != "aggiornato"}, sort_keys=True)
+            if conf == ultimo[0]:
+                continue
+            invio.carica_file(imp.get("gh_repo", invio.DEPOSITO_PREDEFINITO), imp["gh_token"], telefono.FILE_DATI,
+                              json.dumps(d, ensure_ascii=False), "telefono " + time.strftime("%Y-%m-%d_%H%M"))
+            ultimo[0] = conf
+            errore[0] = 0
+        except Exception as e:
+            errore[0] += 1
+            if errore[0] in (1, 20):
+                scrivi_log("telefono: invio non riuscito (%s)" % e)
+
+
 def _guardiano():
     # se il browser viene chiuso e non arrivano più richieste, il programma si chiude da solo
     while not _fermati.is_set():
@@ -1228,6 +1253,7 @@ def main(apri_browser=True):
         if apri_browser:
             apri_finestra("http://127.0.0.1:%d/" % PORTA)
     threading.Thread(target=_guardiano, daemon=True).start()
+    threading.Thread(target=_invio_telefono, daemon=True).start()
     threading.Thread(target=_campionatore, daemon=True).start()
     _fermati.wait()
     srv.shutdown()

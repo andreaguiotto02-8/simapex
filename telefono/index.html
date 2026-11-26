@@ -1,0 +1,50 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icona-192.png"><title>Simapex</title>
+<style>
+:root{--bg:#0b0b0d;--c:#17171b;--r:#e10600;--t:#f2f2f4;--m:#9a9aa3;--ok:#2ecc71}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:17px/1.45 system-ui,Arial,sans-serif;padding:0 16px 40px;padding-top:env(safe-area-inset-top)}
+h1{font-size:22px;letter-spacing:2px;margin:18px 0 4px;color:var(--r)}h2{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--m);margin:22px 0 8px}
+.c{background:var(--c);border-radius:14px;padding:14px;margin:8px 0;border-left:4px solid var(--r)}.g{font-size:30px;font-weight:700}.m{color:var(--m);font-size:14px}
+button{background:var(--r);color:#fff;border:0;border-radius:12px;padding:14px 18px;font-size:17px;font-weight:700;width:100%}input{width:100%;padding:14px;border-radius:12px;border:1px solid #333;background:#000;color:#fff;font-size:16px;margin:8px 0}
+svg{width:100%;height:46px}.ok{color:var(--ok)}.pill{display:inline-block;padding:2px 10px;border-radius:99px;background:#2a2a30;font-size:13px;margin-right:6px}
+</style></head><body>
+<h1>SIMAPEX</h1><div class="m" id="agg"></div>
+<div id="setup" style="display:none"><div class="c"><b>Una volta sola</b><div class="m">Incolla la chiave che ti ha dato Simapex per leggere i tuoi dati. Resta solo su questo telefono.</div>
+<input id="k" type="password" placeholder="Chiave" autocomplete="off"><button id="salva">Salva</button></div></div>
+<div id="dati"></div>
+<script>
+const REPO='andreaguiotto02-8/simapex-data',FILE='pc/telefono.json';
+const $=s=>document.getElementById(s);
+const ms=t=>{if(!t)return'-';const m=Math.floor(t/60000),s=((t%60000)/1000).toFixed(3).padStart(6,'0');return m+':'+s};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function chiave(){try{return localStorage.getItem('sx_k')||''}catch(e){return''}}
+function spark(v){if(!v||v.length<2)return'';const a=Math.min(...v),b=Math.max(...v),h=40,w=300;
+ const p=v.map((x,i)=>(i*w/(v.length-1)).toFixed(1)+','+(b==a?20:(4+(x-a)*(h-8)/(b-a))).toFixed(1)).join(' ');
+ return'<svg viewBox="0 0 300 40" preserveAspectRatio="none"><polyline fill="none" stroke="#e10600" stroke-width="2.5" points="'+p+'"/></svg>'}
+function mostra(d){
+ $('agg').textContent='Aggiornato '+new Date(d.aggiornato*1000).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' · v'+d.versione;
+ let h='<h2>Piano della sera</h2><div class="c">'+esc(d.prossimo_passo||'Nessun obiettivo ancora: fai qualche giro.')+'</div>';
+ h+='<h2>Piste e giri migliori</h2>';
+ (d.piste||[]).forEach(p=>{
+  h+='<div class="c"><div class="m">'+esc(p.auto)+' · '+esc(p.pista)+'</div><div class="g">'+esc(p.migliore)+'</div><div class="m">'+p.giri+' giri · ultimo '+esc(p.ultimo)+'</div>';
+  h+=spark((p.progressi||[]).map(x=>x.migliore_ms));
+  if(p.obiettivo)h+='<div style="margin-top:6px"><span class="pill">Fase '+esc(p.obiettivo.fase)+'</span>'+esc(p.obiettivo.titolo)+'</div>';
+  if(p.community)h+='<div class="m" style="margin-top:6px">Da raggiungere: mediana '+ms(p.community.mediana_ms)+' (primo '+ms(p.community.primo_ms)+')'+(p.community.pct_primo?' · tu '+p.community.pct_primo+'%':'')+'</div>';
+  h+='</div>'});
+ h+='<h2>Calendario</h2>';
+ const cal=d.calendario||[];
+ h+=cal.length?cal.map(e=>'<div class="c"><b>'+esc(e.quando||'')+'</b> '+esc(e.titolo||'')+'<div class="m">'+esc(e.nota||'')+'</div></div>').join(''):'<div class="c m">Ancora vuoto.</div>';
+ $('dati').innerHTML=h}
+async function carica(){
+ const k=chiave();if(!k){$('setup').style.display='block';return}
+ $('setup').style.display='none';
+ try{const r=await fetch('https://api.github.com/repos/'+REPO+'/contents/'+FILE,{headers:{Authorization:'Bearer '+k,Accept:'application/vnd.github.raw+json'},cache:'no-store'});
+  if(r.status==401||r.status==403){try{localStorage.removeItem('sx_k')}catch(e){};$('setup').style.display='block';$('dati').innerHTML='<div class="c">La chiave non funziona. Incollane una nuova.</div>';return}
+  if(r.status==404){$('dati').innerHTML='<div class="c">Nessun dato ancora. Apri Simapex sul PC e fai un giro.</div>';return}
+  const d=await r.json();try{localStorage.setItem('sx_d',JSON.stringify(d))}catch(e){};mostra(d)
+ }catch(e){let c=null;try{c=JSON.parse(localStorage.getItem('sx_d'))}catch(x){}
+  if(c){mostra(c);$('agg').textContent+=' · senza rete'}else $('dati').innerHTML='<div class="c">Nessuna rete.</div>'}}
+$('salva').onclick=()=>{const v=$('k').value.trim();if(v){try{localStorage.setItem('sx_k',v)}catch(e){}carica()}};
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+carica();setInterval(carica,120000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)carica()});
+</script></body></html>
