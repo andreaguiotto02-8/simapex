@@ -13,7 +13,7 @@ from . import aggiorna, assistente, assistente_f1, claude_api, invio
 from . import circuito, coach, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
-from . import comandi, community, telefono
+from . import calendario, comandi, community, telefono
 from .setup_acc import contenuti_setup, elenco_setup, trova_cartella_setup
 from .telemetria import Lettore
 from .versione import VERSIONE
@@ -747,6 +747,15 @@ class Gestore(BaseHTTPRequestHandler):
                 except Exception:
                     scrivi_log(traceback.format_exc())
                     self._invia(200, json.dumps({"ok": False}), "application/json")
+            elif self.path.startswith("/api/eventi"):
+                try:
+                    ev, ok = calendario.eventi(cartella_dati(), forza="forza=1" in self.path)
+                    self._invia(200, json.dumps({"ok": True, "online": ok, "eventi": calendario.filtra(ev)}), "application/json")
+                except Exception:
+                    scrivi_log(traceback.format_exc())
+                    self._invia(200, json.dumps({"ok": False, "eventi": []}), "application/json")
+            elif self.path.startswith("/api/calendario"):
+                self._invia(200, json.dumps({"ok": True, "voci": calendario.carica(cartella_dati())}), "application/json")
             elif self.path.startswith("/api/coach"):
                 try:
                     g = registro_stile().giri
@@ -891,6 +900,25 @@ class Gestore(BaseHTTPRequestHandler):
             except Exception:
                 scrivi_log(traceback.format_exc())
                 self._invia(200, json.dumps({"ok": False, "errore": "Non riesco a salvare."}), "application/json")
+        elif self.path == "/api/calendario":
+            try:
+                d = self._corpo_json()
+                a = d.get("azione")
+                if a == "aggiungi":
+                    calendario.aggiungi(cartella_dati(), d["quando"], d["titolo"], d.get("tipo", "sessione"), d.get("online", False), d.get("nota", ""))
+                elif a == "togli":
+                    calendario.togli(cartella_dati(), d["id"])
+                elif a == "fatto":
+                    calendario.segna_fatto(cartella_dati(), d["id"])
+                elif a == "proponi":
+                    g = registro_stile().giri
+                    auto, pista = (g[-1]["auto"], g[-1]["pista"]) if g else (None, None)
+                    o = obiettivi.stato(cartella_dati(), g, auto, pista, _perdita_tratto(auto, pista)) if g else None
+                    calendario.proponi_prossima(cartella_dati(), auto, pista, (o or {}).get("testo", "") if isinstance(o, dict) else "")
+                self._invia(200, json.dumps({"ok": True, "voci": calendario.carica(cartella_dati())}), "application/json")
+            except Exception:
+                scrivi_log(traceback.format_exc())
+                self._invia(200, json.dumps({"ok": False}), "application/json")
         elif self.path == "/api/autorizza-limite":
             _AUTORIZZATE["n"] = 1
             self._invia(200, json.dumps({"ok": True}), "application/json")

@@ -16,6 +16,7 @@
   <button data-s="setup">Box</button>
   <button data-s="pista" class="solo-dev">Pista</button>
   <button data-s="prove" class="solo-dev">Percorso</button>
+  <button data-s="community" class="solo-dev">Community</button>
   <button data-s="richieste" id="navRich">Richieste<i class="badge" id="richN" hidden>0</i></button>
   <button data-s="aiuto">Aiuto</button>
   <button data-s="impostazioni">Impostazioni</button>
@@ -138,6 +139,13 @@
  </div>
 </section>
 
+<!-- COMMUNITY (solo Sviluppo) -->
+<section id="s-community" class="schermo" hidden>
+ <div class="card scheda" data-scheda="community"><h2>Community e calendario</h2><p class="mu">Gare ACC per PC (GT3/GT4) dei prossimi giorni, con le italiane per prime. «Fattibile» = nei tuoi orari. Sotto c'è il tuo calendario: dopo ogni sessione propongo la prossima.</p></div>
+ <div class="card"><h2>Gare in arrivo</h2><div id="evLista" class="mu">Carico...</div><div class="row"><button id="evAgg">Aggiorna</button></div></div>
+ <div class="card"><h2>Il mio calendario</h2><div id="calLista" class="mu"></div>
+  <div class="row"><input id="calQ" type="datetime-local"><input id="calT" placeholder="Cosa fai (es. Misano, 5 giri)" size="26"><button id="calAdd">Aggiungi</button><button id="calProp">Proponi la prossima</button></div></div>
+</section>
 <!-- PERCORSO (solo Sviluppo) -->
 <!-- PISTA: ingegnere di pista -->
 <section id="s-pista" class="schermo" hidden>
