@@ -10,7 +10,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import aggiorna, assistente, assistente_f1, claude_api, invio
-from . import circuito, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
+from . import circuito, coach, esito, f1, ingegnere, mappe, obiettivi, pressioni, ptt, tracce
 from .report import crea_report, dettaglio_sessione, elenco_sessioni, tutte_le_sessioni, ultima_sessione
 from .stile import RegistroStile, ruota_bloccata
 from . import comandi
@@ -734,6 +734,21 @@ class Gestore(BaseHTTPRequestHandler):
                 except Exception:
                     scrivi_log(traceback.format_exc())
                     self._invia(200, json.dumps({"ok": False, "obiettivo": None}), "application/json")
+            elif self.path.startswith("/api/coach"):
+                try:
+                    g = registro_stile().giri
+                    sess = ultima_sessione(g) if g else []
+                    seg = None
+                    if sess:
+                        try:
+                            c = tracce.confronto_sessione(tracce_giri(), sess[0]["auto"], sess[0]["pista"], sess, [])
+                            seg = ((c or {}).get("rif") or {}).get("record", {}).get("segmenti")
+                        except Exception:
+                            seg = None
+                    self._invia(200, json.dumps({"ok": True, "coach": coach.riepilogo(sess, seg)}), "application/json")
+                except Exception:
+                    scrivi_log(traceback.format_exc())
+                    self._invia(200, json.dumps({"ok": False, "coach": None}), "application/json")
             elif self.path.startswith("/api/richieste"):
                 d = carica_richieste()
                 ap = richieste_aperte(d)
