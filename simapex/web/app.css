@@ -113,3 +113,5 @@ body.dev .pallino{display:block}.pallino.ok{background:var(--ok)}.pallino.ko{bac
 #comAvviso .banner{margin:.4em 0}
 
 .scheda{background:#2a0b0b;border:1px solid #c0392b;border-radius:10px;padding:10px 14px;margin:0 0 12px}.scheda ol{margin:6px 0 8px 18px;padding:0}.scheda button{padding:6px 18px}
+
+#nav button[data-n]::before{content:attr(data-n) " ";opacity:.55;font-size:.85em}

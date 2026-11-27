@@ -353,6 +353,7 @@ def passo_storico(auto, pista):
 
 
 _tastiera = ptt.Tastiera()
+ptt.NUMERI_AUTO["f"] = lambda: bool(gioco_aperto())   # numeri 1-9 per le schermate: attivi da soli con un gioco aperto
 _tastiera.blocca = lambda: _proc.get("v") == "F1 25"   # solo con F1 25 aperto i tasti non arrivano al gioco
 _ptt = ptt.Ptt(carica_impostazioni().get("ptt_tasto", 1120), azioni=carica_impostazioni().get("tasti_azioni", {}))
 

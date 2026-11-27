@@ -1091,3 +1091,14 @@ if(V.scegli([])!==null)ko++;
 process.exit(ko)'''
         r = subprocess.run(["node", "-e", cod, os.path.join(os.path.dirname(server.__file__), "web", "voce.js")], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class TestTastiNumerici(unittest.TestCase):
+    def test_cifre_contate_solo_con_gioco_aperto(self):
+        from simapex import ptt
+        self.assertIn("n1", ptt.TASTI_TELECOMANDO)
+        self.assertIn("p9", ptt.TASTI_TELECOMANDO)
+        self.assertTrue({"n1", "p9"} <= ptt.CIFRE and "invio" not in ptt.CIFRE)
+        t = ptt.Tastiera(premuti=lambda: {"n3"})
+        t.passo()
+        self.assertEqual(t.conta["n3"], 1)

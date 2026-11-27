@@ -102,6 +102,13 @@ class Ptt:
 # Telecomando: frecce, Invio e Cancella letti anche quando Simapex non è la finestra attiva. Si accende con Bloc Maiusc (Caps Lock) o con Ctrl+Alt+K.
 # Nome -> codice virtuale di Windows. 
 TASTI_TELECOMANDO = {"su": 0x26, "giu": 0x28, "sx": 0x25, "dx": 0x27, "invio": 0x0D, "indietro": 0x08, "canc": 0x2E}
+# Numeri 1-9 (riga in alto "n1".. e tastierino "p1.."): aprono direttamente la schermata con quel numero. Restano attivi da soli
+# quando un gioco è aperto (SOLO i numeri; frecce e Invio solo con il telecomando acceso) e non vengono mai bloccati al gioco.
+for _i in range(1, 10):
+    TASTI_TELECOMANDO["n%d" % _i] = 0x30 + _i
+    TASTI_TELECOMANDO["p%d" % _i] = 0x60 + _i
+CIFRE = {n for n in TASTI_TELECOMANDO if n[0] in "np"}
+NUMERI_AUTO = {"f": lambda: False}   # il server lo imposta: vero quando un gioco è aperto
 VK_BLOC_MAIUSC = 0x14   # Caps Lock: acceso = telecomando acceso
 
 
@@ -115,6 +122,12 @@ def _lettore_tastiera():
 
     stato = {"on": False, "prima": False}
 
+    def solo_cifre():
+        try:
+            return bool(NUMERI_AUTO["f"]())
+        except Exception:
+            return False
+
     def combinazione():
         return all(u.GetAsyncKeyState(vk) & 0x8000 for vk in (0x11, 0x12, 0x4B))   # Ctrl + Alt + K
 
@@ -127,14 +140,17 @@ def _lettore_tastiera():
             stato["on"] = not stato["on"]
         stato["prima"] = c
         if not acceso():
+            if solo_cifre():
+                return {n for n in CIFRE if u.GetAsyncKeyState(TASTI_TELECOMANDO[n]) & 0x8000}
             return set()
         return {n for n, vk in TASTI_TELECOMANDO.items() if u.GetAsyncKeyState(vk) & 0x8000}
 
     premuti.acceso = acceso
+    premuti.solo_cifre = solo_cifre
     return premuti
 
 
-def _gancio_tastiera(tasti, acceso, conta, blocca=None, log=None):
+def _gancio_tastiera(tasti, acceso, conta, blocca=None, log=None, solo_cifre=None):
     """Gancio di tastiera a basso livello (solo Windows): quando il telecomando è acceso, frecce, Invio, Cancella
     e Canc vengono lette da Simapex e (se blocca() è vero, cioè con F1 aperto) NON arrivano al gioco. A telecomando spento non tocca niente."""
     import ctypes
@@ -155,18 +171,19 @@ def _gancio_tastiera(tasti, acceso, conta, blocca=None, log=None):
 
     def cb(code, wp, lp):
         try:
-            if code == 0 and acceso():
+            if code == 0 and (acceso() or (solo_cifre and solo_cifre())):
                 vk = ctypes.cast(lp, ctypes.POINTER(wintypes.DWORD))[0]
                 n = da_vk.get(vk)
-                if n:
+                tutto = acceso()
+                if n and (tutto or n in CIFRE):
                     if wp in (0x100, 0x104):          # tasto premuto
                         if n not in giu:
                             giu.add(n)
                             conta[n] += 1
                     else:                              # rilasciato
                         giu.discard(n)
-                    if blocca is None or blocca():
-                        return 1                       # il gioco non lo vede
+                    if tutto and (blocca is None or blocca()):
+                        return 1                       # il gioco non lo vede (mai i numeri automatici)
         except Exception:
             pass
         return u.CallNextHookEx(hook[0], code, wp, lp)
@@ -211,7 +228,7 @@ class Tastiera:
         f = getattr(self._premuti, "acceso", None)
         if f and sys.platform.startswith("win"):
             try:
-                self._proc = _gancio_tastiera(TASTI_TELECOMANDO, f, self.conta, lambda: self.blocca())
+                self._proc = _gancio_tastiera(TASTI_TELECOMANDO, f, self.conta, lambda: self.blocca(), solo_cifre=getattr(self._premuti, "solo_cifre", None))
                 self.gancio = True
             except Exception:
                 self.gancio = False
