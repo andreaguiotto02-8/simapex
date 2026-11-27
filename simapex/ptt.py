@@ -17,6 +17,17 @@ def _lettore_windows(tasto_attuale=None):
     u.GetAsyncKeyState.argtypes = [ctypes.c_int]
     u.GetAsyncKeyState.restype = ctypes.c_short
     stato = {"ids": list(range(16)), "t": 0.0}
+    diag = {"num_dispositivi": None, "codici": {}, "trovati": [], "nomi": {}, "ultimo_errore": None}
+    try:
+        diag["num_dispositivi"] = int(winmm.joyGetNumDevs())
+    except Exception as e:
+        diag["ultimo_errore"] = "joyGetNumDevs: %s" % e
+
+    class JOYCAPSW(ctypes.Structure):
+        _fields_ = [("wMid", ctypes.c_uint16), ("wPid", ctypes.c_uint16), ("szPname", ctypes.c_wchar * 32)] + \
+                   [(n, ctypes.c_uint32) for n in ("wXmin", "wXmax", "wYmin", "wYmax", "wZmin", "wZmax", "wNumButtons", "wPeriodMin", "wPeriodMax",
+                                                   "wRmin", "wRmax", "wUmin", "wUmax", "wVmin", "wVmax", "wCaps", "wMaxAxes", "wNumAxes", "wMaxButtons")] + \
+                   [("szRegKey", ctypes.c_wchar * 32), ("szOEMVxD", ctypes.c_wchar * 260)]
 
     def pulsanti():
         """Insieme dei pulsanti premuti (numeri da 1) su tutti i controller collegati."""
@@ -28,12 +39,23 @@ def _lettore_windows(tasto_attuale=None):
             info = JOYINFOEX()
             info.dwSize = ctypes.sizeof(JOYINFOEX)
             info.dwFlags = 0xFF
-            if winmm.joyGetPosEx(jid, ctypes.byref(info)) == 0:
+            rc = winmm.joyGetPosEx(jid, ctypes.byref(info))
+            if scansione:
+                diag["codici"][str(jid)] = rc
+            if rc == 0:
                 trovati.append(jid)
+                if str(jid) not in diag["nomi"]:
+                    try:
+                        cp = JOYCAPSW()
+                        winmm.joyGetDevCapsW(jid, ctypes.byref(cp), ctypes.sizeof(cp))
+                        diag["nomi"][str(jid)] = "%s (%d tasti)" % (cp.szPname, cp.wNumButtons)
+                    except Exception as e:
+                        diag["nomi"][str(jid)] = "?"
                 b = info.dwButtons
                 premuti.update(i + 1 for i in range(32) if b & (1 << i))
         if scansione:
             stato["ids"], stato["t"] = trovati, ora
+            diag["trovati"] = trovati
         try:
             t = int(tasto_attuale()) if tasto_attuale else 0
             if t >= 1000 and u.GetAsyncKeyState(t - 1000) & 0x8000:
@@ -41,6 +63,7 @@ def _lettore_windows(tasto_attuale=None):
         except Exception:
             pass
         return premuti
+    pulsanti.diag = diag
     return pulsanti
 
 
@@ -70,6 +93,11 @@ class Ptt:
         self._attivo = True
         threading.Thread(target=self._ciclo, daemon=True).start()
         return True
+
+    def diagnostica(self):
+        """Cosa vede Windows dei controller (serve a capire perché un tasto del volante non viene letto)."""
+        d = getattr(self._pulsanti, "diag", None)
+        return dict(d) if d else {}
 
     def _ciclo(self):
         while self._attivo:

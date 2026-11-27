@@ -648,6 +648,7 @@ class Gestore(BaseHTTPRequestHandler):
                 d["ptt"] = _ptt.premuto
                 d["ptt_tasto"] = _ptt.tasto
                 d["ptt_visti"] = _ptt.ultimi
+                d["ptt_diag"] = _ptt.diagnostica()
                 d["gioco_aperto"] = gioco_aperto()
                 try:
                     d["richieste_aperte"] = len(richieste_aperte())
